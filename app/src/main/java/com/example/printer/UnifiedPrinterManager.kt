@@ -4,35 +4,46 @@ import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothSocket
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.ServiceConnection
 import android.graphics.Bitmap
 import android.hardware.usb.UsbConstants
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
-import android.os.IBinder
+import android.os.RemoteException
 import android.util.Log
 import com.example.model.PrinterChannel
 import com.example.model.PrinterStatus
 import com.example.model.ReceiptData
+import com.sunmi.peripheral.printer.InnerPrinterCallback
+import com.sunmi.peripheral.printer.InnerPrinterException
+import com.sunmi.peripheral.printer.InnerPrinterManager
+import com.sunmi.peripheral.printer.SunmiPrinterService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
-import woyou.aidlservice.jiuiv5.ICallback
-import woyou.aidlservice.jiuiv5.IWoyouService
 import java.io.OutputStream
 import java.util.UUID
 
 sealed class PrintResult {
-    data class Success(val message: String, val channel: PrinterChannel, val bytesSent: Int) : PrintResult()
-    data class Error(val errorReason: String, val channel: PrinterChannel) : PrintResult()
-    data class OutOfPaper(val message: String = "Thermal printer roll is empty or missing! Please reload 58mm paper.") : PrintResult()
+    data class Success(
+        val message: String,
+        val channel: PrinterChannel,
+        val bytesSent: Int
+    ) : PrintResult()
+
+    data class Error(
+        val errorReason: String,
+        val channel: PrinterChannel
+    ) : PrintResult()
+
+    data class OutOfPaper(
+        val message: String = "SUNMI V2 is out of 58mm thermal paper. Reload the roll and retry."
+    ) : PrintResult()
 }
 
 data class DiscoveredPrinter(
@@ -46,14 +57,24 @@ data class DiscoveredPrinter(
 class UnifiedPrinterManager(private val context: Context) {
 
     companion object {
+        private const val TAG = "NaomiPrinterManager"
         private const val ACTION_USB_PERMISSION = "com.aistudio.naomichan.pos.USB_PERMISSION"
         private const val SPP_UUID = "00001101-0000-1000-8000-00805F9B34FB"
+
+        private const val SUNMI_STATUS_NORMAL = 1
+        private const val SUNMI_STATUS_PREPARING = 2
+        private const val SUNMI_STATUS_COMMUNICATION_ERROR = 3
+        private const val SUNMI_STATUS_OUT_OF_PAPER = 4
+        private const val SUNMI_STATUS_OVERHEATED = 5
+        private const val SUNMI_STATUS_COVER_OPEN = 6
+        private const val SUNMI_STATUS_CUTTER_ERROR = 7
+        private const val SUNMI_STATUS_CUTTER_RECOVERED = 8
+        private const val SUNMI_STATUS_BLACK_MARK_MISSING = 9
+        private const val SUNMI_STATUS_NO_PRINTER = 505
+        private const val SUNMI_STATUS_FIRMWARE_FAILED = 507
     }
 
-    private val tag = "NaomiPrinterManager"
-
-    private var woyouService: IWoyouService? = null
-    private var isSunmiServiceBound = false
+    private var sunmiPrinterService: SunmiPrinterService? = null
     private var selectedBluetoothAddress: String? = null
     private var selectedUsbDeviceKey: String? = null
 
@@ -63,10 +84,11 @@ class UnifiedPrinterManager(private val context: Context) {
             isConnected = false,
             isPrinting = false,
             hasPaper = true,
-            deviceName = "Sunmi V2 Inner Thermal (58mm)",
+            deviceName = "SUNMI V2 (T5930) Built-in 58mm",
             serialNumber = "Unknown",
-            paperRollRemainingPercent = 0,
-            lastError = "Waiting for Sunmi printer service"
+            paperWidthMm = 58,
+            statusCode = null,
+            lastError = "Connecting to SUNMI print service"
         )
     )
     val status: StateFlow<PrinterStatus> = _status.asStateFlow()
@@ -80,23 +102,39 @@ class UnifiedPrinterManager(private val context: Context) {
     private val _lastEscPosBytes = MutableStateFlow<ByteArray?>(null)
     val lastEscPosBytes: StateFlow<ByteArray?> = _lastEscPosBytes.asStateFlow()
 
-    private val sunmiConnection = object : ServiceConnection {
-        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            woyouService = IWoyouService.Stub.asInterface(service)
-            isSunmiServiceBound = true
-            Log.d(tag, "Sunmi inner printer AIDL service connected successfully.")
-            updateSunmiStatus()
+    private val innerPrinterCallback = object : InnerPrinterCallback() {
+        override fun onConnected(service: SunmiPrinterService) {
+            sunmiPrinterService = service
+            Log.i(TAG, "SUNMI printer service connected")
+
+            val hasPrinter = try {
+                InnerPrinterManager.getInstance().hasPrinter(service)
+            } catch (e: InnerPrinterException) {
+                Log.e(TAG, "Unable to verify SUNMI built-in printer", e)
+                false
+            }
+
+            if (!hasPrinter) {
+                _status.value = _status.value.copy(
+                    isConnected = false,
+                    statusCode = SUNMI_STATUS_NO_PRINTER,
+                    lastError = "SUNMI print service connected, but no built-in printer was detected"
+                )
+                return
+            }
+
+            refreshSunmiStatus()
         }
 
-        override fun onServiceDisconnected(name: ComponentName?) {
-            woyouService = null
-            isSunmiServiceBound = false
-            Log.w(tag, "Sunmi inner printer AIDL service disconnected.")
+        override fun onDisconnected() {
+            sunmiPrinterService = null
             _status.value = _status.value.copy(
                 isConnected = false,
-                paperRollRemainingPercent = 0,
-                lastError = "Sunmi service disconnected"
+                isPrinting = false,
+                statusCode = null,
+                lastError = "SUNMI print service disconnected"
             )
+            Log.w(TAG, "SUNMI printer service disconnected")
         }
     }
 
@@ -106,63 +144,98 @@ class UnifiedPrinterManager(private val context: Context) {
     }
 
     fun bindSunmiService() {
-        val intent = Intent().apply {
-            `package` = "woyou.aidlservice.jiuiv5"
-            action = "woyou.aidlservice.jiuiv5.IWoyouService"
+        if (sunmiPrinterService != null) {
+            refreshSunmiStatus()
+            return
         }
+
         try {
-            val bound = context.bindService(intent, sunmiConnection, Context.BIND_AUTO_CREATE)
+            val bound = InnerPrinterManager.getInstance().bindService(context, innerPrinterCallback)
             if (!bound) {
-                Log.w(tag, "Native Sunmi hardware service not found.")
                 _status.value = _status.value.copy(
                     isConnected = false,
-                    deviceName = "Sunmi V2 Inner Thermal (not detected)",
-                    serialNumber = "Unknown",
-                    paperRollRemainingPercent = 0,
-                    lastError = "Sunmi printer service not available"
+                    statusCode = SUNMI_STATUS_NO_PRINTER,
+                    lastError = "Unable to bind the SUNMI V2 built-in printer service"
                 )
             }
-        } catch (e: Exception) {
-            Log.e(tag, "Error binding Sunmi service", e)
+        } catch (e: InnerPrinterException) {
+            Log.e(TAG, "SUNMI printer service bind failed", e)
             _status.value = _status.value.copy(
                 isConnected = false,
-                deviceName = "Sunmi V2 Inner Thermal (unavailable)",
-                serialNumber = "Unknown",
-                paperRollRemainingPercent = 0,
-                lastError = "Sunmi service bind failed: ${e.localizedMessage ?: "unknown error"}"
+                statusCode = SUNMI_STATUS_NO_PRINTER,
+                lastError = "SUNMI printer service bind failed: ${e.localizedMessage ?: "unknown error"}"
             )
         }
     }
 
-    private fun updateSunmiStatus() {
-        val service = woyouService ?: return
-        try {
-            val statusCode = service.printerStatus
-            val serial = service.printerSerialNo ?: "Unknown"
-            val model = service.printerModal ?: "Sunmi V2"
-            val hasPaper = statusCode != 4
-            val overheated = statusCode == 5
-            _status.value = _status.value.copy(
-                channel = PrinterChannel.SUNMI_BUILTIN,
-                isConnected = true,
-                hasPaper = hasPaper,
-                isOverheated = overheated,
-                deviceName = "$model Thermal Printer",
-                serialNumber = serial,
-                paperRollRemainingPercent = if (hasPaper) 88 else 0,
-                lastError = when {
-                    !hasPaper -> "OUT_OF_PAPER"
-                    overheated -> "PRINTER_OVERHEATED"
-                    else -> null
-                }
-            )
-        } catch (e: Exception) {
-            Log.e(tag, "Failed to query Sunmi printer status", e)
+    fun refreshSunmiStatus() {
+        val service = sunmiPrinterService
+        if (service == null) {
             _status.value = _status.value.copy(
                 isConnected = false,
-                lastError = "Unable to query Sunmi printer status"
+                lastError = "SUNMI printer service is not connected"
+            )
+            return
+        }
+
+        try {
+            val statusCode = service.updatePrinterState()
+            val serial = service.printerSerialNo?.takeIf { it.isNotBlank() } ?: "Unknown"
+            val model = service.printerModal?.takeIf { it.isNotBlank() } ?: "SUNMI V2"
+            val paperWidth = runCatching {
+                if (service.printerPaper == 1) 58 else 80
+            }.getOrDefault(58)
+
+            val connected = statusCode !in setOf(
+                SUNMI_STATUS_COMMUNICATION_ERROR,
+                SUNMI_STATUS_NO_PRINTER,
+                SUNMI_STATUS_FIRMWARE_FAILED
+            )
+            val hasPaper = statusCode != SUNMI_STATUS_OUT_OF_PAPER
+            val coverOpen = statusCode == SUNMI_STATUS_COVER_OPEN
+            val overheated = statusCode == SUNMI_STATUS_OVERHEATED
+
+            _status.value = _status.value.copy(
+                channel = PrinterChannel.SUNMI_BUILTIN,
+                isConnected = connected,
+                hasPaper = hasPaper,
+                isCoverOpen = coverOpen,
+                isOverheated = overheated,
+                deviceName = "$model Built-in Thermal",
+                serialNumber = serial,
+                paperWidthMm = paperWidth,
+                statusCode = statusCode,
+                lastError = sunmiStatusMessage(statusCode)
+            )
+        } catch (e: RemoteException) {
+            Log.e(TAG, "Unable to query SUNMI printer status", e)
+            _status.value = _status.value.copy(
+                isConnected = false,
+                statusCode = SUNMI_STATUS_COMMUNICATION_ERROR,
+                lastError = "Unable to communicate with the SUNMI printer service"
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected SUNMI status error", e)
+            _status.value = _status.value.copy(
+                isConnected = false,
+                lastError = "Unable to read SUNMI printer status: ${e.localizedMessage ?: "unknown error"}"
             )
         }
+    }
+
+    private fun sunmiStatusMessage(statusCode: Int): String? = when (statusCode) {
+        SUNMI_STATUS_NORMAL -> null
+        SUNMI_STATUS_PREPARING -> "Printer is preparing"
+        SUNMI_STATUS_COMMUNICATION_ERROR -> "Printer communication error"
+        SUNMI_STATUS_OUT_OF_PAPER -> "OUT OF PAPER — reload the 58mm roll"
+        SUNMI_STATUS_OVERHEATED -> "Printer is overheated — allow it to cool before printing"
+        SUNMI_STATUS_COVER_OPEN -> "Printer cover is open"
+        SUNMI_STATUS_CUTTER_ERROR -> "Printer reported cutter error"
+        SUNMI_STATUS_CUTTER_RECOVERED -> null
+        SUNMI_STATUS_BLACK_MARK_MISSING -> "Black-mark paper marker was not detected"
+        SUNMI_STATUS_NO_PRINTER -> "No built-in SUNMI printer detected"
+        SUNMI_STATUS_FIRMWARE_FAILED -> "Printer firmware update failed"
+        else -> "SUNMI printer status code $statusCode"
     }
 
     fun selectDiscoveredPrinter(device: DiscoveredPrinter) {
@@ -197,11 +270,11 @@ class UnifiedPrinterManager(private val context: Context) {
         } catch (e: SecurityException) {
             _bluetoothDevices.value = emptyList()
             selectedBluetoothAddress = null
-            Log.w(tag, "Bluetooth permission missing: ${e.message}")
+            Log.w(TAG, "Bluetooth permission missing: ${e.message}")
         } catch (e: Exception) {
             _bluetoothDevices.value = emptyList()
             selectedBluetoothAddress = null
-            Log.w(tag, "Bluetooth discovery error: ${e.message}")
+            Log.w(TAG, "Bluetooth discovery error: ${e.message}")
         }
 
         try {
@@ -233,7 +306,7 @@ class UnifiedPrinterManager(private val context: Context) {
         } catch (e: Exception) {
             _usbDevices.value = emptyList()
             selectedUsbDeviceKey = null
-            Log.w(tag, "USB detection error: ${e.message}")
+            Log.w(TAG, "USB detection error: ${e.message}")
         }
     }
 
@@ -243,11 +316,6 @@ class UnifiedPrinterManager(private val context: Context) {
         logoBitmap: Bitmap?
     ): PrintResult = withContext(Dispatchers.IO) {
         _status.value = _status.value.copy(isPrinting = true)
-
-        if (channel == PrinterChannel.SUNMI_BUILTIN && !_status.value.hasPaper) {
-            _status.value = _status.value.copy(isPrinting = false)
-            return@withContext PrintResult.OutOfPaper()
-        }
 
         val escPosData = EscPosBuilder(totalColumns = 32).assembleNaomiReceipt(receipt, logoBitmap)
         _lastEscPosBytes.value = escPosData
@@ -259,62 +327,85 @@ class UnifiedPrinterManager(private val context: Context) {
                 PrinterChannel.USB_OTG -> printViaUsb(escPosData)
             }
         } catch (e: Exception) {
-            Log.e(tag, "Unhandled print error", e)
+            Log.e(TAG, "Unhandled print error", e)
             PrintResult.Error(e.localizedMessage ?: "Unexpected printer error", channel)
+        } finally {
+            _status.value = _status.value.copy(isPrinting = false)
         }
 
-        _status.value = if (result is PrintResult.Success && channel == PrinterChannel.SUNMI_BUILTIN) {
-            _status.value.copy(
-                isPrinting = false,
-                paperRollRemainingPercent = (_status.value.paperRollRemainingPercent - 2).coerceAtLeast(0)
-            )
-        } else {
-            _status.value.copy(isPrinting = false)
-        }
         result
     }
 
     private fun printViaSunmi(data: ByteArray): PrintResult {
-        val service = woyouService
-        if (service == null || !isSunmiServiceBound) {
+        val service = sunmiPrinterService
+            ?: return PrintResult.Error(
+                "SUNMI printer service is not connected. No receipt was printed.",
+                PrinterChannel.SUNMI_BUILTIN
+            )
+
+        refreshSunmiStatus()
+        val before = _status.value
+        if (!before.isConnected) {
             return PrintResult.Error(
-                "Sunmi printer service is not connected. No receipt was printed.",
+                before.lastError ?: "SUNMI V2 printer is unavailable",
                 PrinterChannel.SUNMI_BUILTIN
             )
         }
+        if (!before.hasPaper) {
+            return PrintResult.OutOfPaper()
+        }
+        if (before.isCoverOpen) {
+            return PrintResult.Error("Close the SUNMI V2 printer cover before printing.", PrinterChannel.SUNMI_BUILTIN)
+        }
+        if (before.isOverheated) {
+            return PrintResult.Error("SUNMI V2 printer is overheated. Allow it to cool before retrying.", PrinterChannel.SUNMI_BUILTIN)
+        }
 
         return try {
-            val callback = object : ICallback.Stub() {
-                override fun onRunResult(isSuccess: Boolean) {
-                    Log.d(tag, "Sunmi execution result: $isSuccess")
-                }
+            service.printerInit(null)
+            service.sendRAWData(data, null)
 
-                override fun onReturnString(result: String?) = Unit
-
-                override fun onRaiseException(code: Int, msg: String?) {
-                    Log.e(tag, "Sunmi printer exception: $code - $msg")
-                }
-
-                override fun onPrintResult(code: Int, msg: String?) {
-                    Log.d(tag, "Sunmi print result code: $code, msg: $msg")
-                }
+            // Query the built-in printer immediately after dispatch. Do not report a successful
+            // transaction if the service is already reporting a hardware fault.
+            refreshSunmiStatus()
+            val after = _status.value
+            when {
+                !after.isConnected -> PrintResult.Error(
+                    after.lastError ?: "SUNMI printer communication failed after dispatch",
+                    PrinterChannel.SUNMI_BUILTIN
+                )
+                !after.hasPaper -> PrintResult.OutOfPaper()
+                after.isCoverOpen -> PrintResult.Error("SUNMI V2 printer cover is open.", PrinterChannel.SUNMI_BUILTIN)
+                after.isOverheated -> PrintResult.Error("SUNMI V2 printer overheated while printing.", PrinterChannel.SUNMI_BUILTIN)
+                else -> PrintResult.Success(
+                    "Receipt dispatched to SUNMI V2 built-in 58mm printer",
+                    PrinterChannel.SUNMI_BUILTIN,
+                    data.size
+                )
             }
-
-            service.printerInit(callback)
-            // The ESC/POS payload already includes its trailing paper feed/cut sequence.
-            // Sending AIDL lineWrap/cutPaper as well would execute those commands twice.
-            service.sendRAWData(data, callback)
-            PrintResult.Success(
-                "Receipt sent successfully to the Sunmi V2 thermal printer",
-                PrinterChannel.SUNMI_BUILTIN,
-                data.size
-            )
-        } catch (e: Exception) {
-            Log.e(tag, "Native Sunmi print error", e)
+        } catch (e: RemoteException) {
+            Log.e(TAG, "SUNMI V2 print failed", e)
             PrintResult.Error(
-                "Sunmi printing error: ${e.localizedMessage ?: "unknown error"}",
+                "SUNMI V2 printing failed: ${e.localizedMessage ?: "printer service error"}",
                 PrinterChannel.SUNMI_BUILTIN
             )
+        } catch (e: Exception) {
+            Log.e(TAG, "SUNMI V2 print failed", e)
+            PrintResult.Error(
+                "SUNMI V2 printing failed: ${e.localizedMessage ?: "unknown error"}",
+                PrinterChannel.SUNMI_BUILTIN
+            )
+        }
+    }
+
+    fun feedPaper(lines: Int = 3) {
+        val service = sunmiPrinterService ?: return
+        try {
+            service.lineWrap(lines.coerceIn(1, 20), null)
+            refreshSunmiStatus()
+        } catch (e: RemoteException) {
+            Log.e(TAG, "SUNMI paper feed failed", e)
+            _status.value = _status.value.copy(lastError = "Paper feed failed: ${e.localizedMessage ?: "printer error"}")
         }
     }
 
@@ -324,10 +415,7 @@ class UnifiedPrinterManager(private val context: Context) {
             ?: return PrintResult.Error("Bluetooth hardware is not available on this terminal", PrinterChannel.BLUETOOTH)
 
         if (!adapter.isEnabled) {
-            return PrintResult.Error(
-                "Bluetooth is turned off. Enable Bluetooth before printing.",
-                PrinterChannel.BLUETOOTH
-            )
+            return PrintResult.Error("Bluetooth is turned off. Enable Bluetooth before printing.", PrinterChannel.BLUETOOTH)
         }
 
         val bonded = try {
@@ -367,7 +455,7 @@ class UnifiedPrinterManager(private val context: Context) {
                 data.size
             )
         } catch (e: Exception) {
-            Log.e(tag, "Bluetooth print failed", e)
+            Log.e(TAG, "Bluetooth print failed", e)
             PrintResult.Error(
                 "Bluetooth printing failed: ${e.localizedMessage ?: "connection error"}",
                 PrinterChannel.BLUETOOTH
@@ -462,7 +550,7 @@ class UnifiedPrinterManager(private val context: Context) {
                 )
             }
         } catch (e: Exception) {
-            Log.e(tag, "USB print failed", e)
+            Log.e(TAG, "USB print failed", e)
             PrintResult.Error(
                 "USB transmission failed: ${e.localizedMessage ?: "unknown error"}",
                 PrinterChannel.USB_OTG
@@ -473,55 +561,15 @@ class UnifiedPrinterManager(private val context: Context) {
         }
     }
 
-    fun togglePaperRoll() {
-        val current = _status.value.hasPaper
-        _status.value = _status.value.copy(
-            hasPaper = !current,
-            paperRollRemainingPercent = if (!current) 100 else 0,
-            lastError = if (current) "OUT_OF_PAPER: 58mm Thermal paper roll depleted." else null
-        )
-    }
-
-    fun reloadPaper() {
-        _status.value = _status.value.copy(
-            hasPaper = true,
-            paperRollRemainingPercent = 100,
-            lastError = null
-        )
-    }
-
-    fun feedPaper(lines: Int = 3) {
-        val service = woyouService
-        if (service != null && isSunmiServiceBound) {
-            try {
-                service.lineWrap(lines, null)
-            } catch (e: Exception) {
-                Log.e(tag, "Feed error", e)
-            }
-        }
-    }
-
-    fun cutPaper() {
-        val service = woyouService
-        if (service != null && isSunmiServiceBound) {
-            try {
-                service.cutPaper(null)
-            } catch (e: Exception) {
-                Log.e(tag, "Cut error", e)
-            }
-        }
-    }
-
     fun cleanup() {
-        if (isSunmiServiceBound) {
-            try {
-                context.unbindService(sunmiConnection)
-                isSunmiServiceBound = false
-            } catch (e: Exception) {
-                Log.e(tag, "Unbind error", e)
-            }
+        try {
+            InnerPrinterManager.getInstance().unBindService(context, innerPrinterCallback)
+        } catch (e: InnerPrinterException) {
+            Log.w(TAG, "SUNMI printer service unbind failed: ${e.message}")
+        } catch (e: Exception) {
+            Log.w(TAG, "Unexpected SUNMI unbind error: ${e.message}")
         }
-        woyouService = null
+        sunmiPrinterService = null
         clearBuffers()
     }
 
