@@ -101,7 +101,14 @@ data class ReceiptData(
     val isPrinted: Boolean = false,
     val isFreeEvent: Boolean = false,
     val iconType: ReceiptIconType = ReceiptIconType.NAOMI_LOGO,
-    val customIconUri: String? = null
+    val customIconUri: String? = null,
+    val processedBy: String = "",
+    val shiftId: String? = null,
+    val receiptStatus: String = "ACTIVE",
+    val voidReason: String? = null,
+    val voidedAt: Long? = null,
+    val voidedBy: String? = null,
+    val replacesReceiptId: String? = null
 ) {
     val subtotal: Double get() = items.sumOf { it.total }
     val discountAmount: Double get() = subtotal * (discountPercent / 100.0)
@@ -111,6 +118,7 @@ data class ReceiptData(
 
     private val grandSubtotalZero: Boolean get() = subtotal <= 0.0
     val isEffectivelyFree: Boolean get() = isFreeEvent || grandTotal == 0.0
+    val isVoided: Boolean get() = receiptStatus.equals("VOID", ignoreCase = true)
 
     fun formattedDate(): String {
         val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.UK)
