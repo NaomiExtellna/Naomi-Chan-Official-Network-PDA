@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -154,11 +155,7 @@ fun PrinterManagerScreen(viewModel: PosViewModel) {
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(printerStatus.deviceName, color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        Text(
-                            "Serial: ${printerStatus.serialNumber}",
-                            color = NaomiTextSecondary,
-                            fontSize = 10.sp
-                        )
+                        Text("Serial: ${printerStatus.serialNumber}", color = NaomiTextSecondary, fontSize = 10.sp)
                     }
                     StatusBadge(
                         text = if (printerStatus.isConnected) "ONLINE" else "OFFLINE",
@@ -288,11 +285,11 @@ fun PrinterManagerScreen(viewModel: PosViewModel) {
 private fun PrinterSectionCard(
     title: String,
     subtitle: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     iconBackground: Color,
     selected: Boolean,
     trailing: (@Composable () -> Unit)? = null,
-    content: @Composable Column.() -> Unit
+    content: @Composable () -> Unit
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
@@ -308,7 +305,9 @@ private fun PrinterSectionCard(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     Box(
-                        modifier = Modifier.size(36.dp).background(iconBackground, CircleShape),
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(iconBackground, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
