@@ -26,7 +26,6 @@ import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Button
@@ -54,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.StaffAccount
+import com.example.data.StaffShift
 import com.example.model.PaymentMethod
 import com.example.model.ReceiptData
 import com.example.ui.AuthViewModel
@@ -127,8 +127,8 @@ fun OperationsScreen(
         when (mode) {
             OpsMode.SHIFT -> ShiftPanel(
                 user = user,
-                activeShiftId = authState.activeShift?.id,
-                activeShiftOpenedAt = authState.activeShift?.openedAt,
+                activeShift = authState.activeShift,
+                shiftHistory = shiftHistory.filter { it.staffId == user.id },
                 receipts = receipts,
                 onOpenShift = authViewModel::openShift,
                 onCloseShift = authViewModel::closeShift,
@@ -200,8 +200,8 @@ private fun RoleBadge(user: StaffAccount) {
 @Composable
 private fun ShiftPanel(
     user: StaffAccount,
-    activeShiftId: String?,
-    activeShiftOpenedAt: Long?,
+    activeShift: StaffShift?,
+    shiftHistory: List<StaffShift>,
     receipts: List<ReceiptData>,
     onOpenShift: (String) -> Unit,
     onCloseShift: (String) -> Unit,
@@ -210,7 +210,8 @@ private fun ShiftPanel(
 ) {
     val context = LocalContext.current
     var note by remember { mutableStateOf("") }
-    val shiftReceipts = if (activeShiftId == null) emptyList() else receipts.filter { it.shiftId == activeShiftId }
+    val summaryShift = activeShift ?: shiftHistory.firstOrNull()
+    val shiftReceipts = summaryShift?.let { shift -> receipts.filter { it.shiftId == shift.id } }.orEmpty()
     val activeReceipts = shiftReceipts.filterNot { it.isVoided }
     val voidedReceipts = shiftReceipts.filter { it.isVoided }
     val gross = activeReceipts.sumOf { it.grandTotal }
@@ -234,32 +235,38 @@ private fun ShiftPanel(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         CardBlock(
-            title = if (activeShiftId == null) "No Open Shift" else "Shift Open",
-            subtitle = if (activeShiftId == null) {
+            title = if (activeShift == null) "No Open Shift" else "Shift Open",
+            subtitle = if (activeShift == null) {
                 "Open a shift before taking event transactions so receipts are grouped in the end-of-shift report."
             } else {
-                "Opened ${formatDateTime(activeShiftOpenedAt ?: 0L)} • Operator: ${user.displayName}"
+                "Opened ${formatDateTime(activeShift.openedAt)} • Operator: ${user.displayName}"
             }
         ) {
             OutlinedTextField(
                 value = note,
                 onValueChange = { note = it },
-                label = { Text(if (activeShiftId == null) "Opening note (optional)" else "Closing note (optional)") },
+                label = { Text(if (activeShift == null) "Opening note (optional)" else "Closing note (optional)") },
                 modifier = Modifier.fillMaxWidth()
             )
             Button(
                 onClick = {
-                    if (activeShiftId == null) onOpenShift(note) else onCloseShift(note)
+                    if (activeShift == null) onOpenShift(note) else onCloseShift(note)
                     note = ""
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = if (activeShiftId == null) NaomiRed else NaomiOrange),
+                colors = ButtonDefaults.buttonColors(containerColor = if (activeShift == null) NaomiRed else NaomiOrange),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (activeShiftId == null) "Open Shift" else "Close Shift", fontWeight = FontWeight.Black)
+                Text(if (activeShift == null) "Open Shift" else "Close Shift", fontWeight = FontWeight.Black)
             }
         }
 
-        CardBlock("End-of-Shift Summary", if (activeShiftId == null) "Open a shift to begin accumulating shift-specific totals." else "Live totals for the current shift.") {
+        CardBlock(
+            title = if (summaryShift?.isOpen == true) "Current Shift Summary" else "Last Shift Summary",
+            subtitle = summaryShift?.let {
+                val closed = it.closedAt?.let(::formatDateTime) ?: "OPEN"
+                "${formatDateTime(it.openedAt)} → $closed • ${it.staffDisplayName}"
+            } ?: "No shift history yet."
+        ) {
             SummaryLine("Receipts", activeReceipts.size.toString())
             SummaryLine("Voided", voidedReceipts.size.toString())
             SummaryLine("Recorded gross", ReceiptData.formatCurrency(gross), emphasize = true)
@@ -274,6 +281,17 @@ private fun ShiftPanel(
                 color = NaomiTextSecondary,
                 fontSize = 9.sp
             )
+        }
+
+        if (shiftHistory.isNotEmpty()) {
+            CardBlock("Recent Shifts", "Most recent shift records for ${user.displayName}.") {
+                shiftHistory.take(5).forEach { shift ->
+                    SummaryLine(
+                        formatDateTime(shift.openedAt),
+                        shift.closedAt?.let { "Closed ${formatDateTime(it)}" } ?: "OPEN"
+                    )
+                }
+            }
         }
 
         CardBlock("Export & Backup", "Save the local receipt ledger for accounting or recovery.") {
