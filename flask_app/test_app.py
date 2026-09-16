@@ -49,6 +49,22 @@ class GatewayApiTests(unittest.TestCase):
         self.assertAlmostEqual(orders[0]["subtotal"], 4.00, places=2)
         self.assertAlmostEqual(orders[0]["items"][0]["unitPrice"], 2.00, places=2)
 
+    def test_order_text_cannot_store_executable_markup(self):
+        response = self.client.post(
+            "/api/orders",
+            json={
+                "client_name": '<img src=x onerror="alert(1)">',
+                "venue_name": "Venue <script>alert(1)</script>",
+                "items": [{"name": "Live Track Shoutout", "quantity": 1}],
+            },
+        )
+        self.assertEqual(response.status_code, 201)
+        order = self.client.get("/api/orders").get_json()[0]
+        self.assertNotIn("<", order["client_name"])
+        self.assertNotIn(">", order["client_name"])
+        self.assertNotIn("<", order["venue_name"])
+        self.assertNotIn(">", order["venue_name"])
+
     def test_unknown_catalog_item_is_rejected(self):
         response = self.client.post(
             "/api/orders",
