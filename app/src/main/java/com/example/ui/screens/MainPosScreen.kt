@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Article
+import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.EditNote
@@ -41,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.PrinterChannel
+import com.example.ui.AuthViewModel
 import com.example.ui.PosViewModel
 import com.example.ui.UiMessage
 import com.example.ui.components.NaomiHeader
@@ -57,11 +59,15 @@ private enum class MainTab {
     BUSINESS_CARD,
     BLACKPOOL,
     PRINTERS,
-    HISTORY
+    HISTORY,
+    OPERATIONS
 }
 
 @Composable
-fun MainPosScreen(viewModel: PosViewModel) {
+fun MainPosScreen(
+    viewModel: PosViewModel,
+    authViewModel: AuthViewModel
+) {
     val currentReceipt by viewModel.currentReceipt.collectAsState()
     val selectedChannel by viewModel.selectedChannel.collectAsState()
     val printerStatus by viewModel.printerStatus.collectAsState()
@@ -106,11 +112,11 @@ fun MainPosScreen(viewModel: PosViewModel) {
             ) {
                 val navItems = listOf(
                     Triple(MainTab.RECEIPT, Icons.Default.EditNote, "Receipt"),
-                    Triple(MainTab.PREVIEW, Icons.Default.Article, "Preview"),
                     Triple(MainTab.BUSINESS_CARD, Icons.Default.CreditCard, "Card"),
                     Triple(MainTab.BLACKPOOL, Icons.Default.LocationOn, "Blackpool"),
                     Triple(MainTab.PRINTERS, Icons.Default.Print, "Printer"),
-                    Triple(MainTab.HISTORY, Icons.Default.CloudSync, "Ledger")
+                    Triple(MainTab.HISTORY, Icons.Default.CloudSync, "Ledger"),
+                    Triple(MainTab.OPERATIONS, Icons.Default.Badge, "Ops")
                 )
 
                 navItems.forEach { (tab, icon, label) ->
@@ -186,7 +192,15 @@ fun MainPosScreen(viewModel: PosViewModel) {
                     viewModel = viewModel
                 )
                 MainTab.HISTORY -> SyncLedgerScreen(
-                    viewModel = viewModel
+                    viewModel = viewModel,
+                    onEditCorrection = {
+                        receiptStep = 0
+                        activeTab = MainTab.RECEIPT
+                    }
+                )
+                MainTab.OPERATIONS -> OperationsScreen(
+                    authViewModel = authViewModel,
+                    posViewModel = viewModel
                 )
             }
         }
