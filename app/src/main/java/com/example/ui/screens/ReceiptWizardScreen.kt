@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -61,15 +62,8 @@ import com.example.ui.theme.NaomiSurface
 import com.example.ui.theme.NaomiSurfaceVariant
 import com.example.ui.theme.NaomiTextPrimary
 import com.example.ui.theme.NaomiTextSecondary
-import java.util.Locale
 
-private val wizardSteps = listOf(
-    "Customer",
-    "Event",
-    "Services",
-    "Payment",
-    "Review"
-)
+private val wizardSteps = listOf("Customer", "Event", "Services", "Payment", "Review")
 
 @Composable
 fun ReceiptWizardScreen(
@@ -89,27 +83,18 @@ fun ReceiptWizardScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        WizardHeader(
-            receipt = receipt,
-            step = safeStep,
-            onReset = {
-                viewModel.resetNewReceipt()
-                onStepChange(0)
-            }
-        )
-
-        WizardProgress(step = safeStep)
+        WizardHeader(receipt, safeStep) {
+            viewModel.resetNewReceipt()
+            onStepChange(0)
+        }
+        WizardProgress(safeStep)
 
         when (safeStep) {
             0 -> CustomerStep(viewModel, receipt)
             1 -> EventStep(viewModel, receipt)
             2 -> ServicesStep(viewModel, receipt)
             3 -> PaymentStep(viewModel, receipt)
-            else -> ReviewStep(
-                viewModel = viewModel,
-                receipt = receipt,
-                onNavigateToPreview = onNavigateToPreview
-            )
+            else -> ReviewStep(viewModel, receipt, onNavigateToPreview)
         }
 
         Row(
@@ -120,18 +105,14 @@ fun ReceiptWizardScreen(
                 onClick = { onStepChange((safeStep - 1).coerceAtLeast(0)) },
                 enabled = safeStep > 0,
                 modifier = Modifier.weight(1f)
-            ) {
-                Text("Back")
-            }
+            ) { Text("Back") }
 
             if (safeStep < wizardSteps.lastIndex) {
                 Button(
-                    onClick = { onStepChange((safeStep + 1).coerceAtMost(wizardSteps.lastIndex)) },
+                    onClick = { onStepChange(safeStep + 1) },
                     colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
                     modifier = Modifier.weight(1f)
-                ) {
-                    Text("Next: ${wizardSteps[safeStep + 1]}")
-                }
+                ) { Text("Next: ${wizardSteps[safeStep + 1]}") }
             } else {
                 Button(
                     onClick = {
@@ -147,7 +128,6 @@ fun ReceiptWizardScreen(
                 }
             }
         }
-
         Spacer(modifier = Modifier.height(8.dp))
     }
 }
@@ -161,35 +141,16 @@ private fun WizardHeader(receipt: ReceiptData, step: Int, onReset: () -> Unit) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "RECEIPT CREATOR",
-                    color = NaomiOrange,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-                Text(
-                    text = wizardSteps[step],
-                    color = NaomiTextPrimary,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Black
-                )
-                Text(
-                    text = receipt.id,
-                    color = NaomiTextSecondary,
-                    fontSize = 12.sp
-                )
+                Text("RECEIPT CREATOR", color = NaomiOrange, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(wizardSteps[step], color = NaomiTextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                Text(receipt.id, color = NaomiTextSecondary, fontSize = 12.sp)
             }
-            TextButton(onClick = onReset) {
-                Text("Start Over", color = NaomiTextSecondary)
-            }
+            TextButton(onClick = onReset) { Text("Start Over", color = NaomiTextSecondary) }
         }
     }
 }
@@ -204,35 +165,23 @@ private fun WizardProgress(step: Int) {
         wizardSteps.forEachIndexed { index, label ->
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(
-                    modifier = Modifier
-                        .size(30.dp)
-                        .background(
-                            color = when {
-                                index < step -> NaomiSuccess
-                                index == step -> NaomiRed
-                                else -> NaomiSurfaceVariant
-                            },
-                            shape = CircleShape
-                        ),
+                    modifier = Modifier.size(30.dp).background(
+                        when {
+                            index < step -> NaomiSuccess
+                            index == step -> NaomiRed
+                            else -> NaomiSurfaceVariant
+                        },
+                        CircleShape
+                    ),
                     contentAlignment = Alignment.Center
                 ) {
                     if (index < step) {
                         Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(17.dp))
                     } else {
-                        Text(
-                            text = "${index + 1}",
-                            color = if (index == step) Color.White else NaomiTextSecondary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
+                        Text("${index + 1}", color = if (index == step) Color.White else NaomiTextSecondary, fontSize = 12.sp)
                     }
                 }
-                Text(
-                    text = label,
-                    color = if (index == step) NaomiOrange else NaomiTextSecondary,
-                    fontSize = 9.sp,
-                    fontWeight = if (index == step) FontWeight.Bold else FontWeight.Normal
-                )
+                Text(label, color = if (index == step) NaomiOrange else NaomiTextSecondary, fontSize = 9.sp)
             }
         }
     }
@@ -241,66 +190,32 @@ private fun WizardProgress(step: Int) {
 @Composable
 private fun CustomerStep(viewModel: PosViewModel, receipt: ReceiptData) {
     WizardCard("1. Customer / Booking Contact", "Who is this receipt for?") {
-        OutlinedTextField(
-            value = receipt.clientName,
-            onValueChange = viewModel::updateClientName,
-            label = { Text("Customer or business name") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
-        OutlinedTextField(
-            value = receipt.clientContact,
-            onValueChange = viewModel::updateClientContact,
-            label = { Text("Phone / contact") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
+        OutlinedTextField(receipt.clientName, viewModel::updateClientName, label = { Text("Customer or business name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(receipt.clientContact, viewModel::updateClientContact, label = { Text("Phone / contact") }, singleLine = true, modifier = Modifier.fillMaxWidth())
     }
 }
 
 @Composable
 private fun EventStep(viewModel: PosViewModel, receipt: ReceiptData) {
     WizardCard("2. Event Details", "Set the venue, date and type of gig.") {
-        OutlinedTextField(
-            value = receipt.venueName,
-            onValueChange = viewModel::updateVenue,
-            label = { Text("Venue") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        OutlinedTextField(
-            value = receipt.gigDate,
-            onValueChange = viewModel::updateGigDate,
-            label = { Text("Event date / time") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
+        OutlinedTextField(receipt.venueName, viewModel::updateVenue, label = { Text("Venue") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(receipt.gigDate, viewModel::updateGigDate, label = { Text("Event date / time") }, modifier = Modifier.fillMaxWidth())
         Text("Event type", color = NaomiTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         GigType.values().forEach { type ->
             FilterChip(
                 selected = receipt.gigType == type,
                 onClick = { viewModel.updateGigType(type) },
                 label = { Text(type.label) },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = NaomiRed,
-                    selectedLabelColor = Color.White
-                ),
+                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = NaomiRed, selectedLabelColor = Color.White),
                 modifier = Modifier.fillMaxWidth()
             )
         }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Free Event", color = NaomiTextPrimary, fontWeight = FontWeight.Bold)
                 Text("Sets admission and VAT to £0.00", color = NaomiTextSecondary, fontSize = 11.sp)
             }
-            Switch(
-                checked = receipt.isFreeEvent,
-                onCheckedChange = viewModel::toggleFreeEvent
-            )
+            Switch(checked = receipt.isFreeEvent, onCheckedChange = viewModel::toggleFreeEvent)
         }
     }
 }
@@ -311,44 +226,25 @@ private fun ServicesStep(viewModel: PosViewModel, receipt: ReceiptData) {
     var itemPrice by remember { mutableStateOf("") }
 
     WizardCard("3. Services & Items", "Choose a package and add anything extra.") {
-        Text("Main package", color = NaomiTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         PackageTier.values().forEach { tier ->
             FilterChip(
                 selected = receipt.packageTier == tier,
                 onClick = { viewModel.updatePackageTier(tier) },
-                label = {
-                    Text(
-                        if (tier.basePrice == 0.0) tier.title
-                        else "${tier.title} · ${ReceiptData.formatCurrency(tier.basePrice)}"
-                    )
-                },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = NaomiRed,
-                    selectedLabelColor = Color.White
-                ),
+                label = { Text(if (tier.basePrice == 0.0) tier.title else "${tier.title} · ${ReceiptData.formatCurrency(tier.basePrice)}") },
+                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = NaomiRed, selectedLabelColor = Color.White),
                 modifier = Modifier.fillMaxWidth()
             )
         }
 
         Text("Receipt line items", color = NaomiTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        if (receipt.items.isEmpty()) {
-            Text("No items yet.", color = NaomiTextSecondary, fontSize = 12.sp)
-        }
         receipt.items.forEach { item ->
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(NaomiDarkBg, RoundedCornerShape(8.dp))
-                    .padding(10.dp),
+                modifier = Modifier.fillMaxWidth().background(NaomiDarkBg, RoundedCornerShape(8.dp)).padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(item.name, color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text(
-                        "x${item.quantity} · ${ReceiptData.formatCurrency(item.total)}",
-                        color = NaomiTextSecondary,
-                        fontSize = 11.sp
-                    )
+                    Text("x${item.quantity} · ${ReceiptData.formatCurrency(item.total)}", color = NaomiTextSecondary, fontSize = 11.sp)
                 }
                 IconButton(onClick = { viewModel.removeLineItem(item.id) }) {
                     Icon(Icons.Default.Delete, contentDescription = "Remove", tint = NaomiOrange)
@@ -356,15 +252,10 @@ private fun ServicesStep(viewModel: PosViewModel, receipt: ReceiptData) {
             }
         }
 
+        OutlinedTextField(itemName, { itemName = it }, label = { Text("Extra item / service") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(
-            value = itemName,
-            onValueChange = { itemName = it },
-            label = { Text("Extra item / service") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        OutlinedTextField(
-            value = itemPrice,
-            onValueChange = { itemPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
+            itemPrice,
+            { itemPrice = it.filter { ch -> ch.isDigit() || ch == '.' } },
             label = { Text("Price (£)") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
@@ -392,52 +283,34 @@ private fun ServicesStep(viewModel: PosViewModel, receipt: ReceiptData) {
 @Composable
 private fun PaymentStep(viewModel: PosViewModel, receipt: ReceiptData) {
     var taxText by remember(receipt.id) { mutableStateOf(receipt.taxPercent.toString()) }
-
     WizardCard("4. Payment & Notes", "Choose how it was paid and finish the receipt text.") {
-        Text("Payment method", color = NaomiTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         PaymentMethod.values().forEach { method ->
             FilterChip(
                 selected = receipt.paymentMethod == method,
                 onClick = { viewModel.updatePaymentMethod(method) },
                 label = { Text(method.label) },
                 enabled = !receipt.isFreeEvent || method == PaymentMethod.FREE_PASS,
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = NaomiRed,
-                    selectedLabelColor = Color.White
-                ),
+                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = NaomiRed, selectedLabelColor = Color.White),
                 modifier = Modifier.fillMaxWidth()
             )
         }
-
         OutlinedTextField(
             value = if (receipt.isFreeEvent) "0" else taxText,
             onValueChange = { value ->
-                val filtered = value.filter { it.isDigit() || it == '.' }
-                taxText = filtered
-                filtered.toDoubleOrNull()?.let(viewModel::updateTaxPercent)
+                taxText = value.filter { it.isDigit() || it == '.' }
+                taxText.toDoubleOrNull()?.let(viewModel::updateTaxPercent)
             },
             enabled = !receipt.isFreeEvent,
             label = { Text("VAT / tax percent") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
-
-        OutlinedTextField(
-            value = receipt.footerNotes,
-            onValueChange = viewModel::updateFooterNotes,
-            label = { Text("Footer / thank-you note") },
-            minLines = 3,
-            modifier = Modifier.fillMaxWidth()
-        )
+        OutlinedTextField(receipt.footerNotes, viewModel::updateFooterNotes, label = { Text("Footer / thank-you note") }, minLines = 3, modifier = Modifier.fillMaxWidth())
     }
 }
 
 @Composable
-private fun ReviewStep(
-    viewModel: PosViewModel,
-    receipt: ReceiptData,
-    onNavigateToPreview: () -> Unit
-) {
+private fun ReviewStep(viewModel: PosViewModel, receipt: ReceiptData, onNavigateToPreview: () -> Unit) {
     WizardCard("5. Review & Print", "Confirm the totals before sending it to the printer.") {
         SummaryRow("Reference", receipt.id)
         SummaryRow("Customer", receipt.clientName)
@@ -446,67 +319,34 @@ private fun ReviewStep(
         SummaryRow("Payment", receipt.paymentMethod.label)
         SummaryRow("Subtotal", ReceiptData.formatCurrency(receipt.subtotal))
         SummaryRow("VAT (${receipt.taxPercent.toInt()}%)", ReceiptData.formatCurrency(receipt.taxAmount))
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(NaomiBorder))
+        SummaryRow("TOTAL", if (receipt.isEffectivelyFree) "FREE" else ReceiptData.formatCurrency(receipt.grandTotal), true)
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(NaomiBorder)
-        )
-
-        SummaryRow(
-            "TOTAL",
-            if (receipt.isEffectivelyFree) "FREE" else ReceiptData.formatCurrency(receipt.grandTotal),
-            emphasize = true
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            OutlinedButton(
-                onClick = onNavigateToPreview,
-                modifier = Modifier.weight(1f)
-            ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(onClick = onNavigateToPreview, modifier = Modifier.weight(1f)) {
                 Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.size(6.dp))
                 Text("Preview")
             }
-            Button(
-                onClick = { viewModel.printCurrentReceipt() },
-                colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                modifier = Modifier.weight(1f)
-            ) {
+            Button(onClick = viewModel::printCurrentReceipt, colors = ButtonDefaults.buttonColors(containerColor = NaomiRed), modifier = Modifier.weight(1f)) {
                 Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.size(6.dp))
                 Text("Print")
             }
         }
-
-        Text(
-            text = "Printing also saves the receipt locally and follows the existing gateway sync/offline rules.",
-            color = NaomiTextSecondary,
-            fontSize = 10.sp
-        )
+        Text("Printing saves the receipt locally and follows the existing gateway sync/offline rules.", color = NaomiTextSecondary, fontSize = 10.sp)
     }
 }
 
 @Composable
-private fun WizardCard(
-    title: String,
-    subtitle: String,
-    content: @Composable Column.() -> Unit
-) {
+private fun WizardCard(title: String, subtitle: String, content: @Composable ColumnScope.() -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         shape = RoundedCornerShape(14.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, NaomiBorder),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(title, color = NaomiTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Black)
             Text(subtitle, color = NaomiTextSecondary, fontSize = 11.sp)
             content()
@@ -516,24 +356,8 @@ private fun WizardCard(
 
 @Composable
 private fun SummaryRow(label: String, value: String, emphasize: Boolean = false) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
-    ) {
-        Text(
-            text = label,
-            color = if (emphasize) NaomiOrange else NaomiTextSecondary,
-            fontWeight = if (emphasize) FontWeight.Black else FontWeight.Normal,
-            fontSize = if (emphasize) 15.sp else 12.sp,
-            modifier = Modifier.weight(0.4f)
-        )
-        Text(
-            text = value,
-            color = NaomiTextPrimary,
-            fontWeight = if (emphasize) FontWeight.Black else FontWeight.Bold,
-            fontSize = if (emphasize) 15.sp else 12.sp,
-            modifier = Modifier.weight(0.6f)
-        )
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+        Text(label, color = if (emphasize) NaomiOrange else NaomiTextSecondary, fontWeight = if (emphasize) FontWeight.Black else FontWeight.Normal, fontSize = if (emphasize) 15.sp else 12.sp, modifier = Modifier.weight(0.4f))
+        Text(value, color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = if (emphasize) 15.sp else 12.sp, modifier = Modifier.weight(0.6f))
     }
 }
