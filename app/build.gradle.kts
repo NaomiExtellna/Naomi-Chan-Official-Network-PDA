@@ -16,10 +16,11 @@ val hasReleaseSigning = !releaseKeystorePath.isNullOrBlank() &&
 
 android {
   namespace = "com.example"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  compileSdk = 36
 
   defaultConfig {
     applicationId = "com.aistudio.naomichan.pos"
+    // SUNMI V2 (T5930) runs SUNMI OS based on Android 7.1.x (API 25).
     minSdk = 24
     targetSdk = 36
     versionCode = 1
@@ -60,7 +61,6 @@ android {
   buildFeatures {
     compose = true
     buildConfig = true
-    aidl = true
   }
 
   testOptions {
@@ -91,6 +91,10 @@ dependencies {
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.okhttp)
+
+  // Official SUNMI inner-printer abstraction. It adapts the printer IPC interface
+  // to the device model, avoiding hand-maintained AIDL transaction mismatches on V2.
+  implementation("com.sunmi:printerlibrary:1.0.18")
 
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
