@@ -1,6 +1,5 @@
 {
   "name": "Naomi-Chan POS",
   "description": "Native POS terminal and ESC/POS thermal receipt printer app for Naomi-Chan™ DJ company with Sunmi V2, Bluetooth, and USB-OTG printing.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "requestFramePermissions": []
 }
