@@ -16,6 +16,8 @@ class EscPosBuilder(private val totalColumns: Int = 32) {
         val GS: Byte = 0x1D
         val LF: Byte = 0x0A
 
+        private const val BUSINESS_CARD_ID = "BUSINESS-CARD"
+
         val CMD_INIT = byteArrayOf(ESC, '@'.code.toByte())
         val CMD_CODE_PAGE_CP437 = byteArrayOf(ESC, 't'.code.toByte(), 0x00)
         val CMD_ALIGN_LEFT = byteArrayOf(ESC, 'a'.code.toByte(), 0x00)
@@ -112,6 +114,37 @@ class EscPosBuilder(private val totalColumns: Int = 32) {
 
     fun doubleDivider(): EscPosBuilder {
         textLine("=".repeat(totalColumns))
+        return this
+    }
+
+    fun wrappedText(text: String): EscPosBuilder {
+        val clean = printable(text).trim()
+        if (clean.isEmpty()) {
+            textLine()
+            return this
+        }
+
+        val words = clean.split(Regex("\\s+"))
+        var current = ""
+        for (word in words) {
+            if (word.length > totalColumns) {
+                if (current.isNotBlank()) {
+                    textLine(current)
+                    current = ""
+                }
+                word.chunked(totalColumns).forEach { textLine(it) }
+                continue
+            }
+
+            val candidate = if (current.isBlank()) word else "$current $word"
+            if (candidate.length <= totalColumns) {
+                current = candidate
+            } else {
+                textLine(current)
+                current = word
+            }
+        }
+        if (current.isNotBlank()) textLine(current)
         return this
     }
 
@@ -226,6 +259,10 @@ class EscPosBuilder(private val totalColumns: Int = 32) {
     fun build(): ByteArray = outputStream.toByteArray()
 
     fun assembleNaomiReceipt(receipt: ReceiptData, logoBitmap: Bitmap? = null): ByteArray {
+        if (receipt.id == BUSINESS_CARD_ID) {
+            return assembleBusinessCard(receipt)
+        }
+
         init()
 
         alignCenter()
@@ -325,9 +362,55 @@ class EscPosBuilder(private val totalColumns: Int = 32) {
         feedLines(1)
         textLine("Naomi-Chan(TM) DJ Sound Collective")
         textLine("Thank you for rocking with us!")
+        feedLines(5)
+        return build()
+    }
 
-        // SUNMI V2 handheld printers use a manual tear bar. Feed enough paper to tear cleanly,
-        // but do not send a motorised cutter command that the V2 does not provide.
+    private fun assembleBusinessCard(card: ReceiptData): ByteArray {
+        val businessName = card.clientName.ifBlank { "Naomi-Chan(TM)" }
+        val displayName = card.clientContact
+        val role = card.gigDate
+        val location = card.venueName
+        val email = card.items.getOrNull(0)?.name.orEmpty()
+        val phone = card.items.getOrNull(1)?.name.orEmpty()
+        val website = card.footerNotes.trim()
+
+        init()
+        alignCenter()
+        bold(true)
+        doubleSize(true)
+        wrappedText(businessName)
+        doubleSize(false)
+
+        if (displayName.isNotBlank()) {
+            bold(true)
+            wrappedText(displayName)
+            bold(false)
+        }
+        if (role.isNotBlank()) wrappedText(role)
+
+        divider('=')
+
+        if (email.isNotBlank()) wrappedText(email)
+        if (phone.isNotBlank()) wrappedText(phone)
+        if (website.isNotBlank()) wrappedText(website)
+        if (location.isNotBlank()) wrappedText(location)
+
+        if (website.isNotBlank()) {
+            feedLines(1)
+            val qrTarget = if (website.startsWith("http://") || website.startsWith("https://")) {
+                website
+            } else {
+                "https://$website"
+            }
+            printQrCode(qrTarget, moduleSize = 5)
+            bold(true)
+            textLine("SCAN TO CONNECT")
+            bold(false)
+        }
+
+        feedLines(1)
+        textLine("Naomi-Chan(TM) Official Network")
         feedLines(5)
         return build()
     }
