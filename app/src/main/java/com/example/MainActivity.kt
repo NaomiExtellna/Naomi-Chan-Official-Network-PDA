@@ -21,8 +21,13 @@ import com.example.ui.theme.NaomiChanTheme
 
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        private const val AUTO_LOCK_AFTER_MS = 5 * 60 * 1000L
+    }
+
     private val posViewModel: PosViewModel by viewModels()
     private val authViewModel: AuthViewModel by viewModels()
+    private var backgroundedAt: Long = 0L
 
     private val bluetoothPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -62,6 +67,19 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (backgroundedAt > 0L && System.currentTimeMillis() - backgroundedAt >= AUTO_LOCK_AFTER_MS) {
+            authViewModel.logout()
+        }
+        backgroundedAt = 0L
+    }
+
+    override fun onStop() {
+        backgroundedAt = System.currentTimeMillis()
+        super.onStop()
     }
 
     private fun requestBluetoothPermissionsIfNeeded() {
