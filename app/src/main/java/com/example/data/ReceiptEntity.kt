@@ -1,5 +1,6 @@
 package com.example.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -26,9 +27,9 @@ data class ReceiptEntity(
     val isFreeEvent: Boolean = false,
     val iconType: String = "NAOMI_LOGO",
     val customIconUri: String? = null,
-    val processedBy: String = "",
+    @ColumnInfo(defaultValue = "''") val processedBy: String = "",
     val shiftId: String? = null,
-    val receiptStatus: String = "ACTIVE",
+    @ColumnInfo(defaultValue = "'ACTIVE'") val receiptStatus: String = "ACTIVE",
     val voidReason: String? = null,
     val voidedAt: Long? = null,
     val voidedBy: String? = null,
