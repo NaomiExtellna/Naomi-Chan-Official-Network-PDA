@@ -100,6 +100,10 @@ def clean_text(value: Any, default: str = "", max_length: int = 160) -> str:
     text = str(value).strip()
     if not text:
         return default
+    # Order rows are rendered by the bundled terminal with innerHTML. Neutralise tag
+    # delimiters at ingestion so stored customer/venue text cannot become executable markup.
+    text = text.replace("<", "‹").replace(">", "›")
+    text = "".join(ch for ch in text if ch >= " " or ch == "\t")
     return text[:max_length]
 
 
