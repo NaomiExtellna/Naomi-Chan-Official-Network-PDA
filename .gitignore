@@ -15,4 +15,24 @@
 .cxx
 local.properties
 .env
+.env.*
+!.env.example
+
+# Signing keys must never be committed.
+*.jks
+*.keystore
 debug.keystore
+my-upload-key.jks
+
+# Local databases and Python runtime files.
+*.db
+*.db-shm
+*.db-wal
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Android/IDE generated output.
+app/build/
+.idea/deploymentTargetDropDown.xml
