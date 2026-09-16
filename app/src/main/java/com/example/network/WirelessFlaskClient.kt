@@ -160,6 +160,13 @@ class WirelessFlaskClient(
                 put("grandTotal", receipt.grandTotal)
                 put("paymentMethod", receipt.paymentMethod.label)
                 put("footerNotes", receipt.footerNotes)
+                put("processedBy", receipt.processedBy)
+                put("shiftId", receipt.shiftId ?: JSONObject.NULL)
+                put("receiptStatus", receipt.receiptStatus)
+                put("voidReason", receipt.voidReason ?: JSONObject.NULL)
+                put("voidedAt", receipt.voidedAt ?: JSONObject.NULL)
+                put("voidedBy", receipt.voidedBy ?: JSONObject.NULL)
+                put("replacesReceiptId", receipt.replacesReceiptId ?: JSONObject.NULL)
 
                 val itemsArr = JSONArray()
                 for (item in receipt.items) {
