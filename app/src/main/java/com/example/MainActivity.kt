@@ -1,6 +1,7 @@
 package com.example
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -16,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModelProvider
 import com.example.ui.AuthViewModel
 import com.example.ui.PosViewModel
 import com.example.ui.screens.ChangeCredentialScreen
@@ -32,23 +34,32 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val AUTO_LOCK_AFTER_MS = 5 * 60 * 1000L
         private const val MIN_SPLASH_DURATION_MS = 1_200L
+        private const val PERMISSION_REQUEST_DELAY_MS = 350L
     }
 
-    private val posViewModel: PosViewModel by viewModels()
+    private var posViewModelInitialized = false
+    private val posViewModel: PosViewModel by lazy(LazyThreadSafetyMode.NONE) {
+        posViewModelInitialized = true
+        ViewModelProvider(this)[PosViewModel::class.java]
+    }
     private val authViewModel: AuthViewModel by viewModels()
     private var backgroundedAt: Long = 0L
 
     private val bluetoothPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
-        posViewModel.printerManager.refreshDiscoveredDevices()
+        // Do not initialize the POS/printer stack from a permission callback.
+        // Printer discovery will refresh when the POS UI is actually opened.
+    }
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(newBase)
+        DiagnosticLog.installCrashHandler(newBase)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        DiagnosticLog.installCrashHandler(this)
         enableEdgeToEdge()
-        requestBluetoothPermissionsIfNeeded()
 
         setContent {
             NaomiChanTheme(darkTheme = true) {
@@ -60,6 +71,8 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(Unit) {
                     delay(MIN_SPLASH_DURATION_MS)
                     minimumSplashElapsed = true
+                    delay(PERMISSION_REQUEST_DELAY_MS)
+                    requestBluetoothPermissionsIfNeeded()
                 }
 
                 when {
@@ -115,15 +128,27 @@ class MainActivity : ComponentActivity() {
 
     private fun requestBluetoothPermissionsIfNeeded() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-        val requiredPermissions = arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN)
-        val missingPermissions = requiredPermissions.filter { permission ->
-            ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED
+
+        runCatching {
+            val requiredPermissions = arrayOf(
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.BLUETOOTH_SCAN
+            )
+            val missingPermissions = requiredPermissions.filter { permission ->
+                ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED
+            }
+            if (missingPermissions.isNotEmpty()) {
+                bluetoothPermissionLauncher.launch(missingPermissions.toTypedArray())
+            }
+        }.onFailure { error ->
+            DiagnosticLog.error(this, "MainActivity/bluetoothPermission", error)
         }
-        if (missingPermissions.isNotEmpty()) bluetoothPermissionLauncher.launch(missingPermissions.toTypedArray())
     }
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        posViewModel.onTrimMemory(level)
+        if (posViewModelInitialized) {
+            posViewModel.onTrimMemory(level)
+        }
     }
 }
