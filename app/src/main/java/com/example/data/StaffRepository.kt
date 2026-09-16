@@ -104,7 +104,7 @@ class StaffRepository(private val staffDao: StaffDao) {
             credentialHash = hashCredential(credential, salt),
             salt = Base64.encodeToString(salt, Base64.NO_WRAP),
             role = StaffRole.STAFF.name,
-            isActive = true
+            isActive = false
         )
         staffDao.insertStaff(account)
         AuthResult.Success(account.toModel())
@@ -115,7 +115,7 @@ class StaffRepository(private val staffDao: StaffDao) {
             ?: return@withContext AuthResult.Error("Incorrect username or PIN/password.")
 
         if (!account.isActive) {
-            return@withContext AuthResult.Error("This staff account is disabled. Ask Naomi to re-enable it.")
+            return@withContext AuthResult.Error("This staff account is pending or disabled. Ask Naomi (Admin) to enable it.")
         }
 
         val salt = try {
@@ -132,8 +132,9 @@ class StaffRepository(private val staffDao: StaffDao) {
             return@withContext AuthResult.Error("Incorrect username or PIN/password.")
         }
 
-        staffDao.updateLastLogin(account.id, System.currentTimeMillis())
-        AuthResult.Success(account.copy(lastLoginAt = System.currentTimeMillis()).toModel())
+        val loginAt = System.currentTimeMillis()
+        staffDao.updateLastLogin(account.id, loginAt)
+        AuthResult.Success(account.copy(lastLoginAt = loginAt).toModel())
     }
 
     suspend fun setStaffActive(requestingUser: StaffAccount, staffId: String, isActive: Boolean): String? = withContext(Dispatchers.IO) {
