@@ -49,7 +49,7 @@ enum class ReceiptIconType(val label: String, val description: String, val drawa
 }
 
 enum class PrinterChannel(val displayName: String, val hardwareCode: String) {
-    SUNMI_BUILTIN("Sunmi V2 Built-in Thermal", "SUNMI_V2"),
+    SUNMI_BUILTIN("SUNMI V2 Built-in Thermal", "SUNMI_V2"),
     BLUETOOTH("Bluetooth Thermal Printer", "BT_SPP"),
     USB_OTG("USB-OTG Thermal Printer", "USB_RAW")
 }
@@ -139,9 +139,10 @@ data class PrinterStatus(
     val hasPaper: Boolean = true,
     val isCoverOpen: Boolean = false,
     val isOverheated: Boolean = false,
-    val deviceName: String = "Sunmi V2 Inner Thermal (58mm)",
+    val deviceName: String = "SUNMI V2 (T5930) Built-in 58mm",
     val serialNumber: String = "Unknown",
-    val headTemperatureCelsius: Int = 0,
-    val paperRollRemainingPercent: Int = 0,
+    val paperWidthMm: Int = 58,
+    val statusCode: Int? = null,
+    val serviceVersion: String? = null,
     val lastError: String? = null
 )
