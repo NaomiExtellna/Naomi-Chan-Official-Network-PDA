@@ -80,6 +80,11 @@ fun MainPosScreen(
     var receiptStep by remember { mutableIntStateOf(0) }
     var businessCardDraft by remember { mutableStateOf(BusinessCardDraft()) }
 
+    fun openReceiptFromVenue() {
+        receiptStep = 1
+        activeTab = MainTab.RECEIPT
+    }
+
     LaunchedEffect(Unit) {
         viewModel.uiMessages.collect { msg ->
             when (msg) {
@@ -183,14 +188,9 @@ fun MainPosScreen(
                 )
                 MainTab.BLACKPOOL -> BlackpoolHubScreen(
                     viewModel = viewModel,
-                    onStartReceipt = {
-                        receiptStep = 1
-                        activeTab = MainTab.RECEIPT
-                    }
+                    onStartReceipt = ::openReceiptFromVenue
                 )
-                MainTab.PRINTERS -> PrinterManagerScreen(
-                    viewModel = viewModel
-                )
+                MainTab.PRINTERS -> PrinterManagerScreen(viewModel = viewModel)
                 MainTab.HISTORY -> SyncLedgerScreen(
                     viewModel = viewModel,
                     onEditCorrection = {
@@ -200,7 +200,8 @@ fun MainPosScreen(
                 )
                 MainTab.OPERATIONS -> OperationsScreen(
                     authViewModel = authViewModel,
-                    posViewModel = viewModel
+                    posViewModel = viewModel,
+                    onStartReceipt = ::openReceiptFromVenue
                 )
             }
         }
