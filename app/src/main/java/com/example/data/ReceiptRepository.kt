@@ -21,7 +21,6 @@ class ReceiptRepository(private val receiptDao: ReceiptDao) {
     val unsyncedCount: Flow<Int> = receiptDao.getUnsyncedCount()
 
     suspend fun saveReceipt(receipt: ReceiptData, isOfflineBuffered: Boolean): Long = withContext(Dispatchers.IO) {
-        // A receipt is not SYNCED until the gateway has actually acknowledged the upload.
         val syncStatus = if (isOfflineBuffered) "BUFFERED_OFFLINE" else "PENDING_RETRY"
         receiptDao.insertReceipt(dataToEntity(receipt, syncStatus))
     }
@@ -40,6 +39,15 @@ class ReceiptRepository(private val receiptDao: ReceiptDao) {
 
     suspend fun markPendingRetry(receiptId: String) = withContext(Dispatchers.IO) {
         receiptDao.updateSyncStatus(receiptId, "PENDING_RETRY")
+    }
+
+    suspend fun voidReceipt(receiptId: String, reason: String, voidedBy: String): Boolean = withContext(Dispatchers.IO) {
+        receiptDao.voidReceipt(
+            id = receiptId,
+            reason = reason.trim(),
+            voidedAt = System.currentTimeMillis(),
+            voidedBy = voidedBy
+        ) > 0
     }
 
     suspend fun deleteReceipt(receiptId: String) = withContext(Dispatchers.IO) {
@@ -76,7 +84,6 @@ class ReceiptRepository(private val receiptDao: ReceiptDao) {
             }
             list
         } catch (_: Exception) {
-            // Corrupted persisted data must never invent a charge or alter a receipt total.
             emptyList()
         }
     }
@@ -102,7 +109,14 @@ class ReceiptRepository(private val receiptDao: ReceiptDao) {
             isPrinted = data.isPrinted,
             isFreeEvent = data.isFreeEvent,
             iconType = data.iconType.name,
-            customIconUri = data.customIconUri
+            customIconUri = data.customIconUri,
+            processedBy = data.processedBy,
+            shiftId = data.shiftId,
+            receiptStatus = data.receiptStatus,
+            voidReason = data.voidReason,
+            voidedAt = data.voidedAt,
+            voidedBy = data.voidedBy,
+            replacesReceiptId = data.replacesReceiptId
         )
     }
 
@@ -131,7 +145,14 @@ class ReceiptRepository(private val receiptDao: ReceiptDao) {
             isPrinted = entity.isPrinted,
             isFreeEvent = entity.isFreeEvent,
             iconType = iconType,
-            customIconUri = entity.customIconUri
+            customIconUri = entity.customIconUri,
+            processedBy = entity.processedBy,
+            shiftId = entity.shiftId,
+            receiptStatus = entity.receiptStatus,
+            voidReason = entity.voidReason,
+            voidedAt = entity.voidedAt,
+            voidedBy = entity.voidedBy,
+            replacesReceiptId = entity.replacesReceiptId
         )
     }
 }

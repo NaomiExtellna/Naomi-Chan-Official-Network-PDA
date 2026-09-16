@@ -148,7 +148,6 @@ class EscPosBuilder(private val totalColumns: Int = 32) {
         return this
     }
 
-    /** Formats a left label and right value without exceeding the configured paper width. */
     fun twoColumns(leftText: String, rightText: String, fillChar: Char = ' '): EscPosBuilder {
         val left = printable(leftText)
         val right = printable(rightText)
@@ -249,7 +248,6 @@ class EscPosBuilder(private val totalColumns: Int = 32) {
         return this
     }
 
-    /** Generic ESC/POS cutter command for external printers that have a motorised cutter. */
     fun cutPaper(partial: Boolean = true): EscPosBuilder {
         feedLines(3)
         outputStream.write(if (partial) CMD_PARTIAL_CUT else CMD_FULL_CUT)
@@ -300,6 +298,9 @@ class EscPosBuilder(private val totalColumns: Int = 32) {
         twoColumns("VENUE:", receipt.venueName)
         twoColumns("CLIENT:", receipt.clientName)
         twoColumns("PHONE:", receipt.clientContact)
+        if (receipt.processedBy.isNotBlank()) twoColumns("STAFF:", receipt.processedBy)
+        receipt.shiftId?.takeIf { it.isNotBlank() }?.let { twoColumns("SHIFT:", it.take(8).uppercase()) }
+        receipt.replacesReceiptId?.takeIf { it.isNotBlank() }?.let { twoColumns("CORRECTS:", it) }
         divider('-')
 
         alignCenter()
@@ -348,7 +349,7 @@ class EscPosBuilder(private val totalColumns: Int = 32) {
 
         alignCenter()
         if (receipt.footerNotes.isNotBlank()) {
-            textLine(receipt.footerNotes)
+            wrappedText(receipt.footerNotes)
             feedLines(1)
         }
         val qrUrl = if (receipt.isEffectivelyFree) {

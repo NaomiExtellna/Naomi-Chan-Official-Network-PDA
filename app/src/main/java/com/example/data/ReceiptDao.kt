@@ -12,10 +12,10 @@ interface ReceiptDao {
     @Query("SELECT * FROM receipts ORDER BY createdAt DESC")
     fun getAllReceipts(): Flow<List<ReceiptEntity>>
 
-    @Query("SELECT * FROM receipts WHERE syncStatus != 'SYNCED' ORDER BY createdAt ASC")
+    @Query("SELECT * FROM receipts WHERE syncStatus != 'SYNCED' AND receiptStatus != 'VOID' ORDER BY createdAt ASC")
     suspend fun getUnsyncedReceipts(): List<ReceiptEntity>
 
-    @Query("SELECT COUNT(*) FROM receipts WHERE syncStatus != 'SYNCED'")
+    @Query("SELECT COUNT(*) FROM receipts WHERE syncStatus != 'SYNCED' AND receiptStatus != 'VOID'")
     fun getUnsyncedCount(): Flow<Int>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -29,6 +29,9 @@ interface ReceiptDao {
 
     @Query("UPDATE receipts SET isPrinted = :isPrinted, printedChannel = :channel WHERE id = :id")
     suspend fun updatePrintStatus(id: String, isPrinted: Boolean, channel: String)
+
+    @Query("UPDATE receipts SET receiptStatus = 'VOID', voidReason = :reason, voidedAt = :voidedAt, voidedBy = :voidedBy WHERE id = :id AND receiptStatus != 'VOID'")
+    suspend fun voidReceipt(id: String, reason: String, voidedAt: Long, voidedBy: String): Int
 
     @Query("DELETE FROM receipts WHERE id = :id")
     suspend fun deleteReceipt(id: String)

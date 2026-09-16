@@ -1,0 +1,40 @@
+package com.example.data
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface StaffDao {
+    @Query("SELECT COUNT(*) FROM staff_accounts")
+    suspend fun countStaff(): Int
+
+    @Query("SELECT * FROM staff_accounts WHERE lower(username) = lower(:username) LIMIT 1")
+    suspend fun findByUsername(username: String): StaffAccountEntity?
+
+    @Query("SELECT * FROM staff_accounts ORDER BY CASE role WHEN 'ADMIN' THEN 0 ELSE 1 END, displayName COLLATE NOCASE")
+    fun observeAllStaff(): Flow<List<StaffAccountEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertStaff(account: StaffAccountEntity)
+
+    @Query("UPDATE staff_accounts SET lastLoginAt = :timestamp WHERE id = :staffId")
+    suspend fun updateLastLogin(staffId: String, timestamp: Long)
+
+    @Query("UPDATE staff_accounts SET isActive = :isActive WHERE id = :staffId")
+    suspend fun setStaffActive(staffId: String, isActive: Boolean)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertShift(shift: StaffShiftEntity)
+
+    @Query("SELECT * FROM staff_shifts WHERE staffId = :staffId AND closedAt IS NULL ORDER BY openedAt DESC LIMIT 1")
+    suspend fun getOpenShiftForStaff(staffId: String): StaffShiftEntity?
+
+    @Query("SELECT * FROM staff_shifts ORDER BY openedAt DESC")
+    fun observeAllShifts(): Flow<List<StaffShiftEntity>>
+
+    @Query("UPDATE staff_shifts SET closedAt = :closedAt, closingNote = :closingNote WHERE id = :shiftId AND closedAt IS NULL")
+    suspend fun closeShift(shiftId: String, closedAt: Long, closingNote: String)
+}

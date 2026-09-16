@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 data class BlackpoolTramStop(
@@ -27,11 +28,29 @@ data class TramDeparture(
     val directionLabel: String
 )
 
+data class TramServiceAlert(
+    val id: String,
+    val title: String,
+    val detail: String,
+    val affectedStops: List<String>,
+    val startDate: String,
+    val status: String
+)
+
+object BlackpoolTramAlerts {
+    val CURRENT = listOf(
+        TramServiceAlert(
+            id = "lord-street-2026-09",
+            title = "Lord Street, Fleetwood reopened",
+            detail = "Full-route trams resumed to Fleetwood Ferry after the 11-13 September 2026 Lord Street issue. London Street northbound remained closed because scaffolding obstructed the platform; use Victoria Street or Fishermans Walk. Southbound operates normally. Check live departures for the latest position.",
+            affectedStops = listOf("London Street", "Victoria Street", "Fishermans Walk", "Fleetwood Ferry"),
+            startDate = "2026-09-11",
+            status = "MONITORING"
+        )
+    )
+}
+
 object BlackpoolTramStops {
-    /**
-     * Quick-access stops used by the live board. These use Blackpool Transport's
-     * public stop-page identifiers for both directions/platforms.
-     */
     val FEATURED = listOf(
         BlackpoolTramStop("Pleasure Beach", "9400ZZBPPLB1", "9400ZZBPPLB2"),
         BlackpoolTramStop("South Pier", "9400ZZBPSHP1", "9400ZZBPSHP2"),
@@ -41,10 +60,6 @@ object BlackpoolTramStops {
         BlackpoolTramStop("Bispham", "9400ZZBPBSH1", "9400ZZBPBSH2")
     )
 
-    /**
-     * Current Blackpool Tramway stop directory, ordered south-to-north.
-     * Talbot Square and North Station form the town-centre branch.
-     */
     val ALL_STOPS = listOf(
         TramStopInfo("Starr Gate", "South Shore", "Southern terminus"),
         TramStopInfo("Harrow Place", "South Shore"),
@@ -110,6 +125,13 @@ object BlackpoolTramStops {
 }
 
 class BlackpoolTramClient {
+    private data class CachedDepartures(val departures: List<TramDeparture>, val savedAt: Long)
+
+    companion object {
+        private val memoryCache = ConcurrentHashMap<String, CachedDepartures>()
+        private const val MAX_CACHE_AGE_MS = 6 * 60 * 60 * 1000L
+    }
+
     private val client = OkHttpClient.Builder()
         .connectTimeout(8, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
@@ -119,7 +141,23 @@ class BlackpoolTramClient {
     suspend fun fetchDepartures(stop: BlackpoolTramStop): List<TramDeparture> = withContext(Dispatchers.IO) {
         val southbound = fetchPlatform(stop, stop.southboundStopId, "Southbound")
         val northbound = fetchPlatform(stop, stop.northboundStopId, "Northbound")
-        (southbound + northbound).take(12)
+        val fresh = (southbound + northbound).take(12)
+
+        if (fresh.isNotEmpty()) {
+            memoryCache[stop.name] = CachedDepartures(fresh, System.currentTimeMillis())
+            return@withContext fresh
+        }
+
+        val cached = memoryCache[stop.name]
+        if (cached != null && System.currentTimeMillis() - cached.savedAt <= MAX_CACHE_AGE_MS) {
+            return@withContext cached.departures.map { departure ->
+                departure.copy(
+                    isLive = false,
+                    directionLabel = "${departure.directionLabel} • CACHED"
+                )
+            }
+        }
+        emptyList()
     }
 
     private fun fetchPlatform(
