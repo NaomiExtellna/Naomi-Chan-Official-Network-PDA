@@ -66,6 +66,8 @@ private enum class MainTab {
 
 @Composable
 fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
+    val authState by authViewModel.state.collectAsState()
+    val currentUser = authState.currentUser
     val currentReceipt by viewModel.currentReceipt.collectAsState()
     val selectedChannel by viewModel.selectedChannel.collectAsState()
     val printerStatus by viewModel.printerStatus.collectAsState()
@@ -172,6 +174,8 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                 MainTab.PRINTERS -> PrinterManagerScreen(viewModel = viewModel)
                 MainTab.HISTORY -> SyncLedgerScreen(
                     viewModel = viewModel,
+                    showFinancials = currentUser?.canViewFinancialTotals == true,
+                    canVoid = currentUser?.canVoidReceipts == true,
                     onEditCorrection = { receiptStep = 0; activeTab = MainTab.RECEIPT }
                 )
                 MainTab.OPERATIONS -> OperationsScreen(authViewModel = authViewModel, posViewModel = viewModel, onStartReceipt = ::openReceiptFromVenue)
