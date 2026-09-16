@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Refresh
@@ -82,13 +81,19 @@ fun PrinterManagerScreen(viewModel: PosViewModel) {
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
-                        text = "PRIMARY PRINT DISPATCH CHANNEL",
+                        text = "PRINT OUTPUT",
                         color = NaomiOrange,
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp,
                         letterSpacing = 1.sp
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "SUNMI V2 built-in printer is the primary output; Bluetooth and USB are optional fallbacks.",
+                        color = NaomiTextSecondary,
+                        fontSize = 10.5.sp,
+                        modifier = Modifier.padding(top = 3.dp, bottom = 10.dp)
+                    )
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -124,7 +129,7 @@ fun PrinterManagerScreen(viewModel: PosViewModel) {
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
                                         text = when (channel) {
-                                            PrinterChannel.SUNMI_BUILTIN -> "Sunmi"
+                                            PrinterChannel.SUNMI_BUILTIN -> "SUNMI V2"
                                             PrinterChannel.BLUETOOTH -> "Bluetooth"
                                             PrinterChannel.USB_OTG -> "USB-OTG"
                                         },
@@ -142,11 +147,16 @@ fun PrinterManagerScreen(viewModel: PosViewModel) {
 
         item {
             PrinterSectionCard(
-                title = "Sunmi V2 Inner Printer",
-                subtitle = "Direct AIDL service integration",
+                title = "SUNMI V2 Built-in Printer",
+                subtitle = "Official SUNMI printer service • 58mm thermal",
                 icon = Icons.Default.Print,
                 iconBackground = NaomiDeepRed,
-                selected = selectedChannel == PrinterChannel.SUNMI_BUILTIN
+                selected = selectedChannel == PrinterChannel.SUNMI_BUILTIN,
+                trailing = {
+                    IconButton(onClick = { viewModel.printerManager.refreshSunmiStatus() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh SUNMI printer status", tint = NaomiOrange)
+                    }
+                }
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -154,8 +164,17 @@ fun PrinterManagerScreen(viewModel: PosViewModel) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(printerStatus.deviceName, color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        Text("Serial: ${printerStatus.serialNumber}", color = NaomiTextSecondary, fontSize = 10.sp)
+                        Text(
+                            printerStatus.deviceName,
+                            color = NaomiTextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            "Serial: ${printerStatus.serialNumber}",
+                            color = NaomiTextSecondary,
+                            fontSize = 10.sp
+                        )
                     }
                     StatusBadge(
                         text = if (printerStatus.isConnected) "ONLINE" else "OFFLINE",
@@ -164,15 +183,32 @@ fun PrinterManagerScreen(viewModel: PosViewModel) {
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    HardwareMetric("Paper", "${printerStatus.paperRollRemainingPercent}%")
-                    HardwareMetric("Head", "${printerStatus.headTemperatureCelsius}°C")
-                    HardwareMetric("Paper state", if (printerStatus.hasPaper) "Ready" else "Empty")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    HardwareMetric("Paper", "${printerStatus.paperWidthMm}mm")
+                    HardwareMetric("Print width", if (printerStatus.paperWidthMm == 58) "384 dots" else "Device default")
+                    HardwareMetric("State", sunmiStateLabel(printerStatus.statusCode, printerStatus.hasPaper))
                 }
 
                 printerStatus.lastError?.let { error ->
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(error, color = NaomiError, fontSize = 11.sp)
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    color = NaomiSurfaceVariant,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "SUNMI V2 uses a manual tear bar. Receipts are fed forward for a clean tear; automatic cutter commands are intentionally disabled.",
+                        color = NaomiTextSecondary,
+                        fontSize = 10.5.sp,
+                        modifier = Modifier.padding(10.dp)
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -188,24 +224,18 @@ fun PrinterManagerScreen(viewModel: PosViewModel) {
                     ) {
                         Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Feed", fontSize = 11.sp)
+                        Text("Feed paper", fontSize = 11.sp)
                     }
-                    OutlinedButton(
-                        onClick = { viewModel.printerManager.cutPaper() },
-                        enabled = printerStatus.isConnected,
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = NaomiTextPrimary),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Default.ContentCut, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Cut", fontSize = 11.sp)
-                    }
+
                     Button(
                         onClick = {
                             viewModel.selectChannel(PrinterChannel.SUNMI_BUILTIN)
                             viewModel.printCurrentReceipt()
                         },
-                        enabled = printerStatus.isConnected && printerStatus.hasPaper,
+                        enabled = printerStatus.isConnected &&
+                            printerStatus.hasPaper &&
+                            !printerStatus.isCoverOpen &&
+                            !printerStatus.isOverheated,
                         colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
                         modifier = Modifier.weight(1.25f)
                     ) {
@@ -218,7 +248,7 @@ fun PrinterManagerScreen(viewModel: PosViewModel) {
         item {
             PrinterSectionCard(
                 title = "Bluetooth Thermal Printers",
-                subtitle = "RFCOMM / SPP ESC/POS output",
+                subtitle = "Optional RFCOMM / SPP ESC/POS fallback",
                 icon = Icons.Default.Bluetooth,
                 iconBackground = Color(0xFF0D47A1),
                 selected = selectedChannel == PrinterChannel.BLUETOOTH,
@@ -230,7 +260,7 @@ fun PrinterManagerScreen(viewModel: PosViewModel) {
             ) {
                 if (bluetoothDevices.isEmpty()) {
                     EmptyDeviceState(
-                        "No paired Bluetooth devices found. Pair the thermal printer in Android settings, grant Bluetooth permission, then refresh."
+                        "No paired Bluetooth printer found. The SUNMI V2 built-in printer does not require Bluetooth."
                     )
                 } else {
                     bluetoothDevices.forEach { device ->
@@ -246,7 +276,7 @@ fun PrinterManagerScreen(viewModel: PosViewModel) {
         item {
             PrinterSectionCard(
                 title = "USB-OTG Thermal Printers",
-                subtitle = "USB printer-class bulk output",
+                subtitle = "Optional USB printer-class fallback",
                 icon = Icons.Default.Usb,
                 iconBackground = Color(0xFF2E7D32),
                 selected = selectedChannel == PrinterChannel.USB_OTG,
@@ -258,7 +288,7 @@ fun PrinterManagerScreen(viewModel: PosViewModel) {
             ) {
                 if (usbDevices.isEmpty()) {
                     EmptyDeviceState(
-                        "No USB printer-class device detected. Connect a supported ESC/POS printer through USB-OTG, then refresh."
+                        "No USB printer-class device detected. The SUNMI V2 built-in printer remains the recommended output."
                     )
                 } else {
                     usbDevices.forEach { device ->
@@ -279,6 +309,18 @@ fun PrinterManagerScreen(viewModel: PosViewModel) {
             }
         }
     }
+}
+
+private fun sunmiStateLabel(statusCode: Int?, hasPaper: Boolean): String = when {
+    !hasPaper -> "Out of paper"
+    statusCode == null -> "Connecting"
+    statusCode == 1 -> "Ready"
+    statusCode == 2 -> "Preparing"
+    statusCode == 3 -> "Comm error"
+    statusCode == 5 -> "Overheated"
+    statusCode == 6 -> "Cover open"
+    statusCode == 505 -> "Not detected"
+    else -> "Code $statusCode"
 }
 
 @Composable
