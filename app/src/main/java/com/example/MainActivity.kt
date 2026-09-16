@@ -9,7 +9,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -28,8 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModelProvider
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModelProvider
 import com.example.ui.AuthViewModel
 import com.example.ui.PosViewModel
 import com.example.ui.screens.ChangeCredentialScreen
@@ -104,19 +103,19 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun AppAfterSplash() {
-        var startupFailure by remember { mutableStateOf<String?>(null) }
-        val authVm = remember {
-            runCatching { authViewModel }
-                .onFailure { error ->
-                    DiagnosticLog.error(this, "MainActivity/AuthViewModel", error)
-                    startupFailure = "${error.javaClass.simpleName}: ${error.message ?: "Unknown startup error"}"
-                }
-                .getOrNull()
-        }
+        val authVmResult = remember { runCatching { authViewModel } }
+        val authVm = authVmResult.getOrNull()
 
         if (authVm == null) {
+            val error = authVmResult.exceptionOrNull()
+            LaunchedEffect(error) {
+                if (error != null) {
+                    DiagnosticLog.error(this@MainActivity, "MainActivity/AuthViewModel", error)
+                }
+            }
             StartupFailureScreen(
-                message = startupFailure ?: "Authentication/database startup failed.",
+                message = error?.let { "${it.javaClass.simpleName}: ${it.message ?: "Unknown startup error"}" }
+                    ?: "Authentication/database startup failed.",
                 onRetry = { recreate() }
             )
             return
@@ -157,18 +156,18 @@ class MainActivity : ComponentActivity() {
                 onChange = authVm::changeOwnCredential
             )
             else -> {
-                val posVmResult = remember {
-                    runCatching { posViewModel }
-                        .onFailure { error ->
-                            DiagnosticLog.error(this, "MainActivity/PosViewModel", error)
-                            startupFailure = "${error.javaClass.simpleName}: ${error.message ?: "POS startup error"}"
-                        }
-                        .getOrNull()
-                }
-                val posVm = posVmResult
+                val posVmResult = remember { runCatching { posViewModel } }
+                val posVm = posVmResult.getOrNull()
                 if (posVm == null) {
+                    val error = posVmResult.exceptionOrNull()
+                    LaunchedEffect(error) {
+                        if (error != null) {
+                            DiagnosticLog.error(this@MainActivity, "MainActivity/PosViewModel", error)
+                        }
+                    }
                     StartupFailureScreen(
-                        message = startupFailure ?: "POS/printer startup failed.",
+                        message = error?.let { "${it.javaClass.simpleName}: ${it.message ?: "POS startup error"}" }
+                            ?: "POS/printer startup failed.",
                         onRetry = { recreate() }
                     )
                     return
