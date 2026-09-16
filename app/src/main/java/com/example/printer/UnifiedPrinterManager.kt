@@ -1,24 +1,18 @@
 package com.example.printer
 
 import android.annotation.SuppressLint
-import android.app.PendingIntent
 import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
-import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.graphics.Bitmap
 import android.hardware.usb.UsbConstants
-import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
-import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import com.example.model.PrinterChannel
@@ -51,35 +45,32 @@ class UnifiedPrinterManager(private val context: Context) {
 
     private val tag = "NaomiPrinterManager"
 
-    // Sunmi AIDL Service
     private var woyouService: IWoyouService? = null
     private var isSunmiServiceBound = false
 
-    // Hardware status flow
     private val _status = MutableStateFlow(
         PrinterStatus(
             channel = PrinterChannel.SUNMI_BUILTIN,
-            isConnected = true,
+            isConnected = false,
             isPrinting = false,
             hasPaper = true,
-            deviceName = "Sunmi V2 Inner Thermal (58mm)"
+            deviceName = "Sunmi V2 Inner Thermal (58mm)",
+            serialNumber = "Unknown",
+            paperRollRemainingPercent = 0,
+            lastError = "Waiting for Sunmi printer service"
         )
     )
     val status: StateFlow<PrinterStatus> = _status.asStateFlow()
 
-    // Discovered external Bluetooth devices
     private val _bluetoothDevices = MutableStateFlow<List<DiscoveredPrinter>>(emptyList())
     val bluetoothDevices: StateFlow<List<DiscoveredPrinter>> = _bluetoothDevices.asStateFlow()
 
-    // Discovered USB printers
     private val _usbDevices = MutableStateFlow<List<DiscoveredPrinter>>(emptyList())
     val usbDevices: StateFlow<List<DiscoveredPrinter>> = _usbDevices.asStateFlow()
 
-    // Last print job ESC/POS hex preview / logs
     private val _lastEscPosBytes = MutableStateFlow<ByteArray?>(null)
     val lastEscPosBytes: StateFlow<ByteArray?> = _lastEscPosBytes.asStateFlow()
 
-    // Service Connection for Sunmi AIDL
     private val sunmiConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             woyouService = IWoyouService.Stub.asInterface(service)
@@ -94,6 +85,7 @@ class UnifiedPrinterManager(private val context: Context) {
             Log.w(tag, "Sunmi inner printer AIDL service disconnected.")
             _status.value = _status.value.copy(
                 isConnected = false,
+                paperRollRemainingPercent = 0,
                 lastError = "Sunmi service disconnected"
             )
         }
@@ -105,106 +97,116 @@ class UnifiedPrinterManager(private val context: Context) {
     }
 
     fun bindSunmiService() {
-        val intent = Intent()
-        intent.`package` = "woyou.aidlservice.jiuiv5"
-        intent.action = "woyou.aidlservice.jiuiv5.IWoyouService"
+        val intent = Intent().apply {
+            `package` = "woyou.aidlservice.jiuiv5"
+            action = "woyou.aidlservice.jiuiv5.IWoyouService"
+        }
         try {
             val bound = context.bindService(intent, sunmiConnection, Context.BIND_AUTO_CREATE)
             if (!bound) {
-                Log.i(tag, "Native Sunmi hardware service not found. Running in Sunmi V2 Terminal Emulation Mode.")
+                Log.w(tag, "Native Sunmi hardware service not found.")
                 _status.value = _status.value.copy(
-                    isConnected = true,
-                    deviceName = "Sunmi V2 Terminal (Virtual Emulation)",
-                    serialNumber = "V2P-8839-SIMULATED",
-                    headTemperatureCelsius = 36,
-                    paperRollRemainingPercent = 90
+                    isConnected = false,
+                    deviceName = "Sunmi V2 Inner Thermal (not detected)",
+                    serialNumber = "Unknown",
+                    paperRollRemainingPercent = 0,
+                    lastError = "Sunmi printer service not available"
                 )
             }
         } catch (e: Exception) {
             Log.e(tag, "Error binding Sunmi service", e)
             _status.value = _status.value.copy(
-                isConnected = true,
-                deviceName = "Sunmi V2 Terminal (Standby)",
-                serialNumber = "V2P-8839-SIMULATED"
+                isConnected = false,
+                deviceName = "Sunmi V2 Inner Thermal (unavailable)",
+                serialNumber = "Unknown",
+                paperRollRemainingPercent = 0,
+                lastError = "Sunmi service bind failed: ${e.localizedMessage ?: "unknown error"}"
             )
         }
     }
 
     private fun updateSunmiStatus() {
-        val service = woyouService
-        if (service != null) {
-            try {
-                val statusCode = service.printerStatus
-                val serial = service.printerSerialNo ?: "V2P-NATIVE"
-                val modal = service.printerModal ?: "Sunmi V2"
-                val hasPaper = statusCode != 4 // 4 = out of paper
-                val overheated = statusCode == 5
-                _status.value = _status.value.copy(
-                    channel = PrinterChannel.SUNMI_BUILTIN,
-                    isConnected = true,
-                    hasPaper = hasPaper,
-                    isOverheated = overheated,
-                    deviceName = "$modal Thermal Printer",
-                    serialNumber = serial,
-                    paperRollRemainingPercent = if (hasPaper) 88 else 0
-                )
-            } catch (e: Exception) {
-                Log.e(tag, "Failed to query Sunmi printer status", e)
-            }
+        val service = woyouService ?: return
+        try {
+            val statusCode = service.printerStatus
+            val serial = service.printerSerialNo ?: "Unknown"
+            val model = service.printerModal ?: "Sunmi V2"
+            val hasPaper = statusCode != 4
+            val overheated = statusCode == 5
+            _status.value = _status.value.copy(
+                channel = PrinterChannel.SUNMI_BUILTIN,
+                isConnected = true,
+                hasPaper = hasPaper,
+                isOverheated = overheated,
+                deviceName = "$model Thermal Printer",
+                serialNumber = serial,
+                paperRollRemainingPercent = if (hasPaper) 88 else 0,
+                lastError = when {
+                    !hasPaper -> "OUT_OF_PAPER"
+                    overheated -> "PRINTER_OVERHEATED"
+                    else -> null
+                }
+            )
+        } catch (e: Exception) {
+            Log.e(tag, "Failed to query Sunmi printer status", e)
+            _status.value = _status.value.copy(
+                isConnected = false,
+                lastError = "Unable to query Sunmi printer status"
+            )
         }
     }
 
     @SuppressLint("MissingPermission")
     fun refreshDiscoveredDevices() {
-        // Bluetooth
         try {
             val adapter = BluetoothAdapter.getDefaultAdapter()
-            if (adapter != null && adapter.isEnabled) {
-                val bonded = adapter.bondedDevices ?: emptySet()
-                val list = bonded.map { dev ->
+            _bluetoothDevices.value = if (adapter != null && adapter.isEnabled) {
+                adapter.bondedDevices.orEmpty().map { device ->
                     DiscoveredPrinter(
-                        name = dev.name ?: "Unknown Bluetooth Device",
-                        address = dev.address,
+                        name = device.name ?: "Unknown Bluetooth Device",
+                        address = device.address,
                         channel = PrinterChannel.BLUETOOTH,
                         isBonded = true
                     )
                 }
-                _bluetoothDevices.value = list
+            } else {
+                emptyList()
             }
+        } catch (e: SecurityException) {
+            _bluetoothDevices.value = emptyList()
+            Log.w(tag, "Bluetooth permission missing: ${e.message}")
         } catch (e: Exception) {
+            _bluetoothDevices.value = emptyList()
             Log.w(tag, "Bluetooth discovery error: ${e.message}")
         }
 
-        // USB
         try {
             val usbManager = context.getSystemService(Context.USB_SERVICE) as? UsbManager
-            if (usbManager != null) {
-                val deviceList = usbManager.deviceList
-                val printers = mutableListOf<DiscoveredPrinter>()
-                for ((_, device) in deviceList) {
-                    val isPrinterClass = (0 until device.interfaceCount).any { idx ->
-                        device.getInterface(idx).interfaceClass == UsbConstants.USB_CLASS_PRINTER
+            _usbDevices.value = if (usbManager == null) {
+                emptyList()
+            } else {
+                usbManager.deviceList.values.mapNotNull { device ->
+                    val isPrinterClass = (0 until device.interfaceCount).any { index ->
+                        device.getInterface(index).interfaceClass == UsbConstants.USB_CLASS_PRINTER
                     }
-                    printers.add(
+                    if (!isPrinterClass) {
+                        null
+                    } else {
                         DiscoveredPrinter(
                             name = device.productName ?: "USB Thermal Printer (${device.vendorId}:${device.productId})",
                             address = "VID_${device.vendorId}_PID_${device.productId}",
                             channel = PrinterChannel.USB_OTG,
                             isBonded = true
                         )
-                    )
+                    }
                 }
-                _usbDevices.value = printers
             }
         } catch (e: Exception) {
+            _usbDevices.value = emptyList()
             Log.w(tag, "USB detection error: ${e.message}")
         }
     }
 
-    /**
-     * Unified Print Dispatcher.
-     * Routes print jobs to the selected channel with fallback handling and error reporting.
-     */
     suspend fun printReceipt(
         receipt: ReceiptData,
         channel: PrinterChannel,
@@ -212,169 +214,204 @@ class UnifiedPrinterManager(private val context: Context) {
     ): PrintResult = withContext(Dispatchers.IO) {
         _status.value = _status.value.copy(isPrinting = true)
 
-        // Check paper status
-        if (!_status.value.hasPaper) {
+        if (channel == PrinterChannel.SUNMI_BUILTIN && !_status.value.hasPaper) {
             _status.value = _status.value.copy(isPrinting = false)
             return@withContext PrintResult.OutOfPaper()
         }
 
-        // Generate ESC/POS byte sequence
-        val builder = EscPosBuilder(totalColumns = 32)
-        val escPosData = builder.assembleNaomiReceipt(receipt, logoBitmap)
+        val escPosData = EscPosBuilder(totalColumns = 32).assembleNaomiReceipt(receipt, logoBitmap)
         _lastEscPosBytes.value = escPosData
 
-        val result = when (channel) {
-            PrinterChannel.SUNMI_BUILTIN -> printViaSunmi(escPosData, logoBitmap)
-            PrinterChannel.BLUETOOTH -> printViaBluetooth(escPosData)
-            PrinterChannel.USB_OTG -> printViaUsb(escPosData)
+        val result = try {
+            when (channel) {
+                PrinterChannel.SUNMI_BUILTIN -> printViaSunmi(escPosData)
+                PrinterChannel.BLUETOOTH -> printViaBluetooth(escPosData)
+                PrinterChannel.USB_OTG -> printViaUsb(escPosData)
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "Unhandled print error", e)
+            PrintResult.Error(e.localizedMessage ?: "Unexpected printer error", channel)
         }
 
-        _status.value = _status.value.copy(
-            isPrinting = false,
-            paperRollRemainingPercent = (_status.value.paperRollRemainingPercent - 2).coerceAtLeast(0)
-        )
-        return@withContext result
+        _status.value = if (result is PrintResult.Success && channel == PrinterChannel.SUNMI_BUILTIN) {
+            _status.value.copy(
+                isPrinting = false,
+                paperRollRemainingPercent = (_status.value.paperRollRemainingPercent - 2).coerceAtLeast(0)
+            )
+        } else {
+            _status.value.copy(isPrinting = false)
+        }
+        result
     }
 
-    private suspend fun printViaSunmi(data: ByteArray, logoBitmap: Bitmap?): PrintResult {
+    private fun printViaSunmi(data: ByteArray): PrintResult {
         val service = woyouService
-        if (service != null && isSunmiServiceBound) {
-            return try {
-                // Native Sunmi service call
-                val callback = object : ICallback.Stub() {
-                    override fun onRunResult(isSuccess: Boolean) {
-                        Log.d(tag, "Sunmi execution result: $isSuccess")
-                    }
-                    override fun onReturnString(result: String?) {}
-                    override fun onRaiseException(code: Int, msg: String?) {
-                        Log.e(tag, "Sunmi printer exception: $code - $msg")
-                    }
-                    override fun onPrintResult(code: Int, msg: String?) {
-                        Log.d(tag, "Sunmi print result code: $code, msg: $msg")
-                    }
+        if (service == null || !isSunmiServiceBound) {
+            return PrintResult.Error(
+                "Sunmi printer service is not connected. No receipt was printed.",
+                PrinterChannel.SUNMI_BUILTIN
+            )
+        }
+
+        return try {
+            val callback = object : ICallback.Stub() {
+                override fun onRunResult(isSuccess: Boolean) {
+                    Log.d(tag, "Sunmi execution result: $isSuccess")
                 }
 
-                service.printerInit(callback)
-                service.sendRAWData(data, callback)
-                service.lineWrap(3, callback)
-                service.cutPaper(callback)
-                PrintResult.Success("Receipt printed successfully via Sunmi V2 thermal printer", PrinterChannel.SUNMI_BUILTIN, data.size)
-            } catch (e: Exception) {
-                Log.e(tag, "Native Sunmi print error", e)
-                PrintResult.Error("Sunmi printing error: ${e.localizedMessage}", PrinterChannel.SUNMI_BUILTIN)
+                override fun onReturnString(result: String?) = Unit
+
+                override fun onRaiseException(code: Int, msg: String?) {
+                    Log.e(tag, "Sunmi printer exception: $code - $msg")
+                }
+
+                override fun onPrintResult(code: Int, msg: String?) {
+                    Log.d(tag, "Sunmi print result code: $code, msg: $msg")
+                }
             }
-        } else {
-            // Emulated Sunmi V2 Mode: Simulated delay and hardware verification
-            kotlinx.coroutines.delay(1000)
-            return PrintResult.Success(
-                "Receipt processed & printed on Sunmi V2 Hardware Engine (58mm ESC/POS stream verified)",
+
+            service.printerInit(callback)
+            service.sendRAWData(data, callback)
+            service.lineWrap(3, callback)
+            service.cutPaper(callback)
+            PrintResult.Success(
+                "Receipt sent successfully to the Sunmi V2 thermal printer",
                 PrinterChannel.SUNMI_BUILTIN,
                 data.size
+            )
+        } catch (e: Exception) {
+            Log.e(tag, "Native Sunmi print error", e)
+            PrintResult.Error(
+                "Sunmi printing error: ${e.localizedMessage ?: "unknown error"}",
+                PrinterChannel.SUNMI_BUILTIN
             )
         }
     }
 
     @SuppressLint("MissingPermission")
-    private suspend fun printViaBluetooth(data: ByteArray): PrintResult {
+    private fun printViaBluetooth(data: ByteArray): PrintResult {
         val adapter = BluetoothAdapter.getDefaultAdapter()
             ?: return PrintResult.Error("Bluetooth hardware is not available on this terminal", PrinterChannel.BLUETOOTH)
 
         if (!adapter.isEnabled) {
-            return PrintResult.Error("Bluetooth is turned off. Please enable Bluetooth to connect external printer.", PrinterChannel.BLUETOOTH)
-        }
-
-        val bonded = adapter.bondedDevices ?: emptySet()
-        val targetDevice = bonded.firstOrNull()
-
-        if (targetDevice == null) {
-            // No bonded device, provide simulated paired response for testing
-            kotlinx.coroutines.delay(1200)
-            return PrintResult.Success(
-                "Simulated BT Thermal Printer: 58mm ESC/POS job transmitted successfully (${data.size} bytes)",
-                PrinterChannel.BLUETOOTH,
-                data.size
+            return PrintResult.Error(
+                "Bluetooth is turned off. Enable Bluetooth before printing.",
+                PrinterChannel.BLUETOOTH
             )
         }
 
-        // Connect via standard SPP UUID
+        val bonded = try {
+            adapter.bondedDevices.orEmpty()
+        } catch (_: SecurityException) {
+            return PrintResult.Error(
+                "Bluetooth permission is required before a paired printer can be used.",
+                PrinterChannel.BLUETOOTH
+            )
+        }
+
+        val targetDevice = bonded.firstOrNull()
+            ?: return PrintResult.Error(
+                "No paired Bluetooth printer is available. Pair a printer first.",
+                PrinterChannel.BLUETOOTH
+            )
+
         val sppUuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
         var socket: BluetoothSocket? = null
         return try {
             socket = targetDevice.createRfcommSocketToServiceRecord(sppUuid)
+            adapter.cancelDiscovery()
             socket.connect()
             val output: OutputStream = socket.outputStream
             output.write(data)
             output.flush()
-            socket.close()
-            PrintResult.Success("Printed successfully to Bluetooth printer '${targetDevice.name}'", PrinterChannel.BLUETOOTH, data.size)
-        } catch (e: Exception) {
-            socket?.close()
-            // Fallback gracefully
             PrintResult.Success(
-                "Bluetooth ESC/POS stream delivered to thermal device buffer (${targetDevice.name})",
+                "Printed successfully to Bluetooth device '${targetDevice.name ?: targetDevice.address}'",
                 PrinterChannel.BLUETOOTH,
                 data.size
             )
+        } catch (e: Exception) {
+            Log.e(tag, "Bluetooth print failed", e)
+            PrintResult.Error(
+                "Bluetooth printing failed: ${e.localizedMessage ?: "connection error"}",
+                PrinterChannel.BLUETOOTH
+            )
+        } finally {
+            runCatching { socket?.close() }
         }
     }
 
-    private suspend fun printViaUsb(data: ByteArray): PrintResult {
+    private fun printViaUsb(data: ByteArray): PrintResult {
         val usbManager = context.getSystemService(Context.USB_SERVICE) as? UsbManager
             ?: return PrintResult.Error("USB Host system service not available", PrinterChannel.USB_OTG)
 
-        val deviceList = usbManager.deviceList
-        if (deviceList.isEmpty()) {
-            kotlinx.coroutines.delay(800)
-            return PrintResult.Success(
-                "Simulated USB-OTG Thermal Printer: ESC/POS bulk transfer completed (${data.size} bytes)",
-                PrinterChannel.USB_OTG,
-                data.size
-            )
-        }
+        val device = usbManager.deviceList.values.firstOrNull { candidate ->
+            (0 until candidate.interfaceCount).any { index ->
+                candidate.getInterface(index).interfaceClass == UsbConstants.USB_CLASS_PRINTER
+            }
+        } ?: return PrintResult.Error(
+            "No USB printer-class device is connected.",
+            PrinterChannel.USB_OTG
+        )
 
-        val device = deviceList.values.first()
         var targetInterface: UsbInterface? = null
         var targetEndpoint: UsbEndpoint? = null
 
         for (i in 0 until device.interfaceCount) {
             val iface = device.getInterface(i)
+            if (iface.interfaceClass != UsbConstants.USB_CLASS_PRINTER) continue
             for (j in 0 until iface.endpointCount) {
-                val ep = iface.getEndpoint(j)
-                if (ep.type == UsbConstants.USB_ENDPOINT_XFER_BULK && ep.direction == UsbConstants.USB_DIR_OUT) {
+                val endpoint = iface.getEndpoint(j)
+                if (endpoint.type == UsbConstants.USB_ENDPOINT_XFER_BULK &&
+                    endpoint.direction == UsbConstants.USB_DIR_OUT
+                ) {
                     targetInterface = iface
-                    targetEndpoint = ep
+                    targetEndpoint = endpoint
                     break
                 }
             }
             if (targetEndpoint != null) break
         }
 
-        if (targetInterface == null || targetEndpoint == null) {
-            return PrintResult.Success(
-                "Simulated USB-OTG Printer: Bulk endpoint acknowledged (${data.size} bytes)",
-                PrinterChannel.USB_OTG,
-                data.size
-            )
-        }
+        val printerInterface = targetInterface
+            ?: return PrintResult.Error("USB printer has no compatible printer interface.", PrinterChannel.USB_OTG)
+        val outputEndpoint = targetEndpoint
+            ?: return PrintResult.Error("USB printer has no bulk OUT endpoint.", PrinterChannel.USB_OTG)
 
         var connection: UsbDeviceConnection? = null
         return try {
             connection = usbManager.openDevice(device)
-            if (connection == null) {
-                return PrintResult.Error("USB permission required for ${device.productName ?: "Thermal Printer"}. Please grant permission.", PrinterChannel.USB_OTG)
+                ?: return PrintResult.Error(
+                    "USB permission is required for ${device.productName ?: "the thermal printer"}.",
+                    PrinterChannel.USB_OTG
+                )
+
+            if (!connection.claimInterface(printerInterface, true)) {
+                return PrintResult.Error("Unable to claim the USB printer interface.", PrinterChannel.USB_OTG)
             }
-            connection.claimInterface(targetInterface, true)
-            val transferred = connection.bulkTransfer(targetEndpoint, data, data.size, 5000)
-            connection.releaseInterface(targetInterface)
-            connection.close()
-            PrintResult.Success("Transferred $transferred bytes to USB thermal printer", PrinterChannel.USB_OTG, transferred)
+
+            val transferred = connection.bulkTransfer(outputEndpoint, data, data.size, 5000)
+            if (transferred <= 0) {
+                PrintResult.Error("USB printer transfer failed ($transferred bytes).", PrinterChannel.USB_OTG)
+            } else {
+                PrintResult.Success(
+                    "Transferred $transferred bytes to USB thermal printer",
+                    PrinterChannel.USB_OTG,
+                    transferred
+                )
+            }
         } catch (e: Exception) {
-            connection?.close()
-            PrintResult.Error("USB transmission failed: ${e.localizedMessage}", PrinterChannel.USB_OTG)
+            Log.e(tag, "USB print failed", e)
+            PrintResult.Error(
+                "USB transmission failed: ${e.localizedMessage ?: "unknown error"}",
+                PrinterChannel.USB_OTG
+            )
+        } finally {
+            runCatching { connection?.releaseInterface(printerInterface) }
+            runCatching { connection?.close() }
         }
     }
 
-    // Hardware simulation toggles for POS error management demonstration
+    // Manual paper-state controls retained for diagnostics/testing.
     fun togglePaperRoll() {
         val current = _status.value.hasPaper
         _status.value = _status.value.copy(
@@ -423,14 +460,11 @@ class UnifiedPrinterManager(private val context: Context) {
                 Log.e(tag, "Unbind error", e)
             }
         }
+        woyouService = null
         clearBuffers()
     }
 
-    /**
-     * Purges byte arrays from memory to keep RAM usage low on <1GB devices.
-     */
     fun clearBuffers() {
         _lastEscPosBytes.value = null
     }
 }
-
