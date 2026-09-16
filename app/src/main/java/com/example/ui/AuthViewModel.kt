@@ -26,6 +26,7 @@ data class AuthUiState(
     val pendingRecoveryCode: String? = null,
     val adminGeneratedCode: String? = null,
     val adminGeneratedCodeLabel: String? = null,
+    val startupError: String? = null,
     val message: String? = null
 )
 
@@ -50,8 +51,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            val hasStaff = repository.hasAnyStaff()
-            _state.value = AuthUiState(isLoading = false, needsAdminSetup = !hasStaff)
+            try {
+                val hasStaff = repository.hasAnyStaff()
+                _state.value = AuthUiState(isLoading = false, needsAdminSetup = !hasStaff)
+            } catch (error: Throwable) {
+                _state.value = AuthUiState(
+                    isLoading = false,
+                    startupError = "${error.javaClass.simpleName}: ${error.message ?: "Unable to open the local PDA database"}",
+                    message = "Local authentication storage could not be opened."
+                )
+            }
         }
     }
 
