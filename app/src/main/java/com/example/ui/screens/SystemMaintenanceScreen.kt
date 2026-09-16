@@ -42,7 +42,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -126,8 +125,8 @@ fun SystemMaintenanceScreen(authViewModel: AuthViewModel, posViewModel: PosViewM
             InfoLine("Database size", formatBytes(stats.databaseBytes))
             InfoLine("Oldest", formatOptionalTime(stats.oldestReceiptAt))
             InfoLine("Newest", formatOptionalTime(stats.newestReceiptAt))
-            InfoLine("Last JSON backup", formatOptionalTime(stats.lastBackupAt.takeIf { it > 0 })) )
-            InfoLine("Last restore", formatOptionalTime(stats.lastRestoreAt.takeIf { it > 0 })) )
+            InfoLine("Last JSON backup", formatOptionalTime(stats.lastBackupAt.takeIf { it > 0 }))
+            InfoLine("Last restore", formatOptionalTime(stats.lastRestoreAt.takeIf { it > 0 }))
 
             if (user.isAdmin) {
                 OutlinedButton(onClick = { posViewModel.archiveOldTickets(90); refresh++ }, modifier = Modifier.fillMaxWidth()) {
@@ -153,7 +152,8 @@ fun SystemMaintenanceScreen(authViewModel: AuthViewModel, posViewModel: PosViewM
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(Icons.Default.SaveAlt, contentDescription = null, modifier = Modifier.size(15.dp))
-                    Spacer(modifier = Modifier.width(4.dp)); Text("CSV")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("CSV")
                 }
                 OutlinedButton(
                     onClick = { jsonLauncher.launch("naomi-pos-backup-v2.json") },
@@ -161,13 +161,15 @@ fun SystemMaintenanceScreen(authViewModel: AuthViewModel, posViewModel: PosViewM
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(Icons.Default.Backup, contentDescription = null, modifier = Modifier.size(15.dp))
-                    Spacer(modifier = Modifier.width(4.dp)); Text("JSON")
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("JSON")
                 }
             }
             if (user.isAdmin) {
                 OutlinedButton(onClick = { restoreLauncher.launch(arrayOf("application/json", "text/json", "text/plain")) }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(5.dp)); Text("Restore / Merge JSON Backup")
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text("Restore / Merge JSON Backup")
                 }
             }
         }
@@ -192,7 +194,9 @@ fun SystemMaintenanceScreen(authViewModel: AuthViewModel, posViewModel: PosViewM
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(modifier = Modifier.width(5.dp)); Text("Print Diagnostic Slip")
+                Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(5.dp))
+                Text("Print Diagnostic Slip")
             }
             testMessage?.let { Text(it, color = NaomiOrange, fontSize = 9.5.sp) }
 
@@ -224,7 +228,9 @@ fun SystemMaintenanceScreen(authViewModel: AuthViewModel, posViewModel: PosViewM
         }
 
         Button(onClick = authViewModel::logout, colors = ButtonDefaults.buttonColors(containerColor = NaomiRed), modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.Lock, contentDescription = null); Spacer(modifier = Modifier.width(6.dp)); Text("Lock PDA / Sign Out", fontWeight = FontWeight.Black)
+            Icon(Icons.Default.Lock, contentDescription = null)
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("Lock PDA / Sign Out", fontWeight = FontWeight.Black)
         }
     }
 
