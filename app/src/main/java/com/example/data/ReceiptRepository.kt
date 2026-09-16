@@ -42,12 +42,25 @@ class ReceiptRepository(private val receiptDao: ReceiptDao) {
     }
 
     suspend fun voidReceipt(receiptId: String, reason: String, voidedBy: String): Boolean = withContext(Dispatchers.IO) {
-        receiptDao.voidReceipt(
-            id = receiptId,
-            reason = reason.trim(),
-            voidedAt = System.currentTimeMillis(),
-            voidedBy = voidedBy
-        ) > 0
+        receiptDao.voidReceipt(receiptId, reason.trim(), System.currentTimeMillis(), voidedBy) > 0
+    }
+
+    suspend fun restoreReceipts(receipts: List<ReceiptData>): Int = withContext(Dispatchers.IO) {
+        var restored = 0
+        for (receipt in receipts) {
+            val syncStatus = if (receipt.isBufferedOffline) "PENDING_RETRY" else "SYNCED"
+            if (receiptDao.insertReceiptIgnore(dataToEntity(receipt, syncStatus)) != -1L) restored++
+        }
+        restored
+    }
+
+    suspend fun archiveSyncedOlderThan(days: Int): Int = withContext(Dispatchers.IO) {
+        val cutoff = System.currentTimeMillis() - days.coerceAtLeast(1) * 86_400_000L
+        receiptDao.archiveSyncedBefore(cutoff)
+    }
+
+    suspend fun wipeAllReceipts(): Int = withContext(Dispatchers.IO) {
+        receiptDao.deleteAllReceipts()
     }
 
     suspend fun deleteReceipt(receiptId: String) = withContext(Dispatchers.IO) {
@@ -57,12 +70,12 @@ class ReceiptRepository(private val receiptDao: ReceiptDao) {
     private fun serializeItems(items: List<ReceiptItem>): String {
         val jsonArray = JSONArray()
         for (item in items) {
-            val obj = JSONObject()
-            obj.put("id", item.id)
-            obj.put("name", item.name)
-            obj.put("quantity", item.quantity)
-            obj.put("unitPrice", item.unitPrice)
-            jsonArray.put(obj)
+            jsonArray.put(JSONObject().apply {
+                put("id", item.id)
+                put("name", item.name)
+                put("quantity", item.quantity)
+                put("unitPrice", item.unitPrice)
+            })
         }
         return jsonArray.toString()
     }
