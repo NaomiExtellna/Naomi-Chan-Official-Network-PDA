@@ -26,10 +26,14 @@ jobs:
       - name: Verify Java and Android SDK
         shell: bash
         run: |
+          if [ -n "${JAVA_HOME_17_X64:-}" ]; then
+            export JAVA_HOME="${JAVA_HOME_17_X64}"
+            export PATH="${JAVA_HOME}/bin:${PATH}"
+          fi
           java -version
           sdkmanager --version
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-36.1" "build-tools;36.0.0"
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
       # The repository currently lacks gradlew/gradlew.bat/gradle-wrapper.jar,
       # so CI downloads the exact Gradle version declared by wrapper properties.
@@ -44,7 +48,12 @@ jobs:
 
       - name: Assemble debug APK and run unit tests
         shell: bash
-        run: /tmp/gradle-9.3.1/bin/gradle --no-daemon :app:assembleDebug :app:testDebugUnitTest
+        run: |
+          if [ -n "${JAVA_HOME_17_X64:-}" ]; then
+            export JAVA_HOME="${JAVA_HOME_17_X64}"
+            export PATH="${JAVA_HOME}/bin:${PATH}"
+          fi
+          /tmp/gradle-9.3.1/bin/gradle --no-daemon :app:assembleDebug :app:testDebugUnitTest
 
   gateway:
     name: Flask gateway tests
