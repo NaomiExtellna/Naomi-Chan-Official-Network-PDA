@@ -115,9 +115,7 @@ class EscPosBuilder(private val totalColumns: Int = 32) {
         return this
     }
 
-    /**
-     * Formats a left label and right value without ever exceeding the configured paper width.
-     */
+    /** Formats a left label and right value without exceeding the configured paper width. */
     fun twoColumns(leftText: String, rightText: String, fillChar: Char = ' '): EscPosBuilder {
         val left = printable(leftText)
         val right = printable(rightText)
@@ -155,7 +153,7 @@ class EscPosBuilder(private val totalColumns: Int = 32) {
     }
 
     fun printBitmap(bitmap: Bitmap, targetWidth: Int = 384): EscPosBuilder {
-        val safeWidth = ((targetWidth.coerceAtLeast(8)) / 8) * 8
+        val safeWidth = ((targetWidth.coerceIn(8, 384)) / 8) * 8
         val scale = safeWidth.toFloat() / bitmap.width.coerceAtLeast(1).toFloat()
         val scaledHeight = (bitmap.height * scale).toInt().coerceAtLeast(1)
 
@@ -218,6 +216,7 @@ class EscPosBuilder(private val totalColumns: Int = 32) {
         return this
     }
 
+    /** Generic ESC/POS cutter command for external printers that have a motorised cutter. */
     fun cutPaper(partial: Boolean = true): EscPosBuilder {
         feedLines(3)
         outputStream.write(if (partial) CMD_PARTIAL_CUT else CMD_FULL_CUT)
@@ -327,7 +326,9 @@ class EscPosBuilder(private val totalColumns: Int = 32) {
         textLine("Naomi-Chan(TM) DJ Sound Collective")
         textLine("Thank you for rocking with us!")
 
-        cutPaper(partial = true)
+        // SUNMI V2 handheld printers use a manual tear bar. Feed enough paper to tear cleanly,
+        // but do not send a motorised cutter command that the V2 does not provide.
+        feedLines(5)
         return build()
     }
 }
