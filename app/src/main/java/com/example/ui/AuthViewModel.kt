@@ -94,7 +94,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             when (val result = repository.registerStaff(username, displayName, credential)) {
                 is AuthResult.Success -> {
                     _state.value = _state.value.copy(
-                        message = "Staff account '${result.account.username}' registered. You can sign in now."
+                        message = "Staff account '${result.account.username}' registered and is waiting for Naomi (Admin) approval."
                     )
                 }
                 is AuthResult.Error -> _state.value = _state.value.copy(message = result.message)
@@ -137,7 +137,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val error = repository.setStaffActive(requester, staffId, active)
             _state.value = _state.value.copy(
-                message = error ?: if (active) "Staff account enabled." else "Staff account disabled."
+                message = error ?: if (active) "Staff account approved and enabled." else "Staff account disabled."
             )
         }
     }
