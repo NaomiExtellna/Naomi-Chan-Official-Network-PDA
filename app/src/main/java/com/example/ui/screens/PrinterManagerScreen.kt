@@ -1,7 +1,6 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,20 +14,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCut
-import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Usb
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -50,7 +44,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.PrinterChannel
-import com.example.model.PrinterStatus
 import com.example.printer.DiscoveredPrinter
 import com.example.ui.PosViewModel
 import com.example.ui.theme.NaomiBorder
@@ -66,12 +59,10 @@ import com.example.ui.theme.NaomiTextPrimary
 import com.example.ui.theme.NaomiTextSecondary
 
 @Composable
-fun PrinterManagerScreen(
-    viewModel: PosViewModel
-) {
+fun PrinterManagerScreen(viewModel: PosViewModel) {
     val selectedChannel by viewModel.selectedChannel.collectAsState()
     val printerStatus by viewModel.printerStatus.collectAsState()
-    val btDevices by viewModel.printerManager.bluetoothDevices.collectAsState()
+    val bluetoothDevices by viewModel.printerManager.bluetoothDevices.collectAsState()
     val usbDevices by viewModel.printerManager.usbDevices.collectAsState()
 
     LazyColumn(
@@ -82,7 +73,6 @@ fun PrinterManagerScreen(
             .testTag("printer_manager_screen"),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Active Routing Card
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = NaomiSurface),
@@ -98,23 +88,22 @@ fun PrinterManagerScreen(
                         letterSpacing = 1.sp
                     )
                     Spacer(modifier = Modifier.height(10.dp))
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        for (ch in PrinterChannel.values()) {
-                            val isSelected = selectedChannel == ch
+                        PrinterChannel.values().forEach { channel ->
+                            val selected = selectedChannel == channel
                             Surface(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .clickable { viewModel.selectChannel(ch) }
-                                    .testTag("channel_selector_${ch.name}"),
-                                color = if (isSelected) NaomiRed.copy(alpha = 0.2f) else NaomiSurfaceVariant,
+                                    .clickable { viewModel.selectChannel(channel) }
+                                    .testTag("channel_selector_${channel.name}"),
+                                color = if (selected) NaomiRed.copy(alpha = 0.2f) else NaomiSurfaceVariant,
                                 border = androidx.compose.foundation.BorderStroke(
-                                    if (isSelected) 2.dp else 1.dp,
-                                    if (isSelected) NaomiRed else NaomiBorder
+                                    if (selected) 2.dp else 1.dp,
+                                    if (selected) NaomiRed else NaomiBorder
                                 )
                             ) {
                                 Column(
@@ -122,31 +111,26 @@ fun PrinterManagerScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Icon(
-                                        imageVector = when (ch) {
+                                        imageVector = when (channel) {
                                             PrinterChannel.SUNMI_BUILTIN -> Icons.Default.Print
                                             PrinterChannel.BLUETOOTH -> Icons.Default.Bluetooth
                                             PrinterChannel.USB_OTG -> Icons.Default.Usb
                                         },
                                         contentDescription = null,
-                                        tint = if (isSelected) NaomiOrange else NaomiTextSecondary,
+                                        tint = if (selected) NaomiOrange else NaomiTextSecondary,
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = ch.displayName.split(" ").take(2).joinToString(" "),
-                                        color = if (isSelected) Color.White else NaomiTextPrimary,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        text = when (channel) {
+                                            PrinterChannel.SUNMI_BUILTIN -> "Sunmi"
+                                            PrinterChannel.BLUETOOTH -> "Bluetooth"
+                                            PrinterChannel.USB_OTG -> "USB-OTG"
+                                        },
+                                        color = if (selected) Color.White else NaomiTextPrimary,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                                         fontSize = 11.sp
                                     )
-                                    if (isSelected) {
-                                        Text(
-                                            text = "ACTIVE",
-                                            color = NaomiOrange,
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 9.sp,
-                                            modifier = Modifier.padding(top = 2.dp)
-                                        )
-                                    }
                                 }
                             }
                         }
@@ -155,273 +139,207 @@ fun PrinterManagerScreen(
             }
         }
 
-        // 1. Sunmi V2 Inner Thermal Printer Channel
         item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-                shape = RoundedCornerShape(12.dp),
-                border = if (selectedChannel == PrinterChannel.SUNMI_BUILTIN) androidx.compose.foundation.BorderStroke(1.5.dp, NaomiRed) else null,
-                modifier = Modifier.fillMaxWidth()
+            PrinterSectionCard(
+                title = "Sunmi V2 Inner Printer",
+                subtitle = "Direct AIDL service integration",
+                icon = Icons.Default.Print,
+                iconBackground = NaomiDeepRed,
+                selected = selectedChannel == PrinterChannel.SUNMI_BUILTIN
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .background(NaomiDeepRed, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Print, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = "Sunmi V2 Inner Printer",
-                                    color = NaomiTextPrimary,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
-                                Text(
-                                    text = "Direct AIDL Service Integration",
-                                    color = NaomiTextSecondary,
-                                    fontSize = 11.sp
-                                )
-                            }
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (printerStatus.isConnected) NaomiSuccess.copy(alpha = 0.2f) else NaomiError.copy(alpha = 0.2f)
-                        ) {
-                            Text(
-                                text = if (printerStatus.isConnected) "ONLINE" else "OFFLINE",
-                                color = if (printerStatus.isConnected) NaomiSuccess else NaomiError,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(printerStatus.deviceName, color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text(
+                            "Serial: ${printerStatus.serialNumber}",
+                            color = NaomiTextSecondary,
+                            fontSize = 10.sp
+                        )
                     }
+                    StatusBadge(
+                        text = if (printerStatus.isConnected) "ONLINE" else "OFFLINE",
+                        healthy = printerStatus.isConnected
+                    )
+                }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    HardwareMetric("Paper", "${printerStatus.paperRollRemainingPercent}%")
+                    HardwareMetric("Head", "${printerStatus.headTemperatureCelsius}°C")
+                    HardwareMetric("Paper state", if (printerStatus.hasPaper) "Ready" else "Empty")
+                }
 
-                    // Hardware Specifications Grid
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        HardwareMetric(label = "Hardware Model", value = printerStatus.deviceName)
-                        HardwareMetric(label = "Serial No.", value = printerStatus.serialNumber)
-                    }
+                printerStatus.lastError?.let { error ->
                     Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                    Text(error, color = NaomiError, fontSize = 11.sp)
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { viewModel.printerManager.feedPaper(3) },
+                        enabled = printerStatus.isConnected,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = NaomiTextPrimary),
+                        modifier = Modifier.weight(1f)
                     ) {
-                        HardwareMetric(label = "Paper Roll (58mm)", value = "${printerStatus.paperRollRemainingPercent}% loaded")
-                        HardwareMetric(label = "Thermal Head Temp", value = "${printerStatus.headTemperatureCelsius}°C Normal")
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Feed", fontSize = 11.sp)
                     }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Direct Hardware Commands
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    OutlinedButton(
+                        onClick = { viewModel.printerManager.cutPaper() },
+                        enabled = printerStatus.isConnected,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = NaomiTextPrimary),
+                        modifier = Modifier.weight(1f)
                     ) {
-                        OutlinedButton(
-                            onClick = { viewModel.printerManager.feedPaper(3) },
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = NaomiTextPrimary),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Feed 3L", fontSize = 11.sp)
-                        }
+                        Icon(Icons.Default.ContentCut, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Cut", fontSize = 11.sp)
+                    }
+                    Button(
+                        onClick = {
+                            viewModel.selectChannel(PrinterChannel.SUNMI_BUILTIN)
+                            viewModel.printCurrentReceipt()
+                        },
+                        enabled = printerStatus.isConnected && printerStatus.hasPaper,
+                        colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
+                        modifier = Modifier.weight(1.25f)
+                    ) {
+                        Text("Print Current", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
 
-                        OutlinedButton(
-                            onClick = { viewModel.printerManager.cutPaper() },
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = NaomiTextPrimary),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.ContentCut, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Partial Cut", fontSize = 11.sp)
-                        }
-
-                        Button(
-                            onClick = { viewModel.printCurrentReceipt() },
-                            colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                            modifier = Modifier.weight(1.2f)
-                        ) {
-                            Text("Test Print", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        item {
+            PrinterSectionCard(
+                title = "Bluetooth Thermal Printers",
+                subtitle = "RFCOMM / SPP ESC/POS output",
+                icon = Icons.Default.Bluetooth,
+                iconBackground = Color(0xFF0D47A1),
+                selected = selectedChannel == PrinterChannel.BLUETOOTH,
+                trailing = {
+                    IconButton(onClick = { viewModel.printerManager.refreshDiscoveredDevices() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh Bluetooth printers", tint = NaomiOrange)
+                    }
+                }
+            ) {
+                if (bluetoothDevices.isEmpty()) {
+                    EmptyDeviceState(
+                        "No paired Bluetooth devices found. Pair the thermal printer in Android settings, grant Bluetooth permission, then refresh."
+                    )
+                } else {
+                    bluetoothDevices.forEach { device ->
+                        DiscoveredPrinterRow(device = device) {
+                            viewModel.printerManager.selectDiscoveredPrinter(device)
+                            viewModel.selectChannel(PrinterChannel.BLUETOOTH)
                         }
                     }
                 }
             }
         }
 
-        // 2. Bluetooth Peripheral Thermal Printers
         item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-                shape = RoundedCornerShape(12.dp),
-                border = if (selectedChannel == PrinterChannel.BLUETOOTH) androidx.compose.foundation.BorderStroke(1.5.dp, NaomiRed) else null,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .background(Color(0xFF0D47A1), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Bluetooth, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = "Bluetooth External Printers",
-                                    color = NaomiTextPrimary,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
-                                Text(
-                                    text = "RFCOMM / SPP UUID Thermal Output",
-                                    color = NaomiTextSecondary,
-                                    fontSize = 11.sp
-                                )
-                            }
-                        }
-
-                        IconButton(
-                            onClick = { viewModel.printerManager.refreshDiscoveredDevices() },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Scan", tint = NaomiOrange)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    if (btDevices.isEmpty()) {
-                        Surface(
-                            color = NaomiSurfaceVariant,
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(12.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    text = "Mobile BT Thermal Printer Ready",
-                                    color = NaomiTextPrimary,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 12.sp
-                                )
-                                Text(
-                                    text = "Standard SPP (UUID 00001101-0000-1000-8000-00805F9B34FB) supported. Ready for wireless thermal printing.",
-                                    color = NaomiTextSecondary,
-                                    fontSize = 11.sp,
-                                    modifier = Modifier.padding(top = 4.dp)
-                                )
-                            }
-                        }
-                    } else {
-                        btDevices.forEach { dev ->
-                            DiscoveredPrinterRow(device = dev, isSelected = selectedChannel == PrinterChannel.BLUETOOTH) {
-                                viewModel.selectChannel(PrinterChannel.BLUETOOTH)
-                            }
-                        }
+            PrinterSectionCard(
+                title = "USB-OTG Thermal Printers",
+                subtitle = "USB printer-class bulk output",
+                icon = Icons.Default.Usb,
+                iconBackground = Color(0xFF2E7D32),
+                selected = selectedChannel == PrinterChannel.USB_OTG,
+                trailing = {
+                    IconButton(onClick = { viewModel.printerManager.refreshDiscoveredDevices() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh USB printers", tint = NaomiOrange)
                     }
                 }
-            }
-        }
-
-        // 3. USB-OTG Printer Channel
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-                shape = RoundedCornerShape(12.dp),
-                border = if (selectedChannel == PrinterChannel.USB_OTG) androidx.compose.foundation.BorderStroke(1.5.dp, NaomiRed) else null,
-                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .background(Color(0xFF2E7D32), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Usb, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = "USB-OTG Hardwired Printers",
-                                    color = NaomiTextPrimary,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
-                                Text(
-                                    text = "Host Class 7 Bulk Transfer",
-                                    color = NaomiTextSecondary,
-                                    fontSize = 11.sp
-                                )
-                            }
+                if (usbDevices.isEmpty()) {
+                    EmptyDeviceState(
+                        "No USB printer-class device detected. Connect a supported ESC/POS printer through USB-OTG, then refresh."
+                    )
+                } else {
+                    usbDevices.forEach { device ->
+                        DiscoveredPrinterRow(device = device) {
+                            viewModel.printerManager.selectDiscoveredPrinter(device)
+                            viewModel.selectChannel(PrinterChannel.USB_OTG)
                         }
-
-                        IconButton(
-                            onClick = { viewModel.printerManager.refreshDiscoveredDevices() },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Scan", tint = NaomiOrange)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Surface(
-                        color = NaomiSurfaceVariant,
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        if (!device.isBonded) {
                             Text(
-                                text = "USB Host Controller Status: Active",
-                                color = NaomiTextPrimary,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 12.sp
-                            )
-                            Text(
-                                text = "Supports ESC/POS bulk endpoints via USB-C OTG cable adapter. Automatic interface claim & transfer timeout safety.",
-                                color = NaomiTextSecondary,
-                                fontSize = 11.sp,
-                                modifier = Modifier.padding(top = 2.dp)
+                                "USB permission will be requested on the first print attempt.",
+                                color = NaomiOrange,
+                                fontSize = 10.sp,
+                                modifier = Modifier.padding(start = 10.dp, bottom = 6.dp)
                             )
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PrinterSectionCard(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconBackground: Color,
+    selected: Boolean,
+    trailing: (@Composable () -> Unit)? = null,
+    content: @Composable Column.() -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = NaomiSurface),
+        shape = RoundedCornerShape(12.dp),
+        border = if (selected) androidx.compose.foundation.BorderStroke(1.5.dp, NaomiRed) else null,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier.size(36.dp).background(iconBackground, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(title, color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(subtitle, color = NaomiTextSecondary, fontSize = 11.sp)
+                    }
+                }
+                trailing?.invoke()
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            content()
+        }
+    }
+}
+
+@Composable
+private fun StatusBadge(text: String, healthy: Boolean) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = if (healthy) NaomiSuccess.copy(alpha = 0.2f) else NaomiError.copy(alpha = 0.2f)
+    ) {
+        Text(
+            text = text,
+            color = if (healthy) NaomiSuccess else NaomiError,
+            fontWeight = FontWeight.Bold,
+            fontSize = 10.sp,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+        )
     }
 }
 
@@ -434,32 +352,45 @@ fun HardwareMetric(label: String, value: String) {
 }
 
 @Composable
-fun DiscoveredPrinterRow(
-    device: DiscoveredPrinter,
-    isSelected: Boolean,
-    onSelect: () -> Unit
-) {
+private fun EmptyDeviceState(message: String) {
+    Surface(
+        color = NaomiSurfaceVariant,
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = message,
+            color = NaomiTextSecondary,
+            fontSize = 11.sp,
+            modifier = Modifier.padding(12.dp)
+        )
+    }
+}
+
+@Composable
+fun DiscoveredPrinterRow(device: DiscoveredPrinter, onSelect: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(NaomiSurfaceVariant)
-            .clickable { onSelect() }
+            .clickable(onClick = onSelect)
             .padding(10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
-            Text(text = device.name, color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-            Text(text = device.address, color = NaomiTextSecondary, fontSize = 10.sp)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(device.name, color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            Text(device.address, color = NaomiTextSecondary, fontSize = 10.sp)
         }
+        Spacer(modifier = Modifier.width(8.dp))
         Button(
-            onClick = { onSelect() },
-            colors = ButtonDefaults.buttonColors(containerColor = if (isSelected) NaomiRed else NaomiSurface),
+            onClick = onSelect,
+            colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
             modifier = Modifier.height(32.dp)
         ) {
-            Text(if (isSelected) "Active" else "Select", fontSize = 11.sp)
+            Text("Use", fontSize = 11.sp)
         }
     }
 }
