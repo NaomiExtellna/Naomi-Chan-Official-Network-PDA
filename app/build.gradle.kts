@@ -22,7 +22,7 @@ android {
   compileSdk = 36
 
   defaultConfig {
-    applicationId = "com.aistudio.naomichan.pos"
+    applicationId = "com.naomichan.pos"
     // SUNMI V2 (T5930) runs SUNMI OS based on Android 7.1.x (API 25).
     minSdk = 24
     targetSdk = 36
