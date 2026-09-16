@@ -9,6 +9,15 @@ plugins {
   alias(libs.plugins.google.services)
 }
 
+val releaseKeystorePath = System.getenv("KEYSTORE_PATH")
+val releaseStorePassword = System.getenv("STORE_PASSWORD")
+val releaseKeyPassword = System.getenv("KEY_PASSWORD")
+val releaseKeyAlias = System.getenv("KEY_ALIAS") ?: "upload"
+val hasReleaseSigning = !releaseKeystorePath.isNullOrBlank() &&
+  !releaseStorePassword.isNullOrBlank() &&
+  !releaseKeyPassword.isNullOrBlank() &&
+  file(releaseKeystorePath).isFile
+
 android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
@@ -24,18 +33,13 @@ android {
   }
 
   signingConfigs {
-    create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
-    }
-    create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
+    if (hasReleaseSigning) {
+      create("release") {
+        storeFile = file(releaseKeystorePath!!)
+        storePassword = releaseStorePassword
+        keyAlias = releaseKeyAlias
+        keyPassword = releaseKeyPassword
+      }
     }
   }
 
@@ -44,9 +48,12 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
+      if (hasReleaseSigning) {
+        signingConfig = signingConfigs.getByName("release")
+      }
     }
-    debug { signingConfig = signingConfigs.getByName("debugConfig") }
+    // Use Android's standard per-user debug keystore. Do not require a repository-local key.
+    debug { }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
