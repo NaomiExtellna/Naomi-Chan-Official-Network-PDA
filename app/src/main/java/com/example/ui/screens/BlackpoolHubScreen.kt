@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -49,7 +50,6 @@ import androidx.compose.ui.unit.sp
 import com.example.model.BlackpoolBar
 import com.example.model.BlackpoolVenues
 import com.example.network.BlackpoolTramClient
-import com.example.network.BlackpoolTramStop
 import com.example.network.BlackpoolTramStops
 import com.example.network.TramDeparture
 import com.example.ui.PosViewModel
@@ -143,12 +143,14 @@ fun BlackpoolHubScreen(
             }
         }
 
-        when (mode) {
-            BlackpoolHubMode.VENUES -> VenueDirectory(
-                viewModel = viewModel,
-                onStartReceipt = onStartReceipt
-            )
-            BlackpoolHubMode.TRAMS -> TramBoard()
+        Box(modifier = Modifier.weight(1f)) {
+            when (mode) {
+                BlackpoolHubMode.VENUES -> VenueDirectory(
+                    viewModel = viewModel,
+                    onStartReceipt = onStartReceipt
+                )
+                BlackpoolHubMode.TRAMS -> TramBoard()
+            }
         }
     }
 }
@@ -213,7 +215,7 @@ private fun VenueDirectory(
         )
 
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(
@@ -424,7 +426,7 @@ private fun TramBoard() {
         }
 
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(
