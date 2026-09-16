@@ -301,9 +301,9 @@ class UnifiedPrinterManager(private val context: Context) {
             }
 
             service.printerInit(callback)
+            // The ESC/POS payload already includes its trailing paper feed/cut sequence.
+            // Sending AIDL lineWrap/cutPaper as well would execute those commands twice.
             service.sendRAWData(data, callback)
-            service.lineWrap(3, callback)
-            service.cutPaper(callback)
             PrintResult.Success(
                 "Receipt sent successfully to the Sunmi V2 thermal printer",
                 PrinterChannel.SUNMI_BUILTIN,
