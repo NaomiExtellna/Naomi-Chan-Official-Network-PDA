@@ -9,19 +9,24 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
+import com.example.ui.AuthViewModel
 import com.example.ui.PosViewModel
 import com.example.ui.screens.MainPosScreen
+import com.example.ui.screens.StaffAccessScreen
 import com.example.ui.theme.NaomiChanTheme
 
 class MainActivity : ComponentActivity() {
 
     private val posViewModel: PosViewModel by viewModels()
+    private val authViewModel: AuthViewModel by viewModels()
 
     private val bluetoothPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
-        // Refresh after the user grants/denies the Android 12+ Bluetooth permissions.
         posViewModel.printerManager.refreshDiscoveredDevices()
     }
 
@@ -32,7 +37,29 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             NaomiChanTheme(darkTheme = true) {
-                MainPosScreen(viewModel = posViewModel)
+                val authState by authViewModel.state.collectAsState()
+
+                if (authState.currentUser == null) {
+                    StaffAccessScreen(
+                        state = authState,
+                        onCreateAdmin = authViewModel::createNaomiAdmin,
+                        onLogin = authViewModel::login,
+                        onRegister = authViewModel::registerStaff
+                    )
+                } else {
+                    LaunchedEffect(authState.currentUser, authState.activeShift) {
+                        val user = authState.currentUser
+                        posViewModel.setOperator(
+                            displayName = user?.displayName.orEmpty(),
+                            shiftId = authState.activeShift?.id
+                        )
+                    }
+
+                    MainPosScreen(
+                        viewModel = posViewModel,
+                        authViewModel = authViewModel
+                    )
+                }
             }
         }
     }
