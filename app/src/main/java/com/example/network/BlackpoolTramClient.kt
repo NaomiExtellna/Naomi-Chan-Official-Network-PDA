@@ -80,9 +80,13 @@ object BlackpoolTramStops {
         TramStopInfo("Heathfield Road", "Fleetwood"),
         TramStopInfo("Lindel Road", "Fleetwood"),
         TramStopInfo("Stanley Road", "Fleetwood"),
-        TramStopInfo("Fishermans Walk", "Fleetwood", "Affinity / Fleetwood area"),
-        TramStopInfo("London Street", "Fleetwood"),
-        TramStopInfo("Victoria Street", "Fleetwood", "Fleetwood Market area"),
+        TramStopInfo("Fishermans Walk", "Fleetwood", "Alternative stop during London Street northbound closure"),
+        TramStopInfo(
+            "London Street",
+            "Fleetwood",
+            "RECENT LORD STREET ISSUE (11-13 Sep 2026): Lord Street reopened and full-route trams resumed to Fleetwood Ferry. London Street northbound remained closed because scaffolding obstructed the platform; use Victoria Street or Fishermans Walk. Southbound operates normally. Check Live Trams for the latest status."
+        ),
+        TramStopInfo("Victoria Street", "Fleetwood", "Alternative stop during London Street northbound closure; Fleetwood Market area"),
         TramStopInfo("Marine Hall and Gardens", "Fleetwood", "Marine Hall / seafront"),
         TramStopInfo("Fleetwood Ferry", "Fleetwood", "Northern terminus")
     )
