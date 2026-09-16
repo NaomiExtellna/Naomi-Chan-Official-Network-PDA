@@ -36,6 +36,9 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.Locale
 
 enum class PosTab(val label: String) {
     BUILDER("POS Builder"),
@@ -99,6 +102,12 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedBlackpoolArea = MutableStateFlow("All Blackpool")
     val selectedBlackpoolArea: StateFlow<String> = _selectedBlackpoolArea.asStateFlow()
 
+    private val _operatorName = MutableStateFlow("")
+    val operatorName: StateFlow<String> = _operatorName.asStateFlow()
+
+    private val _activeShiftId = MutableStateFlow<String?>(null)
+    val activeShiftId: StateFlow<String?> = _activeShiftId.asStateFlow()
+
     private val wirelessClient = WirelessFlaskClient()
     private val _wirelessServerUrl = MutableStateFlow(wirelessClient.getBaseUrl())
     val wirelessServerUrl: StateFlow<String> = _wirelessServerUrl.asStateFlow()
@@ -157,6 +166,15 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         checkWirelessConnection()
     }
 
+    fun setOperator(displayName: String, shiftId: String?) {
+        _operatorName.value = displayName.trim()
+        _activeShiftId.value = shiftId
+        _currentReceipt.value = _currentReceipt.value.copy(
+            processedBy = _operatorName.value,
+            shiftId = shiftId
+        )
+    }
+
     fun refreshRamInfo() {
         _ramInfo.value = RamInfo(
             totalMb = MemoryOptimizer.getTotalRamMb(getApplication()),
@@ -193,7 +211,9 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         _currentReceipt.value = _currentReceipt.value.copy(
             venueName = "${bar.name}, ${bar.address}",
             clientName = bar.name,
-            clientContact = bar.contact
+            clientContact = bar.contact,
+            processedBy = _operatorName.value,
+            shiftId = _activeShiftId.value
         )
         viewModelScope.launch {
             _uiMessages.emit(UiMessage.Success("Loaded Blackpool Venue: ${bar.name}"))
@@ -412,30 +432,49 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
             items = listOf(
                 ReceiptItem(name = "Standard Bar Admission", quantity = 1, unitPrice = 5.0),
                 ReceiptItem(name = "Guest DJ Track Request", quantity = 1, unitPrice = 3.0)
-            )
+            ),
+            processedBy = _operatorName.value,
+            shiftId = _activeShiftId.value
+        )
+    }
+
+    private fun withCurrentAudit(receipt: ReceiptData): ReceiptData {
+        return receipt.copy(
+            processedBy = _operatorName.value.ifBlank { receipt.processedBy },
+            shiftId = _activeShiftId.value ?: receipt.shiftId,
+            receiptStatus = if (receipt.isVoided) receipt.receiptStatus else "ACTIVE"
         )
     }
 
     private suspend fun persistSyncAndPrint(receipt: ReceiptData): PrintResult {
+        if (receipt.isVoided) {
+            return PrintResult.Error("Voided receipts cannot be printed as active transactions.", _selectedChannel.value)
+        }
+
+        val auditedReceipt = withCurrentAudit(receipt)
+        if (_currentReceipt.value.id == auditedReceipt.id) {
+            _currentReceipt.value = auditedReceipt
+        }
+
         val offline = _isOfflineSimulated.value
-        repository.saveReceipt(receipt, isOfflineBuffered = offline)
+        repository.saveReceipt(auditedReceipt, isOfflineBuffered = offline)
 
         if (!offline) {
-            val uploadedUrl = wirelessClient.broadcastReceiptToWeb(receipt)
+            val uploadedUrl = wirelessClient.broadcastReceiptToWeb(auditedReceipt)
             if (uploadedUrl != null) {
-                repository.markSynced(receipt.id)
+                repository.markSynced(auditedReceipt.id)
                 _isWirelessOnline.value = true
             } else {
-                repository.markPendingRetry(receipt.id)
+                repository.markPendingRetry(auditedReceipt.id)
                 _isWirelessOnline.value = false
             }
         }
 
-        val iconBitmap = getActiveIconBitmap(receipt)
+        val iconBitmap = getActiveIconBitmap(auditedReceipt)
         return try {
-            val result = printerManager.printReceipt(receipt, _selectedChannel.value, iconBitmap)
+            val result = printerManager.printReceipt(auditedReceipt, _selectedChannel.value, iconBitmap)
             if (result is PrintResult.Success) {
-                repository.markPrinted(receipt.id, _selectedChannel.value.hardwareCode)
+                repository.markPrinted(auditedReceipt.id, _selectedChannel.value.hardwareCode)
             }
             result
         } finally {
@@ -464,6 +503,10 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
 
     fun reprintReceipt(receipt: ReceiptData) {
         viewModelScope.launch {
+            if (receipt.isVoided) {
+                _uiMessages.emit(UiMessage.Warning("${receipt.id} is VOID and cannot be reprinted as a valid receipt."))
+                return@launch
+            }
             val iconBitmap = getActiveIconBitmap(receipt)
             val result = try {
                 printerManager.printReceipt(receipt, _selectedChannel.value, iconBitmap)
@@ -480,6 +523,101 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
+    fun voidReceipt(receipt: ReceiptData, reason: String) {
+        viewModelScope.launch {
+            if (receipt.isVoided) {
+                _uiMessages.emit(UiMessage.Warning("${receipt.id} is already voided."))
+                return@launch
+            }
+            if (reason.trim().length < 3) {
+                _uiMessages.emit(UiMessage.Error("Enter a reason before voiding the receipt."))
+                return@launch
+            }
+            val operator = _operatorName.value.ifBlank { "Unknown Staff" }
+            if (repository.voidReceipt(receipt.id, reason, operator)) {
+                _uiMessages.emit(UiMessage.Success("${receipt.id} voided by $operator. The audit record was retained."))
+            } else {
+                _uiMessages.emit(UiMessage.Error("Unable to void ${receipt.id}."))
+            }
+        }
+    }
+
+    fun prepareCorrection(receipt: ReceiptData) {
+        val replacement = receipt.copy(
+            id = generateReceiptId(),
+            createdAt = System.currentTimeMillis(),
+            isPrinted = false,
+            isBufferedOffline = false,
+            receiptStatus = "ACTIVE",
+            voidReason = null,
+            voidedAt = null,
+            voidedBy = null,
+            replacesReceiptId = receipt.id,
+            processedBy = _operatorName.value,
+            shiftId = _activeShiftId.value
+        )
+        _currentReceipt.value = replacement
+        viewModelScope.launch {
+            _uiMessages.emit(UiMessage.Warning("Correction started. New receipt ${replacement.id} replaces ${receipt.id}."))
+        }
+    }
+
+    fun exportReceiptsCsv(): String {
+        val header = "receipt_id,status,created_at,processed_by,shift_id,client,venue,payment,subtotal,tax,total,synced,void_reason,replaces_receipt\n"
+        val rows = allReceipts.value.joinToString("\n") { receipt ->
+            listOf(
+                receipt.id,
+                receipt.receiptStatus,
+                receipt.formattedDate(),
+                receipt.processedBy,
+                receipt.shiftId.orEmpty(),
+                receipt.clientName,
+                receipt.venueName,
+                receipt.paymentMethod.label,
+                String.format(Locale.UK, "%.2f", receipt.subtotal),
+                String.format(Locale.UK, "%.2f", receipt.taxAmount),
+                String.format(Locale.UK, "%.2f", receipt.grandTotal),
+                (!receipt.isBufferedOffline).toString(),
+                receipt.voidReason.orEmpty(),
+                receipt.replacesReceiptId.orEmpty()
+            ).joinToString(",") { csvCell(it) }
+        }
+        return header + rows
+    }
+
+    fun exportReceiptsJson(): String {
+        val array = JSONArray()
+        allReceipts.value.forEach { receipt ->
+            array.put(JSONObject().apply {
+                put("id", receipt.id)
+                put("status", receipt.receiptStatus)
+                put("createdAt", receipt.createdAt)
+                put("processedBy", receipt.processedBy)
+                put("shiftId", receipt.shiftId)
+                put("clientName", receipt.clientName)
+                put("clientContact", receipt.clientContact)
+                put("venueName", receipt.venueName)
+                put("gigType", receipt.gigType.name)
+                put("paymentMethod", receipt.paymentMethod.name)
+                put("subtotal", receipt.subtotal)
+                put("taxPercent", receipt.taxPercent)
+                put("grandTotal", receipt.grandTotal)
+                put("isBufferedOffline", receipt.isBufferedOffline)
+                put("voidReason", receipt.voidReason)
+                put("voidedAt", receipt.voidedAt)
+                put("voidedBy", receipt.voidedBy)
+                put("replacesReceiptId", receipt.replacesReceiptId)
+            })
+        }
+        return JSONObject().apply {
+            put("exportedAt", System.currentTimeMillis())
+            put("format", "naomi-chan-pos-backup-v1")
+            put("receipts", array)
+        }.toString(2)
+    }
+
+    private fun csvCell(value: String): String = "\"${value.replace("\"", "\"\"")}\""
 
     fun syncAllBufferedTransactions() {
         viewModelScope.launch {
@@ -530,7 +668,7 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     fun reloadPaperRoll() {
         printerManager.reloadPaper()
         viewModelScope.launch {
-            _uiMessages.emit(UiMessage.Success("58mm Thermal paper reloaded. Ready to print."))
+            _uiMessages.emit(UiMessage.Success("Printer status refreshed after checking/reloading the 58mm paper roll."))
         }
     }
 
@@ -595,7 +733,9 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
                     "Wireless Order • Naomi-Chan™ Blackpool DJ Services"
                 },
                 packageTier = PackageTier.BAR_ADMISSION,
-                iconType = if (_customIconBitmap.value != null) ReceiptIconType.CUSTOM else ReceiptIconType.NAOMI_LOGO
+                iconType = if (_customIconBitmap.value != null) ReceiptIconType.CUSTOM else ReceiptIconType.NAOMI_LOGO,
+                processedBy = _operatorName.value,
+                shiftId = _activeShiftId.value
             )
             _currentReceipt.value = loadedReceipt
 
@@ -626,7 +766,7 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
 
     fun broadcastCurrentReceiptToWeb() {
         viewModelScope.launch {
-            val receipt = _currentReceipt.value
+            val receipt = withCurrentAudit(_currentReceipt.value)
             _isWirelessSyncing.value = true
             try {
                 val url = wirelessClient.broadcastReceiptToWeb(receipt)
