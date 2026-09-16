@@ -15,9 +15,12 @@ import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
 import com.example.ui.AuthViewModel
 import com.example.ui.PosViewModel
+import com.example.ui.screens.ChangeCredentialScreen
 import com.example.ui.screens.MainPosScreen
+import com.example.ui.screens.RecoveryCodeNoticeScreen
 import com.example.ui.screens.StaffAccessScreen
 import com.example.ui.theme.NaomiChanTheme
+import com.example.util.DiagnosticLog
 
 class MainActivity : ComponentActivity() {
 
@@ -37,33 +40,48 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        DiagnosticLog.installCrashHandler(this)
         enableEdgeToEdge()
         requestBluetoothPermissionsIfNeeded()
 
         setContent {
             NaomiChanTheme(darkTheme = true) {
                 val authState by authViewModel.state.collectAsState()
+                val user = authState.currentUser
+                val recoveryCode = authState.pendingRecoveryCode
 
-                if (authState.currentUser == null) {
-                    StaffAccessScreen(
+                when {
+                    recoveryCode != null -> RecoveryCodeNoticeScreen(
+                        code = recoveryCode,
+                        onAcknowledge = authViewModel::acknowledgeRecoveryCode
+                    )
+                    user == null -> StaffAccessScreen(
                         state = authState,
                         onCreateAdmin = authViewModel::createNaomiAdmin,
                         onLogin = authViewModel::login,
-                        onRegister = authViewModel::registerStaff
+                        onRegister = authViewModel::registerStaff,
+                        onRecoverAdmin = authViewModel::recoverNaomiAdmin
                     )
-                } else {
-                    LaunchedEffect(authState.currentUser, authState.activeShift) {
-                        val user = authState.currentUser
-                        posViewModel.setOperator(
-                            displayName = user?.displayName.orEmpty(),
-                            shiftId = authState.activeShift?.id
-                        )
+                    user.mustChangeCredential -> ChangeCredentialScreen(
+                        displayName = user.displayName,
+                        onChange = authViewModel::changeOwnCredential
+                    )
+                    else -> {
+                        LaunchedEffect(user, authState.activeShift) {
+                            posViewModel.setOperator(
+                                staffId = user.id,
+                                displayName = user.displayName,
+                                shiftId = authState.activeShift?.id,
+                                isAdmin = user.isAdmin,
+                                canVoid = user.canVoid,
+                                canExport = user.canExport,
+                                canEditVenues = user.canEditVenues,
+                                canChangeGateway = user.canChangeGateway,
+                                canViewTotals = user.canViewTotals
+                            )
+                        }
+                        MainPosScreen(viewModel = posViewModel, authViewModel = authViewModel)
                     }
-
-                    MainPosScreen(
-                        viewModel = posViewModel,
-                        authViewModel = authViewModel
-                    )
                 }
             }
         }
@@ -84,18 +102,11 @@ class MainActivity : ComponentActivity() {
 
     private fun requestBluetoothPermissionsIfNeeded() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-
-        val requiredPermissions = arrayOf(
-            Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.BLUETOOTH_SCAN
-        )
+        val requiredPermissions = arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN)
         val missingPermissions = requiredPermissions.filter { permission ->
             ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED
         }
-
-        if (missingPermissions.isNotEmpty()) {
-            bluetoothPermissionLauncher.launch(missingPermissions.toTypedArray())
-        }
+        if (missingPermissions.isNotEmpty()) bluetoothPermissionLauncher.launch(missingPermissions.toTypedArray())
     }
 
     override fun onTrimMemory(level: Int) {

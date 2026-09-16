@@ -21,6 +21,9 @@ interface ReceiptDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReceipt(receipt: ReceiptEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertReceiptIgnore(receipt: ReceiptEntity): Long
+
     @Update
     suspend fun updateReceipt(receipt: ReceiptEntity)
 
@@ -33,6 +36,12 @@ interface ReceiptDao {
     @Query("UPDATE receipts SET receiptStatus = 'VOID', voidReason = :reason, voidedAt = :voidedAt, voidedBy = :voidedBy WHERE id = :id AND receiptStatus != 'VOID'")
     suspend fun voidReceipt(id: String, reason: String, voidedAt: Long, voidedBy: String): Int
 
+    @Query("UPDATE receipts SET receiptStatus = 'ARCHIVED' WHERE syncStatus = 'SYNCED' AND receiptStatus = 'ACTIVE' AND createdAt < :cutoff")
+    suspend fun archiveSyncedBefore(cutoff: Long): Int
+
     @Query("DELETE FROM receipts WHERE id = :id")
     suspend fun deleteReceipt(id: String)
+
+    @Query("DELETE FROM receipts")
+    suspend fun deleteAllReceipts(): Int
 }

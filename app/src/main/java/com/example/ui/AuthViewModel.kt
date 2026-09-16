@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.AppDatabase
+import com.example.data.AuditRepository
 import com.example.data.AuthResult
 import com.example.data.StaffAccount
 import com.example.data.StaffRepository
@@ -22,11 +23,16 @@ data class AuthUiState(
     val needsAdminSetup: Boolean = false,
     val currentUser: StaffAccount? = null,
     val activeShift: StaffShift? = null,
+    val pendingRecoveryCode: String? = null,
+    val adminGeneratedCode: String? = null,
+    val adminGeneratedCodeLabel: String? = null,
     val message: String? = null
 )
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = StaffRepository(AppDatabase.getDatabase(application).staffDao())
+    private val database = AppDatabase.getDatabase(application)
+    private val repository = StaffRepository(database.staffDao())
+    private val auditRepository = AuditRepository(database.auditDao())
 
     private val _state = MutableStateFlow(AuthUiState())
     val state: StateFlow<AuthUiState> = _state.asStateFlow()
@@ -39,13 +45,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         .map { list -> list.map { it.toModel() } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val auditEvents = auditRepository.recentEvents
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     init {
         viewModelScope.launch {
             val hasStaff = repository.hasAnyStaff()
-            _state.value = AuthUiState(
-                isLoading = false,
-                needsAdminSetup = !hasStaff
-            )
+            _state.value = AuthUiState(isLoading = false, needsAdminSetup = !hasStaff)
         }
     }
 
@@ -57,11 +63,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             when (val result = repository.createNaomiAdmin(credential)) {
                 is AuthResult.Success -> {
+                    auditRepository.log(result.account.id, result.account.displayName, "ADMIN_CREATED", result.account.username, "First-run Naomi administrator setup completed.")
                     _state.value = AuthUiState(
                         isLoading = false,
                         needsAdminSetup = false,
                         currentUser = result.account,
-                        message = "Naomi administrator account created."
+                        pendingRecoveryCode = result.generatedCode,
+                        message = "Naomi administrator account created. Save the recovery code now."
                     )
                 }
                 is AuthResult.Error -> _state.value = _state.value.copy(message = result.message)
@@ -74,13 +82,21 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             when (val result = repository.authenticate(username, credential)) {
                 is AuthResult.Success -> {
                     val shift = repository.getOpenShiftForStaff(result.account.id)
+                    auditRepository.log(result.account.id, result.account.displayName, "LOGIN_SUCCESS", result.account.username)
                     _state.value = _state.value.copy(
                         currentUser = result.account,
                         activeShift = shift,
-                        message = "Signed in as ${result.account.displayName}."
+                        message = if (result.account.mustChangeCredential) {
+                            "Temporary credential accepted. Create a new PIN/password now."
+                        } else {
+                            "Signed in as ${result.account.displayName}."
+                        }
                     )
                 }
-                is AuthResult.Error -> _state.value = _state.value.copy(message = result.message)
+                is AuthResult.Error -> {
+                    auditRepository.log(null, username.trim().ifBlank { "Unknown" }, "LOGIN_FAILED", username.trim(), result.message, "WARN")
+                    _state.value = _state.value.copy(message = result.message)
+                }
             }
         }
     }
@@ -93,8 +109,82 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             when (val result = repository.registerStaff(username, displayName, credential)) {
                 is AuthResult.Success -> {
+                    auditRepository.log(result.account.id, result.account.displayName, "STAFF_REGISTERED", result.account.username, "Account pending Naomi approval.")
+                    _state.value = _state.value.copy(message = "Staff account '${result.account.username}' registered and is waiting for Naomi (Admin) approval.")
+                }
+                is AuthResult.Error -> _state.value = _state.value.copy(message = result.message)
+            }
+        }
+    }
+
+    fun recoverNaomiAdmin(recoveryCode: String, newCredential: String, confirmation: String) {
+        if (newCredential != confirmation) {
+            _state.value = _state.value.copy(message = "PIN/password confirmation does not match.")
+            return
+        }
+        viewModelScope.launch {
+            when (val result = repository.recoverNaomiAdmin(recoveryCode, newCredential)) {
+                is AuthResult.Success -> {
+                    auditRepository.log(result.account.id, result.account.displayName, "ADMIN_RECOVERED", result.account.username, "Administrator credential reset using recovery code.", "WARN")
                     _state.value = _state.value.copy(
-                        message = "Staff account '${result.account.username}' registered and is waiting for Naomi (Admin) approval."
+                        currentUser = result.account,
+                        activeShift = repository.getOpenShiftForStaff(result.account.id),
+                        pendingRecoveryCode = result.generatedCode,
+                        message = "Admin access recovered. Your old recovery code is now invalid."
+                    )
+                }
+                is AuthResult.Error -> {
+                    auditRepository.log(null, "Recovery", "ADMIN_RECOVERY_FAILED", "naomi", result.message, "WARN")
+                    _state.value = _state.value.copy(message = result.message)
+                }
+            }
+        }
+    }
+
+    fun acknowledgeRecoveryCode() {
+        _state.value = _state.value.copy(pendingRecoveryCode = null, message = "Recovery code acknowledged.")
+    }
+
+    fun rotateAdminRecovery() {
+        val requester = _state.value.currentUser ?: return
+        viewModelScope.launch {
+            when (val result = repository.rotateAdminRecovery(requester)) {
+                is AuthResult.Success -> {
+                    auditRepository.log(requester.id, requester.displayName, "RECOVERY_CODE_ROTATED", requester.username, "A new one-time administrator recovery code was generated.", "WARN")
+                    _state.value = _state.value.copy(pendingRecoveryCode = result.generatedCode, message = "New recovery code generated. Save it securely.")
+                }
+                is AuthResult.Error -> _state.value = _state.value.copy(message = result.message)
+            }
+        }
+    }
+
+    fun changeOwnCredential(newCredential: String, confirmation: String) {
+        val user = _state.value.currentUser ?: return
+        if (newCredential != confirmation) {
+            _state.value = _state.value.copy(message = "PIN/password confirmation does not match.")
+            return
+        }
+        viewModelScope.launch {
+            when (val result = repository.changeOwnCredential(user, newCredential)) {
+                is AuthResult.Success -> {
+                    auditRepository.log(user.id, user.displayName, "CREDENTIAL_CHANGED", user.username)
+                    _state.value = _state.value.copy(currentUser = result.account, message = "PIN/password changed successfully.")
+                }
+                is AuthResult.Error -> _state.value = _state.value.copy(message = result.message)
+            }
+        }
+    }
+
+    fun resetStaffCredential(staffId: String) {
+        val requester = _state.value.currentUser ?: return
+        viewModelScope.launch {
+            when (val result = repository.resetStaffCredential(requester, staffId)) {
+                is AuthResult.Success -> {
+                    auditRepository.log(requester.id, requester.displayName, "STAFF_CREDENTIAL_RESET", result.account.username, "Temporary PIN issued; change required on next sign-in.", "WARN")
+                    _state.value = _state.value.copy(
+                        adminGeneratedCode = result.generatedCode,
+                        adminGeneratedCodeLabel = "Temporary PIN for ${result.account.displayName}",
+                        message = "Temporary PIN generated."
                     )
                 }
                 is AuthResult.Error -> _state.value = _state.value.copy(message = result.message)
@@ -102,29 +192,33 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun clearAdminGeneratedCode() {
+        _state.value = _state.value.copy(adminGeneratedCode = null, adminGeneratedCodeLabel = null)
+    }
+
     fun logout() {
-        _state.value = _state.value.copy(
-            currentUser = null,
-            activeShift = null,
-            message = null
-        )
+        val user = _state.value.currentUser
+        if (user != null) {
+            viewModelScope.launch { auditRepository.log(user.id, user.displayName, "LOGOUT", user.username) }
+        }
+        _state.value = _state.value.copy(currentUser = null, activeShift = null, pendingRecoveryCode = null, message = null)
     }
 
     fun openShift(note: String = "") {
         val user = _state.value.currentUser ?: return
         viewModelScope.launch {
             val shift = repository.openShift(user, note)
-            _state.value = _state.value.copy(
-                activeShift = shift,
-                message = "Shift opened for ${user.displayName}."
-            )
+            auditRepository.log(user.id, user.displayName, "SHIFT_OPENED", shift.id, note.trim())
+            _state.value = _state.value.copy(activeShift = shift, message = "Shift opened for ${user.displayName}.")
         }
     }
 
     fun closeShift(note: String = "") {
+        val user = _state.value.currentUser ?: return
         val shift = _state.value.activeShift ?: return
         viewModelScope.launch {
             val closed = repository.closeShift(shift, note)
+            auditRepository.log(user.id, user.displayName, "SHIFT_CLOSED", shift.id, note.trim())
             _state.value = _state.value.copy(
                 activeShift = null,
                 message = "Shift closed at ${java.text.SimpleDateFormat("HH:mm", java.util.Locale.UK).format(java.util.Date(closed.closedAt ?: 0L))}."
@@ -135,10 +229,54 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun setStaffActive(staffId: String, active: Boolean) {
         val requester = _state.value.currentUser ?: return
         viewModelScope.launch {
+            val target = staffAccounts.value.firstOrNull { it.id == staffId }
             val error = repository.setStaffActive(requester, staffId, active)
-            _state.value = _state.value.copy(
-                message = error ?: if (active) "Staff account approved and enabled." else "Staff account disabled."
-            )
+            if (error == null) {
+                auditRepository.log(requester.id, requester.displayName, if (active) "STAFF_ENABLED" else "STAFF_DISABLED", target?.username ?: staffId)
+            }
+            _state.value = _state.value.copy(message = error ?: if (active) "Staff account approved and enabled." else "Staff account disabled.")
+        }
+    }
+
+    fun unlockStaff(staffId: String) {
+        val requester = _state.value.currentUser ?: return
+        viewModelScope.launch {
+            val target = staffAccounts.value.firstOrNull { it.id == staffId }
+            val error = repository.unlockStaff(requester, staffId)
+            if (error == null) auditRepository.log(requester.id, requester.displayName, "STAFF_UNLOCKED", target?.username ?: staffId)
+            _state.value = _state.value.copy(message = error ?: "Staff login lock cleared.")
+        }
+    }
+
+    fun setStaffPermissions(
+        staffId: String,
+        canVoid: Boolean,
+        canExport: Boolean,
+        canEditVenues: Boolean,
+        canChangeGateway: Boolean,
+        canViewTotals: Boolean
+    ) {
+        val requester = _state.value.currentUser ?: return
+        viewModelScope.launch {
+            val target = staffAccounts.value.firstOrNull { it.id == staffId }
+            val error = repository.setPermissions(requester, staffId, canVoid, canExport, canEditVenues, canChangeGateway, canViewTotals)
+            if (error == null) {
+                auditRepository.log(
+                    requester.id,
+                    requester.displayName,
+                    "STAFF_PERMISSIONS_CHANGED",
+                    target?.username ?: staffId,
+                    "void=$canVoid export=$canExport venues=$canEditVenues gateway=$canChangeGateway totals=$canViewTotals"
+                )
+            }
+            _state.value = _state.value.copy(message = error ?: "Staff permissions updated.")
+        }
+    }
+
+    fun logAudit(action: String, target: String = "", details: String = "", severity: String = "INFO") {
+        val user = _state.value.currentUser
+        viewModelScope.launch {
+            auditRepository.log(user?.id, user?.displayName ?: "System", action, target, details, severity)
         }
     }
 
