@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material3.AlertDialog
@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -39,21 +40,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.PrinterChannel
-import com.example.ui.PosTab
 import com.example.ui.PosViewModel
 import com.example.ui.UiMessage
 import com.example.ui.components.NaomiHeader
 import com.example.ui.theme.NaomiDarkBg
-import com.example.ui.theme.NaomiDeepRed
 import com.example.ui.theme.NaomiOrange
 import com.example.ui.theme.NaomiRed
 import com.example.ui.theme.NaomiSurface
 import com.example.ui.theme.NaomiTextPrimary
 import com.example.ui.theme.NaomiTextSecondary
 
+private enum class MainTab {
+    RECEIPT,
+    PREVIEW,
+    BUSINESS_CARD,
+    PRINTERS,
+    HISTORY
+}
+
 @Composable
 fun MainPosScreen(viewModel: PosViewModel) {
-    val activeTab by viewModel.activeTab.collectAsState()
     val currentReceipt by viewModel.currentReceipt.collectAsState()
     val selectedChannel by viewModel.selectedChannel.collectAsState()
     val printerStatus by viewModel.printerStatus.collectAsState()
@@ -62,8 +68,10 @@ fun MainPosScreen(viewModel: PosViewModel) {
 
     val snackbarHostState = remember { SnackbarHostState() }
     var showChannelDialog by remember { mutableStateOf(false) }
+    var activeTab by remember { mutableStateOf(MainTab.RECEIPT) }
+    var receiptStep by remember { mutableIntStateOf(0) }
+    var businessCardDraft by remember { mutableStateOf(BusinessCardDraft()) }
 
-    // Listen to UI messages (print successes, errors, offline alerts)
     LaunchedEffect(Unit) {
         viewModel.uiMessages.collect { msg ->
             when (msg) {
@@ -95,28 +103,29 @@ fun MainPosScreen(viewModel: PosViewModel) {
                     .testTag("main_navigation_bar")
             ) {
                 val navItems = listOf(
-                    Triple(PosTab.BUILDER, Icons.Default.EditNote, "POS Builder"),
-                    Triple(PosTab.PREVIEW, Icons.Default.Article, "58mm Live"),
-                    Triple(PosTab.PRINTERS, Icons.Default.Print, "Printers"),
-                    Triple(PosTab.HISTORY, Icons.Default.CloudSync, "Sync Ledger")
+                    Triple(MainTab.RECEIPT, Icons.Default.EditNote, "Receipt"),
+                    Triple(MainTab.PREVIEW, Icons.Default.Article, "Preview"),
+                    Triple(MainTab.BUSINESS_CARD, Icons.Default.CreditCard, "Card"),
+                    Triple(MainTab.PRINTERS, Icons.Default.Print, "Printer"),
+                    Triple(MainTab.HISTORY, Icons.Default.CloudSync, "Ledger")
                 )
 
                 navItems.forEach { (tab, icon, label) ->
                     val isSelected = activeTab == tab
                     NavigationBarItem(
                         selected = isSelected,
-                        onClick = { viewModel.setTab(tab) },
+                        onClick = { activeTab = tab },
                         icon = {
                             Icon(
                                 imageVector = icon,
                                 contentDescription = label,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(21.dp)
                             )
                         },
                         label = {
                             Text(
                                 text = label,
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                             )
                         },
@@ -146,26 +155,32 @@ fun MainPosScreen(viewModel: PosViewModel) {
                 .padding(innerPadding)
         ) {
             when (activeTab) {
-                PosTab.BUILDER -> ReceiptBuilderScreen(
+                MainTab.RECEIPT -> ReceiptWizardScreen(
                     viewModel = viewModel,
                     receipt = currentReceipt,
-                    onNavigateToPreview = { viewModel.setTab(PosTab.PREVIEW) }
+                    step = receiptStep,
+                    onStepChange = { receiptStep = it },
+                    onNavigateToPreview = { activeTab = MainTab.PREVIEW }
                 )
-                PosTab.PREVIEW -> ThermalPreviewScreen(
+                MainTab.PREVIEW -> ThermalPreviewScreen(
                     viewModel = viewModel,
                     receipt = currentReceipt
                 )
-                PosTab.PRINTERS -> PrinterManagerScreen(
+                MainTab.BUSINESS_CARD -> BusinessCardScreen(
+                    viewModel = viewModel,
+                    draft = businessCardDraft,
+                    onDraftChange = { businessCardDraft = it }
+                )
+                MainTab.PRINTERS -> PrinterManagerScreen(
                     viewModel = viewModel
                 )
-                PosTab.HISTORY -> SyncLedgerScreen(
+                MainTab.HISTORY -> SyncLedgerScreen(
                     viewModel = viewModel
                 )
             }
         }
     }
 
-    // Quick Channel Select Dialog
     if (showChannelDialog) {
         AlertDialog(
             onDismissRequest = { showChannelDialog = false },
