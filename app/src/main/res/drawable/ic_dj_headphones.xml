@@ -1,0 +1,32 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <!-- Headband -->
+    <path
+        android:strokeColor="#101014"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:pathData="M24,56C24,30 34,18 48,18C62,18 72,30 72,56" />
+    <!-- Left Ear Cup Outer -->
+    <path
+        android:fillColor="#CF3620"
+        android:pathData="M16,50A8,16 0,0,1 32,50L32,74A8,16 0,0,1 16,74Z" />
+    <path
+        android:fillColor="#101014"
+        android:pathData="M20,54A4,12 0,0,1 28,54L28,70A4,12 0,0,1 20,70Z" />
+    <!-- Right Ear Cup Outer -->
+    <path
+        android:fillColor="#CF3620"
+        android:pathData="M64,50A8,16 0,0,1 80,50L80,74A8,16 0,0,1 64,74Z" />
+    <path
+        android:fillColor="#101014"
+        android:pathData="M68,54A4,12 0,0,1 76,54L76,70A4,12 0,0,1 68,70Z" />
+    <!-- Sound Waves in Center -->
+    <path
+        android:strokeColor="#101014"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M40,58L40,66 M44,52L44,72 M48,46L48,78 M52,52L52,72 M56,58L56,66" />
+</vector>

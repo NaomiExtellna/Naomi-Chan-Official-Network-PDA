@@ -1,0 +1,31 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <!-- Outer Vinyl Rim -->
+    <path
+        android:fillColor="#101014"
+        android:pathData="M48,4A44,44 0,1,0 48,92A44,44 0,1,0 48,4Z" />
+    <!-- Grooves -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:pathData="M48,16A32,32 0,1,0 48,80A32,32 0,1,0 48,16Z" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:pathData="M48,24A24,24 0,1,0 48,72A24,24 0,1,0 48,24Z" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:pathData="M48,32A16,16 0,1,0 48,64A16,16 0,1,0 48,32Z" />
+    <!-- Center Label -->
+    <path
+        android:fillColor="#CF3620"
+        android:pathData="M48,36A12,12 0,1,0 48,60A12,12 0,1,0 48,36Z" />
+    <!-- Center Hole -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M48,45A3,3 0,1,0 48,51A3,3 0,1,0 48,45Z" />
+</vector>

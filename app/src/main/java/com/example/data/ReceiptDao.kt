@@ -1,0 +1,35 @@
+package com.example.data
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import androidx.room.Update
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface ReceiptDao {
+    @Query("SELECT * FROM receipts ORDER BY createdAt DESC")
+    fun getAllReceipts(): Flow<List<ReceiptEntity>>
+
+    @Query("SELECT * FROM receipts WHERE syncStatus != 'SYNCED' ORDER BY createdAt ASC")
+    suspend fun getUnsyncedReceipts(): List<ReceiptEntity>
+
+    @Query("SELECT COUNT(*) FROM receipts WHERE syncStatus != 'SYNCED'")
+    fun getUnsyncedCount(): Flow<Int>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertReceipt(receipt: ReceiptEntity): Long
+
+    @Update
+    suspend fun updateReceipt(receipt: ReceiptEntity)
+
+    @Query("UPDATE receipts SET syncStatus = :status WHERE id = :id")
+    suspend fun updateSyncStatus(id: String, status: String)
+
+    @Query("UPDATE receipts SET isPrinted = :isPrinted, printedChannel = :channel WHERE id = :id")
+    suspend fun updatePrintStatus(id: String, isPrinted: Boolean, channel: String)
+
+    @Query("DELETE FROM receipts WHERE id = :id")
+    suspend fun deleteReceipt(id: String)
+}

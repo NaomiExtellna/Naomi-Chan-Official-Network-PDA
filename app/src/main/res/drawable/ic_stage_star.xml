@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <!-- Star Silhouette -->
+    <path
+        android:fillColor="#CF3620"
+        android:pathData="M48,8L59,34L88,36L65,54L73,82L48,66L23,82L31,54L8,36L37,34Z" />
+    <!-- Inner concentric star -->
+    <path
+        android:fillColor="#101014"
+        android:pathData="M48,22L54,39L72,40L57,51L62,69L48,59L34,69L39,51L24,40L42,39Z" />
+    <!-- Center white core -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M48,40A8,8 0,1,0 48,56A8,8 0,1,0 48,40Z" />
+</vector>
