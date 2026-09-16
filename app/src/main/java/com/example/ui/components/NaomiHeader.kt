@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Usb
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +48,7 @@ import com.example.ui.theme.NaomiOrange
 import com.example.ui.theme.NaomiRed
 import com.example.ui.theme.NaomiSuccess
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun NaomiHeader(
     selectedChannel: PrinterChannel,
@@ -76,10 +76,7 @@ fun NaomiHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Brand Logo & Title
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     modifier = Modifier
                         .size(44.dp)
@@ -121,14 +118,13 @@ fun NaomiHeader(
                         }
                     }
                     Text(
-                        text = "Sunmi V2 Native • 58mm Thermal Engine",
+                        text = "SUNMI V2 • Built-in ${printerStatus.paperWidthMm}mm Thermal",
                         color = Color.White.copy(alpha = 0.85f),
                         fontSize = 11.sp
                     )
                 }
             }
 
-            // Connection Channel Selector Pill
             Surface(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
@@ -141,7 +137,7 @@ fun NaomiHeader(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     val (channelIcon, channelLabel) = when (selectedChannel) {
-                        PrinterChannel.SUNMI_BUILTIN -> Pair(Icons.Default.Print, "Sunmi V2")
+                        PrinterChannel.SUNMI_BUILTIN -> Pair(Icons.Default.Print, "SUNMI V2")
                         PrinterChannel.BLUETOOTH -> Pair(Icons.Default.Bluetooth, "BT Thermal")
                         PrinterChannel.USB_OTG -> Pair(Icons.Default.Usb, "USB-OTG")
                     }
@@ -165,19 +161,15 @@ fun NaomiHeader(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Hardware Status & Sync Pills Row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Paper status
             if (!printerStatus.hasPaper) {
                 Surface(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { onReloadPaper() }
-                        .testTag("out_of_paper_banner"),
+                    modifier = Modifier.testTag("out_of_paper_banner"),
+                    shape = RoundedCornerShape(12.dp),
                     color = NaomiError
                 ) {
                     Row(
@@ -192,7 +184,7 @@ fun NaomiHeader(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "NO PAPER! Tap to reload",
+                            text = "NO PAPER — reload 58mm roll",
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp
@@ -211,11 +203,14 @@ fun NaomiHeader(
                         Box(
                             modifier = Modifier
                                 .size(8.dp)
-                                .background(NaomiSuccess, CircleShape)
+                                .background(
+                                    if (printerStatus.isConnected) NaomiSuccess else NaomiError,
+                                    CircleShape
+                                )
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Roll: ${printerStatus.paperRollRemainingPercent}%",
+                            text = if (printerStatus.isConnected) "58mm Paper Ready" else "Printer Offline",
                             color = Color.White,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium
@@ -224,13 +219,12 @@ fun NaomiHeader(
                 }
             }
 
-            // Head temp
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = Color.White.copy(alpha = 0.15f)
             ) {
                 Text(
-                    text = "${printerStatus.headTemperatureCelsius}°C",
+                    text = printerStateLabel(printerStatus),
                     color = Color.White,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
@@ -240,7 +234,6 @@ fun NaomiHeader(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Offline Sync Mode Toggle Pill
             Surface(
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
@@ -260,7 +253,11 @@ fun NaomiHeader(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (isOfflineSimulated) "Offline ($unsyncedCount buffered)" else if (unsyncedCount > 0) "$unsyncedCount unsynced" else "Cloud Sync",
+                        text = when {
+                            isOfflineSimulated -> "Offline ($unsyncedCount buffered)"
+                            unsyncedCount > 0 -> "$unsyncedCount unsynced"
+                            else -> "Gateway Sync"
+                        },
                         color = Color.White,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold
@@ -269,4 +266,12 @@ fun NaomiHeader(
             }
         }
     }
+}
+
+private fun printerStateLabel(status: PrinterStatus): String = when {
+    status.isCoverOpen -> "Cover Open"
+    status.isOverheated -> "Overheated"
+    status.statusCode == 2 -> "Preparing"
+    status.isConnected -> "Printer Ready"
+    else -> "Printer Offline"
 }

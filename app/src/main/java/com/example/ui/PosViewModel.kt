@@ -21,6 +21,7 @@ import com.example.model.ReceiptData
 import com.example.model.ReceiptIconType
 import com.example.model.ReceiptItem
 import com.example.model.WirelessOrder
+import com.example.model.generateReceiptId
 import com.example.network.WirelessFlaskClient
 import com.example.printer.PrintResult
 import com.example.printer.UnifiedPrinterManager
@@ -35,7 +36,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 enum class PosTab(val label: String) {
     BUILDER("POS Builder"),
@@ -77,7 +77,6 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiMessages = MutableSharedFlow<UiMessage>()
     val uiMessages: SharedFlow<UiMessage> = _uiMessages.asSharedFlow()
 
-    // RAM Status tracking for <1GB devices
     private val _ramInfo = MutableStateFlow(
         RamInfo(
             totalMb = MemoryOptimizer.getTotalRamMb(application),
@@ -88,24 +87,20 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     )
     val ramInfo: StateFlow<RamInfo> = _ramInfo.asStateFlow()
 
-    // Custom Icon Bitmap
     private val _customIconBitmap = MutableStateFlow<Bitmap?>(null)
     val customIconBitmap: StateFlow<Bitmap?> = _customIconBitmap.asStateFlow()
 
     private var cachedLogoBitmap: Bitmap? = null
-
     private val customLogoFile = java.io.File(application.filesDir, "custom_receipt_logo.png")
 
-    // Blackpool Venues Filter & Search State
     private val _blackpoolSearchQuery = MutableStateFlow("")
     val blackpoolSearchQuery: StateFlow<String> = _blackpoolSearchQuery.asStateFlow()
 
     private val _selectedBlackpoolArea = MutableStateFlow("All Blackpool")
     val selectedBlackpoolArea: StateFlow<String> = _selectedBlackpoolArea.asStateFlow()
 
-    // Wireless Flask Web App Gateway State
     private val wirelessClient = WirelessFlaskClient()
-    private val _wirelessServerUrl = MutableStateFlow("http://10.0.2.2:5000")
+    private val _wirelessServerUrl = MutableStateFlow(wirelessClient.getBaseUrl())
     val wirelessServerUrl: StateFlow<String> = _wirelessServerUrl.asStateFlow()
 
     private val _isWirelessOnline = MutableStateFlow(false)
@@ -134,18 +129,16 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
             0
         )
 
-        // Memory-lean default brand logo decode using RGB_565 and sampled dimensions
         try {
             cachedLogoBitmap = MemoryOptimizer.decodeSampledBitmap(
                 application,
                 R.drawable.img_naomi_logo,
                 maxDimension = 320
             )
-        } catch (e: Exception) {
-            // fallback gracefully
+        } catch (_: Exception) {
+            // Printing can continue without a raster logo.
         }
 
-        // Restore custom uploaded logo if previously saved by the user
         if (customLogoFile.exists()) {
             try {
                 val savedBmp = android.graphics.BitmapFactory.decodeFile(customLogoFile.absolutePath)
@@ -156,12 +149,11 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
                         customIconUri = customLogoFile.absolutePath
                     )
                 }
-            } catch (e: Exception) {
-                // Ignore fallback
+            } catch (_: Exception) {
+                // Fall back to the bundled logo.
             }
         }
 
-        // Initialize connection to Wireless Flask Gateway
         checkWirelessConnection()
     }
 
@@ -176,22 +168,19 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearMemoryBuffers() {
         printerManager.clearBuffers()
-        System.gc()
         refreshRamInfo()
         viewModelScope.launch {
-            _uiMessages.emit(UiMessage.Success("Low-RAM buffer purged. Garbage collection completed."))
+            _uiMessages.emit(UiMessage.Success("Low-RAM print buffers cleared."))
         }
     }
 
     fun onTrimMemory(level: Int) {
         if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
             printerManager.clearBuffers()
-            System.gc()
             refreshRamInfo()
         }
     }
 
-    // Blackpool Bar Selection and Search
     fun setBlackpoolSearch(query: String) {
         _blackpoolSearchQuery.value = query
     }
@@ -211,7 +200,6 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Icon handling & Custom Logo Upload
     fun selectIconType(type: ReceiptIconType) {
         _currentReceipt.value = _currentReceipt.value.copy(iconType = type)
     }
@@ -222,19 +210,18 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
             if (bmp != null) {
                 _customIconBitmap.value?.recycle()
                 _customIconBitmap.value = bmp
-                // Save to disk for persistence across restarts
                 try {
                     java.io.FileOutputStream(customLogoFile).use { out ->
                         bmp.compress(Bitmap.CompressFormat.PNG, 95, out)
                     }
-                } catch (e: Exception) {
-                    // Ignore persistence failure
+                } catch (_: Exception) {
+                    // The in-memory image can still be used for this session.
                 }
                 _currentReceipt.value = _currentReceipt.value.copy(
                     iconType = ReceiptIconType.CUSTOM,
-                    customIconUri = uri.toString()
+                    customIconUri = customLogoFile.absolutePath
                 )
-                _uiMessages.emit(UiMessage.Success("Custom logo uploaded & saved for all 58mm thermal receipts!"))
+                _uiMessages.emit(UiMessage.Success("Custom logo uploaded and saved for thermal receipts."))
             } else {
                 _uiMessages.emit(UiMessage.Error("Failed to decode image. Please pick another photo."))
             }
@@ -268,7 +255,10 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Free Event toggles
+    private fun shouldRecycleAfterPrint(bitmap: Bitmap?): Boolean {
+        return bitmap != null && bitmap !== cachedLogoBitmap && bitmap !== _customIconBitmap.value
+    }
+
     fun toggleFreeEvent(enabled: Boolean) {
         if (enabled) {
             _currentReceipt.value = _currentReceipt.value.copy(
@@ -277,9 +267,7 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
                 paymentMethod = PaymentMethod.FREE_PASS,
                 taxPercent = 0.0,
                 discountPercent = 0.0,
-                items = listOf(
-                    ReceiptItem(name = "Free Community Event Pass", quantity = 1, unitPrice = 0.0)
-                )
+                items = listOf(ReceiptItem(name = "Free Community Event Pass", quantity = 1, unitPrice = 0.0))
             )
             viewModelScope.launch {
                 _uiMessages.emit(UiMessage.Success("Free Event mode enabled! Admission is £0.00."))
@@ -335,13 +323,16 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
 
     fun toggleOfflineSimulation() {
         _isOfflineSimulated.value = !_isOfflineSimulated.value
-        val state = if (_isOfflineSimulated.value) "OFFLINE MODE: Transactions buffered locally in Room DB" else "ONLINE: Auto-sync connected"
+        val state = if (_isOfflineSimulated.value) {
+            "OFFLINE MODE: Transactions will remain buffered locally"
+        } else {
+            "ONLINE MODE: Gateway sync enabled"
+        }
         viewModelScope.launch {
             _uiMessages.emit(UiMessage.Warning(state))
         }
     }
 
-    // Receipt editing
     fun updateClientName(name: String) {
         _currentReceipt.value = _currentReceipt.value.copy(clientName = name)
     }
@@ -385,7 +376,9 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         _currentReceipt.value = _currentReceipt.value.copy(
             packageTier = tier,
             items = currentItems,
-            isFreeEvent = tier == PackageTier.FREE_ADMISSION
+            isFreeEvent = tier == PackageTier.FREE_ADMISSION,
+            paymentMethod = if (tier == PackageTier.FREE_ADMISSION) PaymentMethod.FREE_PASS else _currentReceipt.value.paymentMethod,
+            taxPercent = if (tier == PackageTier.FREE_ADMISSION) 0.0 else _currentReceipt.value.taxPercent
         )
     }
 
@@ -396,19 +389,19 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun removeLineItem(itemId: String) {
-        val currentItems = _currentReceipt.value.items.filterNot { it.id == itemId }
-        _currentReceipt.value = _currentReceipt.value.copy(items = currentItems)
+        _currentReceipt.value = _currentReceipt.value.copy(
+            items = _currentReceipt.value.items.filterNot { it.id == itemId }
+        )
     }
 
     fun updateTaxPercent(tax: Double) {
-        _currentReceipt.value = _currentReceipt.value.copy(taxPercent = tax)
+        _currentReceipt.value = _currentReceipt.value.copy(taxPercent = tax.coerceIn(0.0, 100.0))
     }
 
     fun resetNewReceipt() {
-        val newId = "NC-" + (100000 + (Math.random() * 900000).toInt())
         val defaultBar = BlackpoolVenues.ALL_BARS.first()
         _currentReceipt.value = ReceiptData(
-            id = newId,
+            id = generateReceiptId(),
             clientName = defaultBar.name,
             clientContact = defaultBar.contact,
             venueName = "${defaultBar.name}, ${defaultBar.address}",
@@ -423,61 +416,109 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    private suspend fun persistSyncAndPrint(receipt: ReceiptData): PrintResult {
+        val offline = _isOfflineSimulated.value
+        repository.saveReceipt(receipt, isOfflineBuffered = offline)
+
+        if (!offline) {
+            val uploadedUrl = wirelessClient.broadcastReceiptToWeb(receipt)
+            if (uploadedUrl != null) {
+                repository.markSynced(receipt.id)
+                _isWirelessOnline.value = true
+            } else {
+                repository.markPendingRetry(receipt.id)
+                _isWirelessOnline.value = false
+            }
+        }
+
+        val iconBitmap = getActiveIconBitmap(receipt)
+        return try {
+            val result = printerManager.printReceipt(receipt, _selectedChannel.value, iconBitmap)
+            if (result is PrintResult.Success) {
+                repository.markPrinted(receipt.id, _selectedChannel.value.hardwareCode)
+            }
+            result
+        } finally {
+            if (shouldRecycleAfterPrint(iconBitmap) && iconBitmap?.isRecycled == false) {
+                iconBitmap.recycle()
+            }
+        }
+    }
+
+    private suspend fun emitPrintResult(result: PrintResult, successPrefix: String? = null) {
+        when (result) {
+            is PrintResult.Success -> {
+                val message = successPrefix ?: result.message
+                _uiMessages.emit(UiMessage.Success(message))
+            }
+            is PrintResult.OutOfPaper -> _uiMessages.emit(UiMessage.Error(result.message))
+            is PrintResult.Error -> _uiMessages.emit(UiMessage.Error(result.errorReason))
+        }
+    }
+
     fun printCurrentReceipt() {
         viewModelScope.launch {
-            val receipt = _currentReceipt.value
-            val isOffline = _isOfflineSimulated.value
-
-            // 1. Save to Room database (buffered or direct)
-            repository.saveReceipt(receipt, isOfflineBuffered = isOffline)
-
-            // 2. Dispatch print job to selected printer channel
-            val iconBitmap = getActiveIconBitmap(receipt)
-            val result = printerManager.printReceipt(receipt, _selectedChannel.value, iconBitmap)
-
-            when (result) {
-                is PrintResult.Success -> {
-                    repository.markPrinted(receipt.id, _selectedChannel.value.hardwareCode)
-                    _uiMessages.emit(UiMessage.Success(result.message))
-                }
-                is PrintResult.OutOfPaper -> {
-                    _uiMessages.emit(UiMessage.Error(result.message))
-                }
-                is PrintResult.Error -> {
-                    _uiMessages.emit(UiMessage.Error(result.errorReason))
-                }
-            }
+            emitPrintResult(persistSyncAndPrint(_currentReceipt.value))
         }
     }
 
     fun reprintReceipt(receipt: ReceiptData) {
         viewModelScope.launch {
             val iconBitmap = getActiveIconBitmap(receipt)
-            val result = printerManager.printReceipt(receipt, _selectedChannel.value, iconBitmap)
-            when (result) {
-                is PrintResult.Success -> {
-                    repository.markPrinted(receipt.id, _selectedChannel.value.hardwareCode)
-                    _uiMessages.emit(UiMessage.Success("Reprinted ${receipt.id} successfully!"))
+            val result = try {
+                printerManager.printReceipt(receipt, _selectedChannel.value, iconBitmap)
+            } finally {
+                if (shouldRecycleAfterPrint(iconBitmap) && iconBitmap?.isRecycled == false) {
+                    iconBitmap.recycle()
                 }
-                is PrintResult.OutOfPaper -> {
-                    _uiMessages.emit(UiMessage.Error(result.message))
-                }
-                is PrintResult.Error -> {
-                    _uiMessages.emit(UiMessage.Error(result.errorReason))
-                }
+            }
+            if (result is PrintResult.Success) {
+                repository.markPrinted(receipt.id, _selectedChannel.value.hardwareCode)
+                _uiMessages.emit(UiMessage.Success("Reprinted ${receipt.id} successfully!"))
+            } else {
+                emitPrintResult(result)
             }
         }
     }
 
     fun syncAllBufferedTransactions() {
         viewModelScope.launch {
+            if (_isOfflineSimulated.value) {
+                _uiMessages.emit(UiMessage.Warning("Disable offline mode before synchronizing buffered receipts."))
+                return@launch
+            }
+
             _isSyncing.value = true
-            val result = repository.syncBufferedReceipts()
-            _isSyncing.value = false
-            result.onSuccess { count ->
-                _uiMessages.emit(UiMessage.Success("Synchronized $count offline buffered transactions with Naomi Cloud!"))
-            }.onFailure { err ->
-                _uiMessages.emit(UiMessage.Error("Sync failed: ${err.message}"))
+            try {
+                val pending = repository.getUnsyncedReceipts()
+                if (pending.isEmpty()) {
+                    _uiMessages.emit(UiMessage.Success("No buffered receipts are waiting to sync."))
+                    return@launch
+                }
+
+                var synced = 0
+                var failed = 0
+                for (receipt in pending) {
+                    val uploadedUrl = wirelessClient.broadcastReceiptToWeb(receipt)
+                    if (uploadedUrl != null) {
+                        repository.markSynced(receipt.id)
+                        synced++
+                    } else {
+                        repository.markPendingRetry(receipt.id)
+                        failed++
+                    }
+                }
+
+                _isWirelessOnline.value = failed == 0
+                if (failed == 0) {
+                    _uiMessages.emit(UiMessage.Success("Synchronized $synced buffered receipt(s) with the wireless gateway."))
+                } else {
+                    _uiMessages.emit(UiMessage.Warning("Synchronized $synced receipt(s); $failed remain queued for retry."))
+                }
+            } catch (e: Exception) {
+                _uiMessages.emit(UiMessage.Error("Sync failed: ${e.message ?: "unknown error"}"))
+            } finally {
+                _isSyncing.value = false
             }
         }
     }
@@ -493,32 +534,48 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Wireless Flask Web App Gateway Management
     fun setWirelessServerUrl(url: String) {
-        _wirelessServerUrl.value = url
-        wirelessClient.updateBaseUrl(url)
-        checkWirelessConnection()
+        if (wirelessClient.updateBaseUrl(url)) {
+            _wirelessServerUrl.value = wirelessClient.getBaseUrl()
+            checkWirelessConnection()
+        } else {
+            viewModelScope.launch {
+                _uiMessages.emit(UiMessage.Error("Invalid wireless gateway URL."))
+            }
+        }
     }
 
     fun checkWirelessConnection() {
         viewModelScope.launch {
             _isWirelessSyncing.value = true
-            val online = wirelessClient.checkServerStatus()
-            _isWirelessOnline.value = online
-            if (online) {
-                val orders = wirelessClient.fetchPendingOrders()
-                _pendingWirelessOrders.value = orders
+            try {
+                val online = wirelessClient.checkServerStatus()
+                _isWirelessOnline.value = online
+                _pendingWirelessOrders.value = if (online) {
+                    wirelessClient.fetchPendingOrders()
+                } else {
+                    emptyList()
+                }
+            } finally {
+                _isWirelessSyncing.value = false
             }
-            _isWirelessSyncing.value = false
         }
     }
 
     fun fetchPendingWirelessOrders() {
         viewModelScope.launch {
             _isWirelessSyncing.value = true
-            val orders = wirelessClient.fetchPendingOrders()
-            _pendingWirelessOrders.value = orders
-            _isWirelessSyncing.value = false
+            try {
+                if (wirelessClient.checkServerStatus()) {
+                    _isWirelessOnline.value = true
+                    _pendingWirelessOrders.value = wirelessClient.fetchPendingOrders()
+                } else {
+                    _isWirelessOnline.value = false
+                    _pendingWirelessOrders.value = emptyList()
+                }
+            } finally {
+                _isWirelessSyncing.value = false
+            }
         }
     }
 
@@ -532,19 +589,38 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
                 items = order.items,
                 paymentMethod = order.paymentMethod,
                 taxPercent = order.taxPercent,
-                footerNotes = if (order.notes.isNotBlank()) order.notes else "Wireless Order • Naomi-Chan™ Blackpool DJ Services",
+                footerNotes = if (order.notes.isNotBlank()) {
+                    order.notes
+                } else {
+                    "Wireless Order • Naomi-Chan™ Blackpool DJ Services"
+                },
                 packageTier = PackageTier.BAR_ADMISSION,
                 iconType = if (_customIconBitmap.value != null) ReceiptIconType.CUSTOM else ReceiptIconType.NAOMI_LOGO
             )
             _currentReceipt.value = loadedReceipt
 
-            // Mark order as printed on the Flask wireless gateway
-            wirelessClient.markOrderPrinted(order.id)
-            fetchPendingWirelessOrders()
-
-            // Automatically print to hardware thermal printer
-            printCurrentReceipt()
-            _uiMessages.emit(UiMessage.Success("Wireless order ${order.id} loaded and printed on thermal paper!"))
+            val printResult = persistSyncAndPrint(loadedReceipt)
+            when (printResult) {
+                is PrintResult.Success -> {
+                    val acknowledged = wirelessClient.markOrderPrinted(order.id)
+                    if (acknowledged) {
+                        _pendingWirelessOrders.value = wirelessClient.fetchPendingOrders()
+                        _uiMessages.emit(UiMessage.Success("Wireless order ${order.id} printed and acknowledged by the gateway."))
+                    } else {
+                        _uiMessages.emit(
+                            UiMessage.Warning(
+                                "Order ${order.id} printed locally, but the gateway status update failed. It remains pending for safety."
+                            )
+                        )
+                    }
+                }
+                is PrintResult.OutOfPaper -> _uiMessages.emit(
+                    UiMessage.Error("Order ${order.id} was NOT marked printed: ${printResult.message}")
+                )
+                is PrintResult.Error -> _uiMessages.emit(
+                    UiMessage.Error("Order ${order.id} was NOT marked printed: ${printResult.errorReason}")
+                )
+            }
         }
     }
 
@@ -552,12 +628,19 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val receipt = _currentReceipt.value
             _isWirelessSyncing.value = true
-            val url = wirelessClient.broadcastReceiptToWeb(receipt)
-            _isWirelessSyncing.value = false
-            if (url != null) {
-                _uiMessages.emit(UiMessage.Success("Receipt sent wirelessly to Web Gateway! View at $url"))
-            } else {
-                _uiMessages.emit(UiMessage.Error("Failed to broadcast receipt to wireless server"))
+            try {
+                val url = wirelessClient.broadcastReceiptToWeb(receipt)
+                if (url != null) {
+                    repository.markSynced(receipt.id)
+                    _isWirelessOnline.value = true
+                    _uiMessages.emit(UiMessage.Success("Receipt sent to the Web Gateway. View at $url"))
+                } else {
+                    repository.markPendingRetry(receipt.id)
+                    _isWirelessOnline.value = false
+                    _uiMessages.emit(UiMessage.Error("Failed to broadcast receipt to wireless server"))
+                }
+            } finally {
+                _isWirelessSyncing.value = false
             }
         }
     }
@@ -572,4 +655,3 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         printerManager.cleanup()
     }
 }
-

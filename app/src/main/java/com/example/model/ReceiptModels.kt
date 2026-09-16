@@ -7,6 +7,8 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
+fun generateReceiptId(): String = "NC-${UUID.randomUUID().toString().take(8).uppercase(Locale.ROOT)}"
+
 enum class GigType(val label: String, val iconName: String) {
     CLUB_NIGHT("Club Night / Residency", "Nightlife"),
     FREE_COMMUNITY("Free Community Showcase", "Community"),
@@ -47,7 +49,7 @@ enum class ReceiptIconType(val label: String, val description: String, val drawa
 }
 
 enum class PrinterChannel(val displayName: String, val hardwareCode: String) {
-    SUNMI_BUILTIN("Sunmi V2 Built-in Thermal", "SUNMI_V2"),
+    SUNMI_BUILTIN("SUNMI V2 Built-in Thermal", "SUNMI_V2"),
     BLUETOOTH("Bluetooth Thermal Printer", "BT_SPP"),
     USB_OTG("USB-OTG Thermal Printer", "USB_RAW")
 }
@@ -73,12 +75,12 @@ data class WirelessOrder(
     val grandTotal: Double = 0.0,
     val paymentMethod: PaymentMethod = PaymentMethod.CARD_TERMINAL,
     val notes: String = "",
-    val status: String = "PENDING", // PENDING, PRINTED
+    val status: String = "PENDING",
     val createdAt: Long = System.currentTimeMillis()
 )
 
 data class ReceiptData(
-    val id: String = "NC-" + (100000 + (Math.random() * 900000).toInt()),
+    val id: String = generateReceiptId(),
     val clientName: String = "The Flying Handbag",
     val clientContact: String = "01253 624519",
     val gigType: GigType = GigType.CLUB_NIGHT,
@@ -132,14 +134,15 @@ data class RamInfo(
 
 data class PrinterStatus(
     val channel: PrinterChannel = PrinterChannel.SUNMI_BUILTIN,
-    val isConnected: Boolean = true,
+    val isConnected: Boolean = false,
     val isPrinting: Boolean = false,
     val hasPaper: Boolean = true,
     val isCoverOpen: Boolean = false,
     val isOverheated: Boolean = false,
-    val deviceName: String = "Sunmi V2 Inner Thermal (58mm)",
-    val serialNumber: String = "V2P-8839-NC01",
-    val headTemperatureCelsius: Int = 38,
-    val paperRollRemainingPercent: Int = 85,
+    val deviceName: String = "SUNMI V2 (T5930) Built-in 58mm",
+    val serialNumber: String = "Unknown",
+    val paperWidthMm: Int = 58,
+    val statusCode: Int? = null,
+    val serviceVersion: String? = null,
     val lastError: String? = null
 )

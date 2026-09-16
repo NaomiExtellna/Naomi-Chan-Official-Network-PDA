@@ -1,0 +1,82 @@
+name: PDA CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Android build and unit tests
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout source without reusable actions
+        shell: bash
+        run: |
+          git init .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin "${SOURCE_SHA}"
+          git checkout --detach FETCH_HEAD
+
+      - name: Verify Java and Android SDK
+        shell: bash
+        run: |
+          if [ -n "${JAVA_HOME_17_X64:-}" ]; then
+            export JAVA_HOME="${JAVA_HOME_17_X64}"
+            export PATH="${JAVA_HOME}/bin:${PATH}"
+          fi
+          java -version
+          sdkmanager --version
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      # The repository currently lacks gradlew/gradlew.bat/gradle-wrapper.jar,
+      # so CI downloads the exact Gradle version declared by wrapper properties.
+      - name: Install Gradle 9.3.1
+        shell: bash
+        run: |
+          curl --fail --location --retry 3 \
+            https://services.gradle.org/distributions/gradle-9.3.1-bin.zip \
+            --output /tmp/gradle-9.3.1-bin.zip
+          unzip -q /tmp/gradle-9.3.1-bin.zip -d /tmp
+          /tmp/gradle-9.3.1/bin/gradle --version
+
+      - name: Assemble debug APK and run unit tests
+        shell: bash
+        run: |
+          if [ -n "${JAVA_HOME_17_X64:-}" ]; then
+            export JAVA_HOME="${JAVA_HOME_17_X64}"
+            export PATH="${JAVA_HOME}/bin:${PATH}"
+          fi
+          /tmp/gradle-9.3.1/bin/gradle --no-daemon :app:assembleDebug :app:testDebugUnitTest
+
+  gateway:
+    name: Flask gateway tests
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout source without reusable actions
+        shell: bash
+        run: |
+          git init .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin "${SOURCE_SHA}"
+          git checkout --detach FETCH_HEAD
+
+      - name: Install gateway dependencies
+        shell: bash
+        run: |
+          python3 --version
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r flask_app/requirements.txt
+
+      - name: Run gateway regression tests
+        shell: bash
+        working-directory: flask_app
+        run: python3 -m unittest -v test_app.py
