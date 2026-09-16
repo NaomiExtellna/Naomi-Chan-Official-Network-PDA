@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Button
@@ -45,6 +46,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,7 +58,11 @@ import androidx.compose.ui.unit.sp
 import com.example.data.StaffAccount
 import com.example.data.StaffShift
 import com.example.model.PaymentMethod
+import com.example.model.PrinterChannel
+import com.example.model.PrinterStatus
 import com.example.model.ReceiptData
+import com.example.printer.PrintResult
+import com.example.printer.printPrinterDiagnosticSlip
 import com.example.ui.AuthViewModel
 import com.example.ui.PosViewModel
 import com.example.ui.theme.NaomiBorder
@@ -68,6 +74,7 @@ import com.example.ui.theme.NaomiSurface
 import com.example.ui.theme.NaomiSurfaceVariant
 import com.example.ui.theme.NaomiTextPrimary
 import com.example.ui.theme.NaomiTextSecondary
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -85,6 +92,7 @@ fun OperationsScreen(
     val shiftHistory by authViewModel.shiftHistory.collectAsState()
     val receipts by posViewModel.allReceipts.collectAsState()
     val printerStatus by posViewModel.printerStatus.collectAsState()
+    val selectedChannel by posViewModel.selectedChannel.collectAsState()
     val unsyncedCount by posViewModel.unsyncedCount.collectAsState()
     val ramInfo by posViewModel.ramInfo.collectAsState()
     val gatewayOnline by posViewModel.isWirelessOnline.collectAsState()
@@ -149,8 +157,9 @@ fun OperationsScreen(
             )
             OpsMode.SYSTEM -> SystemPanel(
                 posViewModel = posViewModel,
-                printerConnected = printerStatus.isConnected,
-                printerName = printerStatus.deviceName,
+                printerStatus = printerStatus,
+                selectedChannel = selectedChannel,
+                operatorName = user.displayName,
                 gatewayOnline = gatewayOnline,
                 gatewayUrl = gatewayUrl,
                 unsyncedCount = unsyncedCount,
@@ -402,8 +411,9 @@ private fun StaffPanel(
 @Composable
 private fun SystemPanel(
     posViewModel: PosViewModel,
-    printerConnected: Boolean,
-    printerName: String,
+    printerStatus: PrinterStatus,
+    selectedChannel: PrinterChannel,
+    operatorName: String,
     gatewayOnline: Boolean,
     gatewayUrl: String,
     unsyncedCount: Int,
@@ -412,6 +422,8 @@ private fun SystemPanel(
     onLogout: () -> Unit
 ) {
     var gatewayDraft by remember(gatewayUrl) { mutableStateOf(gatewayUrl) }
+    var printerTestMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -423,7 +435,7 @@ private fun SystemPanel(
         CardBlock("System Diagnostics", "Useful information when troubleshooting the PDA.") {
             SummaryLine("Device", "${Build.MANUFACTURER} ${Build.MODEL}")
             SummaryLine("Android", "${Build.VERSION.RELEASE} / API ${Build.VERSION.SDK_INT}")
-            SummaryLine("Printer", if (printerConnected) "Connected • $printerName" else "Offline • $printerName")
+            SummaryLine("Printer", if (printerStatus.isConnected) "Connected • ${printerStatus.deviceName}" else "Offline • ${printerStatus.deviceName}")
             SummaryLine("Gateway", if (gatewayOnline) "Online" else "Offline")
             SummaryLine("Unsynced receipts", unsyncedCount.toString())
             SummaryLine("Memory", ramText)
@@ -432,11 +444,40 @@ private fun SystemPanel(
                 onClick = {
                     posViewModel.refreshRamInfo()
                     posViewModel.checkWirelessConnection()
+                    posViewModel.printerManager.refreshSunmiStatus()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = NaomiSurfaceVariant),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Refresh Diagnostics")
+            }
+
+            OutlinedButton(
+                onClick = {
+                    scope.launch {
+                        printerTestMessage = "Sending diagnostic slip…"
+                        printerTestMessage = when (
+                            val result = printPrinterDiagnosticSlip(
+                                printerManager = posViewModel.printerManager,
+                                channel = selectedChannel,
+                                status = printerStatus,
+                                operatorName = operatorName
+                            )
+                        ) {
+                            is PrintResult.Success -> "Diagnostic printed successfully. It was NOT added to the ledger."
+                            is PrintResult.OutOfPaper -> result.message
+                            is PrintResult.Error -> result.errorReason
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(5.dp))
+                Text("Print Diagnostic Slip")
+            }
+            printerTestMessage?.let {
+                Text(it, color = NaomiOrange, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
             }
         }
 
