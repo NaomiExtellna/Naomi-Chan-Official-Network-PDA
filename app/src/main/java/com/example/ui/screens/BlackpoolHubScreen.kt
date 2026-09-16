@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsTransit
 import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -52,6 +53,7 @@ import com.example.model.BlackpoolVenues
 import com.example.network.BlackpoolTramClient
 import com.example.network.BlackpoolTramStops
 import com.example.network.TramDeparture
+import com.example.network.TramStopInfo
 import com.example.ui.PosViewModel
 import com.example.ui.theme.NaomiBorder
 import com.example.ui.theme.NaomiDarkBg
@@ -70,7 +72,8 @@ import java.util.TimeZone
 
 private enum class BlackpoolHubMode {
     VENUES,
-    TRAMS
+    TRAMS,
+    ALL_STOPS
 }
 
 @Composable
@@ -91,52 +94,45 @@ fun BlackpoolHubScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
                     text = "BLACKPOOL STAFF HUB",
                     color = NaomiOrange,
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
                 Text(
-                    text = "Venues & Tram Board",
+                    text = "Venues & Tramway",
                     color = NaomiTextPrimary,
-                    fontSize = 21.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Black
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    FilterChip(
+                    HubModeChip(
                         selected = mode == BlackpoolHubMode.VENUES,
+                        label = "Venues",
+                        icon = Icons.Default.LocationOn,
                         onClick = { mode = BlackpoolHubMode.VENUES },
-                        label = { Text("Event Venues") },
-                        leadingIcon = {
-                            Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(17.dp))
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = NaomiRed,
-                            selectedLabelColor = Color.White,
-                            selectedLeadingIconColor = Color.White
-                        ),
                         modifier = Modifier.weight(1f)
                     )
-                    FilterChip(
+                    HubModeChip(
                         selected = mode == BlackpoolHubMode.TRAMS,
+                        label = "Live",
+                        icon = Icons.Default.DirectionsTransit,
                         onClick = { mode = BlackpoolHubMode.TRAMS },
-                        label = { Text("Live Trams") },
-                        leadingIcon = {
-                            Icon(Icons.Default.DirectionsTransit, contentDescription = null, modifier = Modifier.size(17.dp))
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = NaomiRed,
-                            selectedLabelColor = Color.White,
-                            selectedLeadingIconColor = Color.White
-                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                    HubModeChip(
+                        selected = mode == BlackpoolHubMode.ALL_STOPS,
+                        label = "All Stops",
+                        icon = Icons.Default.List,
+                        onClick = { mode = BlackpoolHubMode.ALL_STOPS },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -150,9 +146,34 @@ fun BlackpoolHubScreen(
                     onStartReceipt = onStartReceipt
                 )
                 BlackpoolHubMode.TRAMS -> TramBoard()
+                BlackpoolHubMode.ALL_STOPS -> AllTramStops()
             }
         }
     }
+}
+
+@Composable
+private fun HubModeChip(
+    selected: Boolean,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label, fontSize = 10.sp) },
+        leadingIcon = {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
+        },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = NaomiRed,
+            selectedLabelColor = Color.White,
+            selectedLeadingIconColor = Color.White
+        ),
+        modifier = modifier
+    )
 }
 
 @Composable
@@ -251,18 +272,8 @@ private fun VenueCard(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(
-                text = venue.name,
-                color = NaomiTextPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Black
-            )
-            Text(
-                text = venue.barType,
-                color = NaomiOrange,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Text(venue.name, color = NaomiTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Black)
+            Text(venue.barType, color = NaomiOrange, fontSize = 11.sp, fontWeight = FontWeight.Bold)
 
             Row(verticalAlignment = Alignment.Top) {
                 Icon(Icons.Default.LocationOn, contentDescription = null, tint = NaomiTextSecondary, modifier = Modifier.size(16.dp))
@@ -274,11 +285,7 @@ private fun VenueCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.DirectionsTransit, contentDescription = null, tint = NaomiTextSecondary, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Nearest tram: ${venue.nearestTramStop}",
-                        color = NaomiTextSecondary,
-                        fontSize = 11.sp
-                    )
+                    Text("Nearest tram: ${venue.nearestTramStop}", color = NaomiTextSecondary, fontSize = 11.sp)
                 }
             }
 
@@ -297,6 +304,152 @@ private fun VenueCard(
                 Icon(Icons.Default.EditNote, contentDescription = null, modifier = Modifier.size(17.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text("Create Receipt Here", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AllTramStops() {
+    var query by remember { mutableStateOf("") }
+    val mainStops = remember(query) {
+        BlackpoolTramStops.ALL_STOPS.filter {
+            query.isBlank() || it.name.contains(query, true) || it.area.contains(query, true) || it.note.contains(query, true)
+        }
+    }
+    val branchStops = remember(query) {
+        BlackpoolTramStops.NORTH_STATION_BRANCH.filter {
+            query.isBlank() || it.name.contains(query, true) || it.area.contains(query, true) || it.note.contains(query, true)
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            label = { Text("Search tram stops") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Card(
+            colors = CardDefaults.cardColors(containerColor = NaomiSurfaceVariant),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = "BLACKPOOL TRAMWAY • COMPLETE STOP LIST",
+                    color = NaomiOrange,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Starr Gate → Fleetwood Ferry, plus the North Station branch",
+                    color = NaomiTextPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Current 2026 base daytime timetable: from every 15 minutes. Extra/overlapping workings can create shorter gaps through central Blackpool.",
+                    color = NaomiTextSecondary,
+                    fontSize = 10.sp
+                )
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            if (mainStops.isNotEmpty()) {
+                item {
+                    Text(
+                        "MAIN LINE • SOUTH TO NORTH",
+                        color = NaomiTextSecondary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+                items(
+                    items = mainStops,
+                    key = { "main-${it.name}" }
+                ) { stop ->
+                    val officialIndex = BlackpoolTramStops.ALL_STOPS.indexOf(stop) + 1
+                    TramStopCard(number = officialIndex, stop = stop)
+                }
+            }
+
+            if (branchStops.isNotEmpty()) {
+                item {
+                    Text(
+                        "NORTH STATION BRANCH",
+                        color = NaomiOrange,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                items(
+                    items = branchStops,
+                    key = { "branch-${it.name}" }
+                ) { stop ->
+                    TramStopCard(number = null, stop = stop)
+                }
+            }
+
+            item { Spacer(modifier = Modifier.height(12.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun TramStopCard(number: Int?, stop: TramStopInfo) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = NaomiSurface),
+        shape = RoundedCornerShape(10.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (stop.isBranchStop) NaomiOrange else NaomiBorder
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .background(
+                        if (stop.isBranchStop) NaomiOrange.copy(alpha = 0.16f) else NaomiSurfaceVariant,
+                        RoundedCornerShape(8.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = number?.toString() ?: "B",
+                    color = if (stop.isBranchStop) NaomiOrange else NaomiTextSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stop.name, color = NaomiTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(stop.area, color = NaomiTextSecondary, fontSize = 10.sp)
+                if (stop.note.isNotBlank()) {
+                    Text(stop.note, color = if (stop.isBranchStop) NaomiOrange else NaomiTextSecondary, fontSize = 9.sp)
+                }
             }
         }
     }
@@ -370,6 +523,19 @@ private fun TramBoard() {
             }
         }
 
+        Card(
+            colors = CardDefaults.cardColors(containerColor = NaomiSurfaceVariant),
+            shape = RoundedCornerShape(9.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = "Service guide: the current 2026 base daytime timetable is from every 15 mins. Central sections may have shorter gaps where services overlap. Live departures below take priority.",
+                color = NaomiTextSecondary,
+                fontSize = 9.sp,
+                modifier = Modifier.padding(10.dp)
+            )
+        }
+
         Text("Live tram stop", color = NaomiTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(BlackpoolTramStops.FEATURED) { stop ->
@@ -391,12 +557,7 @@ private fun TramBoard() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = selectedStop.name,
-                    color = NaomiTextPrimary,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Black
-                )
+                Text(selectedStop.name, color = NaomiTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Black)
                 Text(
                     text = if (loading) "Refreshing Blackpool Transport…" else "Auto-refreshes every 60 seconds",
                     color = NaomiTextSecondary,
@@ -466,12 +627,7 @@ private fun DepartureCard(departure: TramDeparture) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = departure.destination,
-                    color = NaomiTextPrimary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Text(departure.destination, color = NaomiTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text(
                     text = "${departure.directionLabel} • ${if (departure.isLive) "LIVE" else "Scheduled"}",
                     color = if (departure.isLive) NaomiSuccess else NaomiTextSecondary,
