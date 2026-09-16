@@ -13,6 +13,7 @@ val hasReleaseSigning = !releaseKeystorePath.isNullOrBlank() &&
   !releaseStorePassword.isNullOrBlank() &&
   !releaseKeyPassword.isNullOrBlank() &&
   file(releaseKeystorePath).isFile
+val buildUtc = java.time.Instant.now().toString()
 
 android {
   namespace = "com.example"
@@ -23,8 +24,9 @@ android {
     // SUNMI V2 (T5930) runs SUNMI OS based on Android 7.1.x (API 25).
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    versionCode = 2
+    versionName = "1.1"
+    buildConfigField("String", "BUILD_UTC", "\"$buildUtc\"")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -92,8 +94,6 @@ dependencies {
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.okhttp)
 
-  // Official SUNMI inner-printer abstraction. It adapts the printer IPC interface
-  // to the device model, avoiding hand-maintained AIDL transaction mismatches on V2.
   implementation("com.sunmi:printerlibrary:1.0.18")
 
   testImplementation(libs.androidx.compose.ui.test.junit4)
