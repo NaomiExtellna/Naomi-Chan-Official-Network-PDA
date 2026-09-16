@@ -1,3 +1,5 @@
+import java.time.Instant
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -13,7 +15,7 @@ val hasReleaseSigning = !releaseKeystorePath.isNullOrBlank() &&
   !releaseStorePassword.isNullOrBlank() &&
   !releaseKeyPassword.isNullOrBlank() &&
   file(releaseKeystorePath).isFile
-val buildUtc = java.time.Instant.now().toString()
+val buildUtc = Instant.now().toString()
 
 android {
   namespace = "com.example"
