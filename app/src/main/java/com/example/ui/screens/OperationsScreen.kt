@@ -11,11 +11,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.SaveAlt
@@ -71,12 +72,13 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private enum class OpsMode { SHIFT, STAFF, SYSTEM }
+private enum class OpsMode { SHIFT, VENUES, STAFF, SYSTEM }
 
 @Composable
 fun OperationsScreen(
     authViewModel: AuthViewModel,
-    posViewModel: PosViewModel
+    posViewModel: PosViewModel,
+    onStartReceipt: () -> Unit
 ) {
     val authState by authViewModel.state.collectAsState()
     val staffAccounts by authViewModel.staffAccounts.collectAsState()
@@ -116,10 +118,11 @@ fun OperationsScreen(
                     }
                     RoleBadge(user)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OpsChip(mode == OpsMode.SHIFT, "Shift", Icons.Default.Schedule) { mode = OpsMode.SHIFT }
-                    OpsChip(mode == OpsMode.STAFF, "Staff", Icons.Default.Badge) { mode = OpsMode.STAFF }
-                    OpsChip(mode == OpsMode.SYSTEM, "System", Icons.Default.Memory) { mode = OpsMode.SYSTEM }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    item { OpsChip(mode == OpsMode.SHIFT, "Shift", Icons.Default.Schedule) { mode = OpsMode.SHIFT } }
+                    item { OpsChip(mode == OpsMode.VENUES, "Venues", Icons.Default.LocationOn) { mode = OpsMode.VENUES } }
+                    item { OpsChip(mode == OpsMode.STAFF, "Staff", Icons.Default.Badge) { mode = OpsMode.STAFF } }
+                    item { OpsChip(mode == OpsMode.SYSTEM, "System", Icons.Default.Memory) { mode = OpsMode.SYSTEM } }
                 }
             }
         }
@@ -134,6 +137,10 @@ fun OperationsScreen(
                 onCloseShift = authViewModel::closeShift,
                 csvData = posViewModel::exportReceiptsCsv,
                 jsonData = posViewModel::exportReceiptsJson
+            )
+            OpsMode.VENUES -> VenueManagementScreen(
+                viewModel = posViewModel,
+                onStartReceipt = onStartReceipt
             )
             OpsMode.STAFF -> StaffPanel(
                 user = user,
@@ -156,7 +163,12 @@ fun OperationsScreen(
 }
 
 @Composable
-private fun OpsChip(selected: Boolean, label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+private fun OpsChip(
+    selected: Boolean,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
     FilterChip(
         selected = selected,
         onClick = onClick,
@@ -417,7 +429,10 @@ private fun SystemPanel(
             SummaryLine("Memory", ramText)
             SummaryLine("Shift records", recentShiftCount.toString())
             Button(
-                onClick = { posViewModel.refreshRamInfo(); posViewModel.checkWirelessConnection() },
+                onClick = {
+                    posViewModel.refreshRamInfo()
+                    posViewModel.checkWirelessConnection()
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = NaomiSurfaceVariant),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -455,7 +470,11 @@ private fun SystemPanel(
 }
 
 @Composable
-private fun CardBlock(title: String, subtitle: String, content: @Composable () -> Unit) {
+private fun CardBlock(
+    title: String,
+    subtitle: String,
+    content: @Composable () -> Unit
+) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = androidx.compose.foundation.BorderStroke(1.dp, NaomiBorder),
