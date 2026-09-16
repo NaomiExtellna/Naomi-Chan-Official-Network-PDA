@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -54,6 +55,7 @@ private enum class MainTab {
     RECEIPT,
     PREVIEW,
     BUSINESS_CARD,
+    BLACKPOOL,
     PRINTERS,
     HISTORY
 }
@@ -106,6 +108,7 @@ fun MainPosScreen(viewModel: PosViewModel) {
                     Triple(MainTab.RECEIPT, Icons.Default.EditNote, "Receipt"),
                     Triple(MainTab.PREVIEW, Icons.Default.Article, "Preview"),
                     Triple(MainTab.BUSINESS_CARD, Icons.Default.CreditCard, "Card"),
+                    Triple(MainTab.BLACKPOOL, Icons.Default.LocationOn, "Blackpool"),
                     Triple(MainTab.PRINTERS, Icons.Default.Print, "Printer"),
                     Triple(MainTab.HISTORY, Icons.Default.CloudSync, "Ledger")
                 )
@@ -119,14 +122,15 @@ fun MainPosScreen(viewModel: PosViewModel) {
                             Icon(
                                 imageVector = icon,
                                 contentDescription = label,
-                                modifier = Modifier.size(21.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         },
                         label = {
                             Text(
                                 text = label,
-                                fontSize = 10.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                fontSize = 9.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                maxLines = 1
                             )
                         },
                         colors = NavigationBarItemDefaults.colors(
@@ -170,6 +174,13 @@ fun MainPosScreen(viewModel: PosViewModel) {
                     viewModel = viewModel,
                     draft = businessCardDraft,
                     onDraftChange = { businessCardDraft = it }
+                )
+                MainTab.BLACKPOOL -> BlackpoolHubScreen(
+                    viewModel = viewModel,
+                    onStartReceipt = {
+                        receiptStep = 1
+                        activeTab = MainTab.RECEIPT
+                    }
                 )
                 MainTab.PRINTERS -> PrinterManagerScreen(
                     viewModel = viewModel
