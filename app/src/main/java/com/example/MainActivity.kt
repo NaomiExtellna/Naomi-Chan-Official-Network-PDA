@@ -12,20 +12,26 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import com.example.ui.AuthViewModel
 import com.example.ui.PosViewModel
 import com.example.ui.screens.ChangeCredentialScreen
 import com.example.ui.screens.MainPosScreen
+import com.example.ui.screens.NaomiSplashLoadingScreen
 import com.example.ui.screens.RecoveryCodeNoticeScreen
 import com.example.ui.screens.StaffAccessScreen
 import com.example.ui.theme.NaomiChanTheme
 import com.example.util.DiagnosticLog
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
 
     companion object {
         private const val AUTO_LOCK_AFTER_MS = 5 * 60 * 1000L
+        private const val MIN_SPLASH_DURATION_MS = 1_200L
     }
 
     private val posViewModel: PosViewModel by viewModels()
@@ -49,8 +55,15 @@ class MainActivity : ComponentActivity() {
                 val authState by authViewModel.state.collectAsState()
                 val user = authState.currentUser
                 val recoveryCode = authState.pendingRecoveryCode
+                var minimumSplashElapsed by remember { mutableStateOf(false) }
+
+                LaunchedEffect(Unit) {
+                    delay(MIN_SPLASH_DURATION_MS)
+                    minimumSplashElapsed = true
+                }
 
                 when {
+                    !minimumSplashElapsed || authState.isLoading -> NaomiSplashLoadingScreen()
                     recoveryCode != null -> RecoveryCodeNoticeScreen(
                         code = recoveryCode,
                         onAcknowledge = authViewModel::acknowledgeRecoveryCode
