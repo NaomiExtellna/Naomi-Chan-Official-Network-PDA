@@ -12,6 +12,13 @@ data class BlackpoolTramStop(
     val northboundStopId: String
 )
 
+data class TramStopInfo(
+    val name: String,
+    val area: String,
+    val note: String = "",
+    val isBranchStop: Boolean = false
+)
+
 data class TramDeparture(
     val stopName: String,
     val destination: String,
@@ -21,6 +28,10 @@ data class TramDeparture(
 )
 
 object BlackpoolTramStops {
+    /**
+     * Quick-access stops used by the live board. These use Blackpool Transport's
+     * public stop-page identifiers for both directions/platforms.
+     */
     val FEATURED = listOf(
         BlackpoolTramStop("Pleasure Beach", "9400ZZBPPLB1", "9400ZZBPPLB2"),
         BlackpoolTramStop("South Pier", "9400ZZBPSHP1", "9400ZZBPSHP2"),
@@ -29,6 +40,69 @@ object BlackpoolTramStops {
         BlackpoolTramStop("North Station", "9400ZZBPNRS1", "9400ZZBPNRS2"),
         BlackpoolTramStop("Bispham", "9400ZZBPBSH1", "9400ZZBPBSH2")
     )
+
+    /**
+     * Current Blackpool Tramway stop directory, ordered south-to-north.
+     * Talbot Square and North Station form the town-centre branch.
+     */
+    val ALL_STOPS = listOf(
+        TramStopInfo("Starr Gate", "South Shore", "Southern terminus"),
+        TramStopInfo("Harrow Place", "South Shore"),
+        TramStopInfo("Burlington Road West", "South Shore"),
+        TramStopInfo("Pleasure Beach", "South Shore", "Blackpool Pleasure Beach"),
+        TramStopInfo("South Pier", "South Shore"),
+        TramStopInfo("Waterloo Road", "South Shore", "Interchange for Blackpool South area"),
+        TramStopInfo("St Chad's Road", "South Shore"),
+        TramStopInfo("Manchester Square", "Central Blackpool"),
+        TramStopInfo("Central Pier", "Central Blackpool"),
+        TramStopInfo("Tower", "Central Blackpool", "Blackpool Tower / town centre"),
+        TramStopInfo("North Pier", "Central Blackpool", "Northbound and southbound platforms"),
+        TramStopInfo("Pleasant Street", "North Shore"),
+        TramStopInfo("Wilton Parade", "North Shore"),
+        TramStopInfo("Gynn Square", "North Shore"),
+        TramStopInfo("Cliffs Hotel", "North Shore"),
+        TramStopInfo("Cabin", "North Shore"),
+        TramStopInfo("Lowther Avenue", "North Shore"),
+        TramStopInfo("Cavendish Road", "North Shore"),
+        TramStopInfo("Bispham", "Bispham"),
+        TramStopInfo("Sandhurst Avenue", "Bispham"),
+        TramStopInfo("Norbreck", "Bispham / Norbreck"),
+        TramStopInfo("Norbreck North", "Bispham / Norbreck"),
+        TramStopInfo("Little Bispham", "Bispham"),
+        TramStopInfo("Anchorsholme Lane", "Anchorsholme"),
+        TramStopInfo("Cleveleys", "Cleveleys", "Town centre / bus connections"),
+        TramStopInfo("West Drive", "Cleveleys"),
+        TramStopInfo("Thornton Gate", "Thornton-Cleveleys"),
+        TramStopInfo("Rossall Beach", "Rossall"),
+        TramStopInfo("Rossall School", "Rossall"),
+        TramStopInfo("Rossall Square", "Rossall / Broadwater"),
+        TramStopInfo("Broadwater", "Broadwater"),
+        TramStopInfo("Heathfield Road", "Fleetwood"),
+        TramStopInfo("Lindel Road", "Fleetwood"),
+        TramStopInfo("Stanley Road", "Fleetwood"),
+        TramStopInfo("Fishermans Walk", "Fleetwood", "Affinity / Fleetwood area"),
+        TramStopInfo("London Street", "Fleetwood"),
+        TramStopInfo("Victoria Street", "Fleetwood", "Fleetwood Market area"),
+        TramStopInfo("Marine Hall and Gardens", "Fleetwood", "Marine Hall / seafront"),
+        TramStopInfo("Fleetwood Ferry", "Fleetwood", "Northern terminus")
+    )
+
+    val NORTH_STATION_BRANCH = listOf(
+        TramStopInfo(
+            name = "Talbot Square",
+            area = "Central Blackpool",
+            note = "Branch stop towards North Station only",
+            isBranchStop = true
+        ),
+        TramStopInfo(
+            name = "North Station",
+            area = "Central Blackpool",
+            note = "Blackpool North rail interchange",
+            isBranchStop = true
+        )
+    )
+
+    val COMPLETE_DIRECTORY = ALL_STOPS + NORTH_STATION_BRANCH
 }
 
 class BlackpoolTramClient {
