@@ -20,10 +20,17 @@ data class ReceiptEntity(
     val taxPercent: Double,
     val grandTotal: Double,
     val createdAt: Long,
-    val syncStatus: String, // "SYNCED", "BUFFERED_OFFLINE", "PENDING_RETRY"
+    val syncStatus: String,
     val isPrinted: Boolean,
     val printedChannel: String? = null,
     val isFreeEvent: Boolean = false,
     val iconType: String = "NAOMI_LOGO",
-    val customIconUri: String? = null
+    val customIconUri: String? = null,
+    val processedBy: String = "",
+    val shiftId: String? = null,
+    val receiptStatus: String = "ACTIVE",
+    val voidReason: String? = null,
+    val voidedAt: Long? = null,
+    val voidedBy: String? = null,
+    val replacesReceiptId: String? = null
 )
