@@ -1,0 +1,57 @@
+name: PDA CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Android build and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      # The repository currently lacks gradlew/gradlew.bat/gradle-wrapper.jar,
+      # so CI provisions the exact Gradle version declared by wrapper properties.
+      - name: Set up Gradle 9.3.1
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '9.3.1'
+
+      - name: Assemble debug APK and run unit tests
+        run: gradle --no-daemon :app:assembleDebug :app:testDebugUnitTest
+
+  gateway:
+    name: Flask gateway tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: flask_app/requirements.txt
+
+      - name: Install gateway dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r flask_app/requirements.txt
+
+      - name: Run gateway regression tests
+        working-directory: flask_app
+        run: python -m unittest -v test_app.py
