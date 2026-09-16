@@ -8,11 +8,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material3.AlertDialog
@@ -54,6 +54,7 @@ import com.example.ui.theme.NaomiTextPrimary
 import com.example.ui.theme.NaomiTextSecondary
 
 private enum class MainTab {
+    DASHBOARD,
     RECEIPT,
     PREVIEW,
     BUSINESS_CARD,
@@ -64,10 +65,7 @@ private enum class MainTab {
 }
 
 @Composable
-fun MainPosScreen(
-    viewModel: PosViewModel,
-    authViewModel: AuthViewModel
-) {
+fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
     val currentReceipt by viewModel.currentReceipt.collectAsState()
     val selectedChannel by viewModel.selectedChannel.collectAsState()
     val printerStatus by viewModel.printerStatus.collectAsState()
@@ -76,7 +74,7 @@ fun MainPosScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     var showChannelDialog by remember { mutableStateOf(false) }
-    var activeTab by remember { mutableStateOf(MainTab.RECEIPT) }
+    var activeTab by remember { mutableStateOf(MainTab.DASHBOARD) }
     var receiptStep by remember { mutableIntStateOf(0) }
     var businessCardDraft by remember { mutableStateOf(BusinessCardDraft()) }
 
@@ -111,11 +109,10 @@ fun MainPosScreen(
         bottomBar = {
             NavigationBar(
                 containerColor = NaomiSurface,
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .testTag("main_navigation_bar")
+                modifier = Modifier.navigationBarsPadding().testTag("main_navigation_bar")
             ) {
                 val navItems = listOf(
+                    Triple(MainTab.DASHBOARD, Icons.Default.Home, "Home"),
                     Triple(MainTab.RECEIPT, Icons.Default.EditNote, "Receipt"),
                     Triple(MainTab.BUSINESS_CARD, Icons.Default.CreditCard, "Card"),
                     Triple(MainTab.BLACKPOOL, Icons.Default.LocationOn, "Blackpool"),
@@ -129,17 +126,11 @@ fun MainPosScreen(
                     NavigationBarItem(
                         selected = isSelected,
                         onClick = { activeTab = tab },
-                        icon = {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = label,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        },
+                        icon = { Icon(icon, contentDescription = label, modifier = Modifier.size(19.dp)) },
                         label = {
                             Text(
                                 text = label,
-                                fontSize = 9.sp,
+                                fontSize = 8.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                 maxLines = 1
                             )
@@ -156,20 +147,18 @@ fun MainPosScreen(
                 }
             }
         },
-        snackbarHost = {
-            SnackbarHost(
-                hostState = snackbarHostState,
-                modifier = Modifier.padding(16.dp)
-            )
-        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState, modifier = Modifier.padding(16.dp)) },
         containerColor = NaomiDarkBg
     ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
+        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             when (activeTab) {
+                MainTab.DASHBOARD -> EventDashboardScreen(
+                    authViewModel = authViewModel,
+                    posViewModel = viewModel,
+                    onNewReceipt = { receiptStep = 0; activeTab = MainTab.RECEIPT },
+                    onBlackpool = { activeTab = MainTab.BLACKPOOL },
+                    onOps = { activeTab = MainTab.OPERATIONS }
+                )
                 MainTab.RECEIPT -> ReceiptWizardScreen(
                     viewModel = viewModel,
                     receipt = currentReceipt,
@@ -177,32 +166,15 @@ fun MainPosScreen(
                     onStepChange = { receiptStep = it },
                     onNavigateToPreview = { activeTab = MainTab.PREVIEW }
                 )
-                MainTab.PREVIEW -> ThermalPreviewScreen(
-                    viewModel = viewModel,
-                    receipt = currentReceipt
-                )
-                MainTab.BUSINESS_CARD -> BusinessCardScreen(
-                    viewModel = viewModel,
-                    draft = businessCardDraft,
-                    onDraftChange = { businessCardDraft = it }
-                )
-                MainTab.BLACKPOOL -> BlackpoolHubScreen(
-                    viewModel = viewModel,
-                    onStartReceipt = ::openReceiptFromVenue
-                )
+                MainTab.PREVIEW -> ThermalPreviewScreen(viewModel = viewModel, receipt = currentReceipt)
+                MainTab.BUSINESS_CARD -> BusinessCardScreen(viewModel = viewModel, draft = businessCardDraft, onDraftChange = { businessCardDraft = it })
+                MainTab.BLACKPOOL -> BlackpoolHubScreen(viewModel = viewModel, onStartReceipt = ::openReceiptFromVenue)
                 MainTab.PRINTERS -> PrinterManagerScreen(viewModel = viewModel)
                 MainTab.HISTORY -> SyncLedgerScreen(
                     viewModel = viewModel,
-                    onEditCorrection = {
-                        receiptStep = 0
-                        activeTab = MainTab.RECEIPT
-                    }
+                    onEditCorrection = { receiptStep = 0; activeTab = MainTab.RECEIPT }
                 )
-                MainTab.OPERATIONS -> OperationsScreen(
-                    authViewModel = authViewModel,
-                    posViewModel = viewModel,
-                    onStartReceipt = ::openReceiptFromVenue
-                )
+                MainTab.OPERATIONS -> OperationsScreen(authViewModel = authViewModel, posViewModel = viewModel, onStartReceipt = ::openReceiptFromVenue)
             }
         }
     }
@@ -211,49 +183,26 @@ fun MainPosScreen(
         AlertDialog(
             onDismissRequest = { showChannelDialog = false },
             containerColor = NaomiSurface,
-            title = {
-                Text(
-                    text = "Select Primary Output Printer",
-                    color = NaomiTextPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-            },
+            title = { Text("Select Primary Output Printer", color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
             text = {
                 Column {
                     for (ch in PrinterChannel.values()) {
                         val isCurrent = selectedChannel == ch
                         OutlinedButton(
-                            onClick = {
-                                viewModel.selectChannel(ch)
-                                showChannelDialog = false
-                            },
+                            onClick = { viewModel.selectChannel(ch); showChannelDialog = false },
                             colors = ButtonDefaults.outlinedButtonColors(
                                 containerColor = if (isCurrent) NaomiRed.copy(alpha = 0.25f) else Color.Transparent,
                                 contentColor = if (isCurrent) NaomiOrange else NaomiTextPrimary
                             ),
-                            border = androidx.compose.foundation.BorderStroke(
-                                if (isCurrent) 1.5.dp else 1.dp,
-                                if (isCurrent) NaomiOrange else NaomiSurface
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
+                            border = androidx.compose.foundation.BorderStroke(if (isCurrent) 1.5.dp else 1.dp, if (isCurrent) NaomiOrange else NaomiSurface),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                         ) {
-                            Text(
-                                text = ch.displayName + if (isCurrent) " (Active)" else "",
-                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                fontSize = 13.sp
-                            )
+                            Text(ch.displayName + if (isCurrent) " (Active)" else "", fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal, fontSize = 13.sp)
                         }
                     }
                 }
             },
-            confirmButton = {
-                TextButton(onClick = { showChannelDialog = false }) {
-                    Text("Close", color = NaomiOrange)
-                }
-            }
+            confirmButton = { TextButton(onClick = { showChannelDialog = false }) { Text("Close", color = NaomiOrange) } }
         )
     }
 }
