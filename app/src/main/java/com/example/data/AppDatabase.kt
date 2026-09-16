@@ -35,7 +35,7 @@ abstract class AppDatabase : RoomDatabase() {
                         credentialHash TEXT NOT NULL,
                         salt TEXT NOT NULL,
                         role TEXT NOT NULL,
-                        isActive INTEGER NOT NULL DEFAULT 1,
+                        isActive INTEGER NOT NULL,
                         createdAt INTEGER NOT NULL,
                         lastLoginAt INTEGER
                     )
@@ -52,8 +52,8 @@ abstract class AppDatabase : RoomDatabase() {
                         staffDisplayName TEXT NOT NULL,
                         openedAt INTEGER NOT NULL,
                         closedAt INTEGER,
-                        openingNote TEXT NOT NULL DEFAULT '',
-                        closingNote TEXT NOT NULL DEFAULT ''
+                        openingNote TEXT NOT NULL,
+                        closingNote TEXT NOT NULL
                     )
                     """.trimIndent()
                 )
