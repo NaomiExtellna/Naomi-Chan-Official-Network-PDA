@@ -1,6 +1,7 @@
 package com.example.printer
 
 import android.annotation.SuppressLint
+import android.app.PendingIntent
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothSocket
 import android.content.ComponentName
@@ -38,15 +39,23 @@ data class DiscoveredPrinter(
     val name: String,
     val address: String,
     val channel: PrinterChannel,
-    val isBonded: Boolean = true
+    val isBonded: Boolean = true,
+    val deviceKey: String = address
 )
 
 class UnifiedPrinterManager(private val context: Context) {
+
+    companion object {
+        private const val ACTION_USB_PERMISSION = "com.aistudio.naomichan.pos.USB_PERMISSION"
+        private const val SPP_UUID = "00001101-0000-1000-8000-00805F9B34FB"
+    }
 
     private val tag = "NaomiPrinterManager"
 
     private var woyouService: IWoyouService? = null
     private var isSunmiServiceBound = false
+    private var selectedBluetoothAddress: String? = null
+    private var selectedUsbDeviceKey: String? = null
 
     private val _status = MutableStateFlow(
         PrinterStatus(
@@ -156,33 +165,48 @@ class UnifiedPrinterManager(private val context: Context) {
         }
     }
 
+    fun selectDiscoveredPrinter(device: DiscoveredPrinter) {
+        when (device.channel) {
+            PrinterChannel.BLUETOOTH -> selectedBluetoothAddress = device.deviceKey
+            PrinterChannel.USB_OTG -> selectedUsbDeviceKey = device.deviceKey
+            PrinterChannel.SUNMI_BUILTIN -> Unit
+        }
+    }
+
     @SuppressLint("MissingPermission")
     fun refreshDiscoveredDevices() {
         try {
             val adapter = BluetoothAdapter.getDefaultAdapter()
-            _bluetoothDevices.value = if (adapter != null && adapter.isEnabled) {
+            val devices = if (adapter != null && adapter.isEnabled) {
                 adapter.bondedDevices.orEmpty().map { device ->
                     DiscoveredPrinter(
                         name = device.name ?: "Unknown Bluetooth Device",
                         address = device.address,
                         channel = PrinterChannel.BLUETOOTH,
-                        isBonded = true
+                        isBonded = true,
+                        deviceKey = device.address
                     )
                 }
             } else {
                 emptyList()
             }
+            _bluetoothDevices.value = devices
+            if (selectedBluetoothAddress !in devices.map { it.deviceKey }) {
+                selectedBluetoothAddress = devices.singleOrNull()?.deviceKey
+            }
         } catch (e: SecurityException) {
             _bluetoothDevices.value = emptyList()
+            selectedBluetoothAddress = null
             Log.w(tag, "Bluetooth permission missing: ${e.message}")
         } catch (e: Exception) {
             _bluetoothDevices.value = emptyList()
+            selectedBluetoothAddress = null
             Log.w(tag, "Bluetooth discovery error: ${e.message}")
         }
 
         try {
             val usbManager = context.getSystemService(Context.USB_SERVICE) as? UsbManager
-            _usbDevices.value = if (usbManager == null) {
+            val devices = if (usbManager == null) {
                 emptyList()
             } else {
                 usbManager.deviceList.values.mapNotNull { device ->
@@ -196,13 +220,19 @@ class UnifiedPrinterManager(private val context: Context) {
                             name = device.productName ?: "USB Thermal Printer (${device.vendorId}:${device.productId})",
                             address = "VID_${device.vendorId}_PID_${device.productId}",
                             channel = PrinterChannel.USB_OTG,
-                            isBonded = true
+                            isBonded = usbManager.hasPermission(device),
+                            deviceKey = device.deviceName
                         )
                     }
                 }
             }
+            _usbDevices.value = devices
+            if (selectedUsbDeviceKey !in devices.map { it.deviceKey }) {
+                selectedUsbDeviceKey = devices.singleOrNull()?.deviceKey
+            }
         } catch (e: Exception) {
             _usbDevices.value = emptyList()
+            selectedUsbDeviceKey = null
             Log.w(tag, "USB detection error: ${e.message}")
         }
     }
@@ -309,13 +339,20 @@ class UnifiedPrinterManager(private val context: Context) {
             )
         }
 
-        val targetDevice = bonded.firstOrNull()
-            ?: return PrintResult.Error(
-                "No paired Bluetooth printer is available. Pair a printer first.",
-                PrinterChannel.BLUETOOTH
-            )
+        val targetDevice = when {
+            selectedBluetoothAddress != null -> bonded.firstOrNull { it.address == selectedBluetoothAddress }
+            bonded.size == 1 -> bonded.first()
+            else -> null
+        } ?: return PrintResult.Error(
+            if (bonded.isEmpty()) {
+                "No paired Bluetooth printer is available. Pair a printer first."
+            } else {
+                "Multiple Bluetooth devices are paired. Select the intended printer first."
+            },
+            PrinterChannel.BLUETOOTH
+        )
 
-        val sppUuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+        val sppUuid = UUID.fromString(SPP_UUID)
         var socket: BluetoothSocket? = null
         return try {
             socket = targetDevice.createRfcommSocketToServiceRecord(sppUuid)
@@ -344,14 +381,38 @@ class UnifiedPrinterManager(private val context: Context) {
         val usbManager = context.getSystemService(Context.USB_SERVICE) as? UsbManager
             ?: return PrintResult.Error("USB Host system service not available", PrinterChannel.USB_OTG)
 
-        val device = usbManager.deviceList.values.firstOrNull { candidate ->
+        val candidates = usbManager.deviceList.values.filter { candidate ->
             (0 until candidate.interfaceCount).any { index ->
                 candidate.getInterface(index).interfaceClass == UsbConstants.USB_CLASS_PRINTER
             }
+        }
+
+        val device = when {
+            selectedUsbDeviceKey != null -> candidates.firstOrNull { it.deviceName == selectedUsbDeviceKey }
+            candidates.size == 1 -> candidates.first()
+            else -> null
         } ?: return PrintResult.Error(
-            "No USB printer-class device is connected.",
+            if (candidates.isEmpty()) {
+                "No USB printer-class device is connected."
+            } else {
+                "Multiple USB printers are connected. Select the intended printer first."
+            },
             PrinterChannel.USB_OTG
         )
+
+        if (!usbManager.hasPermission(device)) {
+            val permissionIntent = PendingIntent.getBroadcast(
+                context,
+                device.deviceId,
+                Intent(ACTION_USB_PERMISSION).setPackage(context.packageName),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            usbManager.requestPermission(device, permissionIntent)
+            return PrintResult.Error(
+                "USB permission requested for ${device.productName ?: "the thermal printer"}. Approve it, then print again.",
+                PrinterChannel.USB_OTG
+            )
+        }
 
         var targetInterface: UsbInterface? = null
         var targetEndpoint: UsbEndpoint? = null
@@ -379,17 +440,18 @@ class UnifiedPrinterManager(private val context: Context) {
 
         var connection: UsbDeviceConnection? = null
         return try {
-            connection = usbManager.openDevice(device)
+            val activeConnection = usbManager.openDevice(device)
                 ?: return PrintResult.Error(
-                    "USB permission is required for ${device.productName ?: "the thermal printer"}.",
+                    "Unable to open ${device.productName ?: "the USB thermal printer"}.",
                     PrinterChannel.USB_OTG
                 )
+            connection = activeConnection
 
-            if (!connection.claimInterface(printerInterface, true)) {
+            if (!activeConnection.claimInterface(printerInterface, true)) {
                 return PrintResult.Error("Unable to claim the USB printer interface.", PrinterChannel.USB_OTG)
             }
 
-            val transferred = connection.bulkTransfer(outputEndpoint, data, data.size, 5000)
+            val transferred = activeConnection.bulkTransfer(outputEndpoint, data, data.size, 5000)
             if (transferred <= 0) {
                 PrintResult.Error("USB printer transfer failed ($transferred bytes).", PrinterChannel.USB_OTG)
             } else {
@@ -411,7 +473,6 @@ class UnifiedPrinterManager(private val context: Context) {
         }
     }
 
-    // Manual paper-state controls retained for diagnostics/testing.
     fun togglePaperRoll() {
         val current = _status.value.hasPaper
         _status.value = _status.value.copy(
