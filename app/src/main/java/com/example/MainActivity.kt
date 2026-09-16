@@ -48,10 +48,11 @@ class MainActivity : ComponentActivity() {
             NaomiChanTheme(darkTheme = true) {
                 val authState by authViewModel.state.collectAsState()
                 val user = authState.currentUser
+                val recoveryCode = authState.pendingRecoveryCode
 
                 when {
-                    authState.pendingRecoveryCode != null -> RecoveryCodeNoticeScreen(
-                        code = authState.pendingRecoveryCode,
+                    recoveryCode != null -> RecoveryCodeNoticeScreen(
+                        code = recoveryCode,
                         onAcknowledge = authViewModel::acknowledgeRecoveryCode
                     )
                     user == null -> StaffAccessScreen(
