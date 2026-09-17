@@ -64,8 +64,9 @@ class WirelessFlaskClient(
             }
 
             // A successful health check also announces this PDA to the gateway.
-            // This keeps device discovery automatic after a URL change/restart.
-            sendDeviceHeartbeatInternal()
+            // Runtime metadata comes from the last live sync snapshot so the
+            // one-minute heartbeat never resets printer/queue state to defaults.
+            sendDeviceHeartbeatInternal(GatewaySettings.getRuntimeState())
             true
         } catch (e: Exception) {
             Log.w("WirelessFlaskClient", "Server status check failed on $baseUrl: ${e.message}")
@@ -74,20 +75,28 @@ class WirelessFlaskClient(
     }
 
     suspend fun syncDevicePresence(
-        operatorName: String = "",
-        shiftId: String = "",
-        printerConnected: Boolean = false,
-        unsyncedReceipts: Int = 0
+        operatorName: String? = null,
+        shiftId: String? = null,
+        printerConnected: Boolean? = null,
+        unsyncedReceipts: Int? = null
     ): Boolean = withContext(Dispatchers.IO) {
-        sendDeviceHeartbeatInternal(operatorName, shiftId, printerConnected, unsyncedReceipts)
+        val current = GatewaySettings.getRuntimeState()
+        val next = GatewaySettings.RuntimeState(
+            operatorName = operatorName ?: current.operatorName,
+            shiftId = shiftId ?: current.shiftId,
+            printerConnected = printerConnected ?: current.printerConnected,
+            unsyncedReceipts = (unsyncedReceipts ?: current.unsyncedReceipts).coerceAtLeast(0)
+        )
+        GatewaySettings.updateRuntimeState(
+            operatorName = next.operatorName,
+            shiftId = next.shiftId,
+            printerConnected = next.printerConnected,
+            unsyncedReceipts = next.unsyncedReceipts
+        )
+        sendDeviceHeartbeatInternal(next)
     }
 
-    private fun sendDeviceHeartbeatInternal(
-        operatorName: String = "",
-        shiftId: String = "",
-        printerConnected: Boolean = false,
-        unsyncedReceipts: Int = 0
-    ): Boolean {
+    private fun sendDeviceHeartbeatInternal(state: GatewaySettings.RuntimeState): Boolean {
         return try {
             val payload = JSONObject().apply {
                 put("device_id", GatewaySettings.getDeviceId())
@@ -97,10 +106,10 @@ class WirelessFlaskClient(
                 put("android_version", Build.VERSION.RELEASE.orEmpty())
                 put("sdk", Build.VERSION.SDK_INT)
                 put("app_version", BuildConfig.VERSION_NAME)
-                put("operator_name", operatorName.trim())
-                put("shift_id", shiftId.trim())
-                put("printer_connected", printerConnected)
-                put("unsynced_receipts", unsyncedReceipts.coerceAtLeast(0))
+                put("operator_name", state.operatorName)
+                put("shift_id", state.shiftId)
+                put("printer_connected", state.printerConnected)
+                put("unsynced_receipts", state.unsyncedReceipts)
             }
             val request = Request.Builder()
                 .url("$baseUrl/api/devices/heartbeat")
