@@ -24,6 +24,92 @@ class GatewayApiTests(unittest.TestCase):
         self.assertEqual(response.get_json()["status"], "ONLINE")
         self.assertNotIn("Access-Control-Allow-Origin", response.headers)
 
+    def test_pda_heartbeat_registers_device(self):
+        response = self.client.post(
+            "/api/devices/heartbeat",
+            json={
+                "device_id": "PDA-SUNMI-001",
+                "device_name": "SUNMI V2 Front Door",
+                "manufacturer": "SUNMI",
+                "model": "V2",
+                "android_version": "7.1.1",
+                "sdk": 25,
+                "app_version": "1.1",
+                "operator_name": "Naomi",
+                "shift_id": "SHIFT-1",
+                "printer_connected": True,
+                "unsynced_receipts": 2,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        device = response.get_json()
+        self.assertEqual(device["id"], "PDA-SUNMI-001")
+        self.assertTrue(device["online"])
+        self.assertTrue(device["printer_connected"])
+        self.assertEqual(device["unsynced_receipts"], 2)
+
+        devices = self.client.get("/api/devices").get_json()
+        self.assertEqual(len(devices), 1)
+        self.assertEqual(devices[0]["device_name"], "SUNMI V2 Front Door")
+
+        status = self.client.get("/api/status").get_json()
+        self.assertEqual(status["connected_devices"], 1)
+
+    def test_targeted_order_only_appears_for_selected_pda(self):
+        for device_id in ("PDA-A", "PDA-B"):
+            heartbeat = self.client.post(
+                "/api/devices/heartbeat",
+                json={"device_id": device_id, "device_name": device_id},
+            )
+            self.assertEqual(heartbeat.status_code, 200)
+
+        created = self.client.post(
+            "/api/orders",
+            json={
+                "target_device_id": "PDA-A",
+                "client_name": "Targeted Guest",
+                "venue_name": "Test Venue",
+                "payment_method": "CARD",
+                "items": [{"name": "Live Track Shoutout", "quantity": 1}],
+            },
+        )
+        self.assertEqual(created.status_code, 201)
+        order_id = created.get_json()["order_id"]
+
+        pda_a = self.client.get("/api/orders/pending?device_id=PDA-A").get_json()
+        pda_b = self.client.get("/api/orders/pending?device_id=PDA-B").get_json()
+        self.assertEqual([row["id"] for row in pda_a], [order_id])
+        self.assertEqual(pda_b, [])
+
+        printed = self.client.post(f"/api/orders/{order_id}/printed")
+        self.assertEqual(printed.status_code, 200)
+        self.assertEqual(self.client.get("/api/orders/pending?device_id=PDA-A").get_json(), [])
+
+    def test_global_order_is_visible_to_registered_pdas(self):
+        created = self.client.post(
+            "/api/orders",
+            json={
+                "client_name": "General Guest",
+                "venue_name": "Test Venue",
+                "items": [{"name": "Live Track Shoutout", "quantity": 1}],
+            },
+        )
+        self.assertEqual(created.status_code, 201)
+        order_id = created.get_json()["order_id"]
+        pending = self.client.get("/api/orders/pending?device_id=PDA-ANY").get_json()
+        self.assertEqual([row["id"] for row in pending], [order_id])
+
+    def test_unknown_target_device_is_rejected(self):
+        response = self.client.post(
+            "/api/orders",
+            json={
+                "target_device_id": "PDA-MISSING",
+                "items": [{"name": "Live Track Shoutout", "quantity": 1}],
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("not registered", response.get_json()["error"])
+
     def test_order_uses_server_catalog_price_not_client_price(self):
         response = self.client.post(
             "/api/orders",
