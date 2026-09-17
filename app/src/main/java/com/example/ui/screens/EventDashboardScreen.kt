@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -74,6 +75,7 @@ fun EventDashboardScreen(
     onOps: () -> Unit
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
+    val context = LocalContext.current
     val authState by authViewModel.state.collectAsStateWithLifecycle()
     val receipt by posViewModel.currentReceipt.collectAsStateWithLifecycle()
     val printer by posViewModel.printerStatus.collectAsStateWithLifecycle()
@@ -83,7 +85,7 @@ fun EventDashboardScreen(
 
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     var departures by remember { mutableStateOf<List<TramDeparture>>(emptyList()) }
-    val tramClient = remember { BlackpoolTramClient() }
+    val tramClient = remember(context.applicationContext) { BlackpoolTramClient(context.applicationContext) }
     val tower = remember {
         BlackpoolTramStops.FEATURED.firstOrNull { it.name == "Tower" }
             ?: BlackpoolTramStops.FEATURED.first()
@@ -279,7 +281,16 @@ private fun TramMiniBoard(departures: List<TramDeparture>, modifier: Modifier = 
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("BLACKPOOL · TOWER", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black)
-                Text("LIVE TRAMS", color = NaomiTextSecondary, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                val cached = departures.any { departure ->
+                    departure.directionLabel.contains("CACHE", ignoreCase = true) ||
+                        departure.directionLabel.contains("OFFLINE", ignoreCase = true)
+                }
+                Text(
+                    if (cached) "LOCAL CACHE" else "LIVE TRAMS",
+                    color = NaomiTextSecondary,
+                    fontSize = 7.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
             if (departures.isEmpty()) {
                 Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
