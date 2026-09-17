@@ -1,6 +1,8 @@
 package com.example.network
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -129,27 +131,55 @@ class BlackpoolTramClient {
 
     companion object {
         private val memoryCache = ConcurrentHashMap<String, CachedDepartures>()
+
+        // Calls from Home and the dedicated tram board share the same fresh cache. The UI may
+        // ask once per minute, but the radio will normally only wake for this stop every ~2 min.
+        private const val FRESH_CACHE_AGE_MS = 90_000L
         private const val MAX_CACHE_AGE_MS = 6 * 60 * 60 * 1000L
+
+        // A single OkHttp pool is shared by every tram screen. Reusing sockets avoids repeated
+        // DNS/TLS/TCP setup and keeps network-active time shorter on the battery-powered PDA.
+        private val sharedClient = OkHttpClient.Builder()
+            .connectTimeout(6, TimeUnit.SECONDS)
+            .readTimeout(8, TimeUnit.SECONDS)
+            .callTimeout(10, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .build()
+
+        // Parsing regexes are compiled once instead of being rebuilt for every platform response.
+        private val SCRIPT_REGEX = Regex("<script[\\s\\S]*?</script>", RegexOption.IGNORE_CASE)
+        private val STYLE_REGEX = Regex("<style[\\s\\S]*?</style>", RegexOption.IGNORE_CASE)
+        private val TAG_REGEX = Regex("<[^>]+>")
+        private val WHITESPACE_REGEX = Regex("\\s+")
+        private val DEPARTURE_REGEX = Regex(
+            "Service\\s*-\\s*Tram\\.\\s*Destination\\s*-\\s*(.*?)\\.\\s*Departure time\\s*-\\s*(.*?)\\.\\s*Departure\\s+\\d+\\s+of\\s+\\d+\\.\\s*(Live|Scheduled)\\.",
+            RegexOption.IGNORE_CASE
+        )
     }
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(8, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
-        .callTimeout(12, TimeUnit.SECONDS)
-        .build()
-
     suspend fun fetchDepartures(stop: BlackpoolTramStop): List<TramDeparture> = withContext(Dispatchers.IO) {
-        val southbound = fetchPlatform(stop, stop.southboundStopId, "Southbound")
-        val northbound = fetchPlatform(stop, stop.northboundStopId, "Northbound")
-        val fresh = (southbound + northbound).take(12)
+        val now = System.currentTimeMillis()
+        val cached = memoryCache[stop.name]
+
+        // Fast path: if another screen has just fetched this stop, do not wake the network again.
+        if (cached != null && now - cached.savedAt <= FRESH_CACHE_AGE_MS) {
+            return@withContext cached.departures
+        }
+
+        // Fetch both directions together so the radio/network tail is shorter than two fully
+        // sequential requests while keeping all blocking work on Dispatchers.IO.
+        val fresh = coroutineScope {
+            val southbound = async { fetchPlatform(stop, stop.southboundStopId, "Southbound") }
+            val northbound = async { fetchPlatform(stop, stop.northboundStopId, "Northbound") }
+            (southbound.await() + northbound.await()).take(12)
+        }
 
         if (fresh.isNotEmpty()) {
             memoryCache[stop.name] = CachedDepartures(fresh, System.currentTimeMillis())
             return@withContext fresh
         }
 
-        val cached = memoryCache[stop.name]
-        if (cached != null && System.currentTimeMillis() - cached.savedAt <= MAX_CACHE_AGE_MS) {
+        if (cached != null && now - cached.savedAt <= MAX_CACHE_AGE_MS) {
             return@withContext cached.departures.map { departure ->
                 departure.copy(
                     isLive = false,
@@ -172,7 +202,7 @@ class BlackpoolTramClient {
             .build()
 
         return try {
-            client.newCall(request).execute().use { response ->
+            sharedClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return emptyList()
                 val body = response.body?.string().orEmpty()
                 parseDepartures(body, stop.name, directionLabel)
@@ -188,21 +218,16 @@ class BlackpoolTramClient {
         directionLabel: String
     ): List<TramDeparture> {
         val normalised = html
-            .replace(Regex("<script[\\s\\S]*?</script>", RegexOption.IGNORE_CASE), " ")
-            .replace(Regex("<style[\\s\\S]*?</style>", RegexOption.IGNORE_CASE), " ")
-            .replace(Regex("<[^>]+>"), " ")
+            .replace(SCRIPT_REGEX, " ")
+            .replace(STYLE_REGEX, " ")
+            .replace(TAG_REGEX, " ")
             .replace("&amp;", "&")
             .replace("&nbsp;", " ")
             .replace("&#39;", "'")
             .replace("&quot;", "\"")
-            .replace(Regex("\\s+"), " ")
+            .replace(WHITESPACE_REGEX, " ")
 
-        val pattern = Regex(
-            "Service\\s*-\\s*Tram\\.\\s*Destination\\s*-\\s*(.*?)\\.\\s*Departure time\\s*-\\s*(.*?)\\.\\s*Departure\\s+\\d+\\s+of\\s+\\d+\\.\\s*(Live|Scheduled)\\.",
-            RegexOption.IGNORE_CASE
-        )
-
-        return pattern.findAll(normalised)
+        return DEPARTURE_REGEX.findAll(normalised)
             .map { match ->
                 TramDeparture(
                     stopName = stopName,
