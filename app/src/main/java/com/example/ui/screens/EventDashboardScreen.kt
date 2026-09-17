@@ -37,7 +37,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.model.ReceiptData
 import com.example.network.BlackpoolTramClient
 import com.example.network.BlackpoolTramStops
@@ -59,7 +62,7 @@ import java.util.Date
 import java.util.Locale
 
 private const val DASHBOARD_CLOCK_TICK_MS = 60_000L
-private const val TRAM_REFRESH_MS = 60_000L
+private const val DASHBOARD_TRAM_REFRESH_MS = 180_000L
 
 @Composable
 fun EventDashboardScreen(
@@ -70,6 +73,7 @@ fun EventDashboardScreen(
     onBlackpool: () -> Unit,
     onOps: () -> Unit
 ) {
+    val lifecycleOwner = LocalLifecycleOwner.current
     val authState by authViewModel.state.collectAsStateWithLifecycle()
     val receipt by posViewModel.currentReceipt.collectAsStateWithLifecycle()
     val printer by posViewModel.printerStatus.collectAsStateWithLifecycle()
@@ -89,18 +93,22 @@ fun EventDashboardScreen(
     val clockText = remember(now / DASHBOARD_CLOCK_TICK_MS) { clockFormatter.format(Date(now)) }
     val dateText = remember(now / 86_400_000L) { dateFormatter.format(Date(now)) }
 
-    LaunchedEffect(Unit) {
-        while (true) {
-            val current = System.currentTimeMillis()
-            now = current
-            delay((DASHBOARD_CLOCK_TICK_MS - (current % DASHBOARD_CLOCK_TICK_MS)).coerceAtLeast(1_000L))
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                val current = System.currentTimeMillis()
+                now = current
+                delay((DASHBOARD_CLOCK_TICK_MS - (current % DASHBOARD_CLOCK_TICK_MS)).coerceAtLeast(1_000L))
+            }
         }
     }
 
-    LaunchedEffect(tower.name) {
-        while (true) {
-            departures = tramClient.fetchDepartures(tower)
-            delay(TRAM_REFRESH_MS)
+    LaunchedEffect(lifecycleOwner, tower.name) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                departures = tramClient.fetchDepartures(tower)
+                delay(DASHBOARD_TRAM_REFRESH_MS)
+            }
         }
     }
 
