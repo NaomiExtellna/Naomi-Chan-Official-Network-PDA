@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 
 data class AuthUiState(
     val isLoading: Boolean = true,
+    val isAuthenticating: Boolean = false,
     val needsAdminSetup: Boolean = false,
     val currentUser: StaffAccount? = null,
     val activeShift: StaffShift? = null,
@@ -87,24 +88,54 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun login(username: String, credential: String) {
+        if (_state.value.isAuthenticating) return
+
+        val normalizedUsername = username.trim()
+        _state.value = _state.value.copy(isAuthenticating = true, message = null)
+
         viewModelScope.launch {
-            when (val result = repository.authenticate(username, credential)) {
+            when (val result = repository.authenticate(normalizedUsername, credential)) {
                 is AuthResult.Success -> {
-                    val shift = repository.getOpenShiftForStaff(result.account.id)
-                    auditRepository.log(result.account.id, result.account.displayName, "LOGIN_SUCCESS", result.account.username)
+                    val account = result.account
+
+                    // Enter the application as soon as credential verification succeeds.
+                    // Shift lookup and audit persistence are important, but they do not need
+                    // to block the user's transition into the terminal UI.
                     _state.value = _state.value.copy(
-                        currentUser = result.account,
-                        activeShift = shift,
-                        message = if (result.account.mustChangeCredential) {
+                        isAuthenticating = false,
+                        currentUser = account,
+                        activeShift = null,
+                        message = if (account.mustChangeCredential) {
                             "Temporary credential accepted. Create a new PIN/password now."
                         } else {
-                            "Signed in as ${result.account.displayName}."
+                            "Signed in as ${account.displayName}."
                         }
                     )
+
+                    viewModelScope.launch {
+                        val shift = repository.getOpenShiftForStaff(account.id)
+                        if (_state.value.currentUser?.id == account.id) {
+                            _state.value = _state.value.copy(activeShift = shift)
+                        }
+                        auditRepository.log(account.id, account.displayName, "LOGIN_SUCCESS", account.username)
+                    }
                 }
+
                 is AuthResult.Error -> {
-                    auditRepository.log(null, username.trim().ifBlank { "Unknown" }, "LOGIN_FAILED", username.trim(), result.message, "WARN")
-                    _state.value = _state.value.copy(message = result.message)
+                    _state.value = _state.value.copy(
+                        isAuthenticating = false,
+                        message = result.message
+                    )
+                    viewModelScope.launch {
+                        auditRepository.log(
+                            null,
+                            normalizedUsername.ifBlank { "Unknown" },
+                            "LOGIN_FAILED",
+                            normalizedUsername,
+                            result.message,
+                            "WARN"
+                        )
+                    }
                 }
             }
         }
@@ -210,7 +241,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         if (user != null) {
             viewModelScope.launch { auditRepository.log(user.id, user.displayName, "LOGOUT", user.username) }
         }
-        _state.value = _state.value.copy(currentUser = null, activeShift = null, pendingRecoveryCode = null, message = null)
+        _state.value = _state.value.copy(
+            isAuthenticating = false,
+            currentUser = null,
+            activeShift = null,
+            pendingRecoveryCode = null,
+            message = null
+        )
     }
 
     fun openShift(note: String = "") {
