@@ -2,8 +2,7 @@
 """Naomi-Chan™ DJ Company event operations and wireless POS gateway.
 
 The Flask gateway is the source of truth for events, catalogue items, barcode
-mapping, web orders and receipt verification. Prices and event-specific items
-are validated server-side before a wireless order is accepted.
+mapping, web orders, connected PDA terminals and receipt verification.
 """
 
 import json
@@ -24,6 +23,7 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "orders.db")
 PAYMENT_METHODS = {"CARD", "CASH", "QR", "FREE", "WIRE"}
 ITEM_TYPES = {"SERVICE", "EVENT_ADDON", "ADMISSION", "TICKET", "VIP", "MERCH", "VOUCHER"}
 EVENT_STATUSES = {"DRAFT", "LIVE", "CLOSED"}
+DEVICE_ONLINE_MS = 120_000
 
 BLACKPOOL_BARS = [
     {"name": "The Flying Handbag", "address": "Queen St, FY1 2NL", "area": "Queen St & Gay Village", "contact": "01253 624519"},
@@ -142,17 +142,37 @@ def init_db() -> None:
                 updated_at INTEGER NOT NULL
             )"""
         )
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS devices (
+                id TEXT PRIMARY KEY,
+                device_name TEXT NOT NULL,
+                manufacturer TEXT NOT NULL DEFAULT '',
+                model TEXT NOT NULL DEFAULT '',
+                android_version TEXT NOT NULL DEFAULT '',
+                sdk INTEGER NOT NULL DEFAULT 0,
+                app_version TEXT NOT NULL DEFAULT '',
+                operator_name TEXT NOT NULL DEFAULT '',
+                shift_id TEXT NOT NULL DEFAULT '',
+                printer_connected INTEGER NOT NULL DEFAULT 0,
+                unsynced_receipts INTEGER NOT NULL DEFAULT 0,
+                remote_addr TEXT NOT NULL DEFAULT '',
+                first_seen INTEGER NOT NULL,
+                last_seen INTEGER NOT NULL
+            )"""
+        )
+
         ensure_column(conn, "orders", "event_id", "TEXT")
+        ensure_column(conn, "orders", "target_device_id", "TEXT")
         ensure_column(conn, "catalog_items", "event_id", "TEXT")
 
-        # These are the hot read paths for the web terminal and the SUNMI polling
-        # endpoints. Keep them indexed as order/catalogue history grows.
         conn.executescript(
             """
             CREATE INDEX IF NOT EXISTS index_orders_status_created_at
                 ON orders(status, created_at);
             CREATE INDEX IF NOT EXISTS index_orders_event_created_at
                 ON orders(event_id, created_at);
+            CREATE INDEX IF NOT EXISTS index_orders_target_status_created_at
+                ON orders(target_device_id, status, created_at);
             CREATE INDEX IF NOT EXISTS index_orders_created_at
                 ON orders(created_at);
             CREATE INDEX IF NOT EXISTS index_events_status_starts_at
@@ -161,6 +181,8 @@ def init_db() -> None:
                 ON catalog_items(active, event_id);
             CREATE INDEX IF NOT EXISTS index_receipts_created_at
                 ON receipts(created_at);
+            CREATE INDEX IF NOT EXISTS index_devices_last_seen
+                ON devices(last_seen);
             """
         )
 
@@ -265,14 +287,7 @@ def get_catalog(include_inactive: bool = False, event_id: str = "") -> list[dict
         return [catalog_to_dict(row) for row in conn.execute(sql, params).fetchall()]
 
 
-def find_catalog_item(
-    *,
-    item_id: str = "",
-    name: str = "",
-    barcode: str = "",
-    active_only: bool = True,
-    conn: sqlite3.Connection | None = None,
-) -> dict[str, Any] | None:
+def find_catalog_item(*, item_id: str = "", name: str = "", barcode: str = "", active_only: bool = True, conn: sqlite3.Connection | None = None) -> dict[str, Any] | None:
     clauses: list[str] = []
     params: list[Any] = []
     if item_id:
@@ -331,6 +346,29 @@ def validate_catalog_payload(data: dict[str, Any], existing_id: str | None = Non
     }, None
 
 
+def device_to_dict(row: sqlite3.Row, current_ms: int | None = None) -> dict[str, Any]:
+    now = current_ms if current_ms is not None else now_ms()
+    last_seen = int(row["last_seen"])
+    return {
+        "id": row["id"],
+        "device_name": row["device_name"],
+        "manufacturer": row["manufacturer"],
+        "model": row["model"],
+        "android_version": row["android_version"],
+        "sdk": row["sdk"],
+        "app_version": row["app_version"],
+        "operator_name": row["operator_name"],
+        "shift_id": row["shift_id"],
+        "printer_connected": bool(row["printer_connected"]),
+        "unsynced_receipts": row["unsynced_receipts"],
+        "remote_addr": row["remote_addr"],
+        "first_seen": row["first_seen"],
+        "last_seen": last_seen,
+        "online": now - last_seen <= DEVICE_ONLINE_MS,
+        "last_seen_seconds": max(0, (now - last_seen) // 1000),
+    }
+
+
 def order_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     try:
         items = json.loads(row["items_json"])
@@ -339,6 +377,7 @@ def order_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     return {
         "id": row["id"],
         "event_id": row["event_id"] or "",
+        "target_device_id": row["target_device_id"] or "",
         "client_name": row["client_name"],
         "client_contact": row["client_contact"],
         "venue_name": row["venue_name"],
@@ -389,14 +428,21 @@ def events_page():
     return render_template("events.html")
 
 
+@app.route("/devices")
+def devices_page():
+    return render_template("devices.html")
+
+
 @app.route("/api/status", methods=["GET"])
 def api_status():
+    cutoff = now_ms() - DEVICE_ONLINE_MS
     with get_db() as conn:
         pending_count = conn.execute("SELECT COUNT(*) FROM orders WHERE status='PENDING'").fetchone()[0]
         total_count = conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0]
         catalog_count = conn.execute("SELECT COUNT(*) FROM catalog_items WHERE active=1").fetchone()[0]
         barcode_count = conn.execute("SELECT COUNT(*) FROM catalog_items WHERE active=1 AND barcode IS NOT NULL AND barcode<>''").fetchone()[0]
         live_events = conn.execute("SELECT COUNT(*) FROM events WHERE status='LIVE'").fetchone()[0]
+        connected_devices = conn.execute("SELECT COUNT(*) FROM devices WHERE last_seen>=?", (cutoff,)).fetchone()[0]
     return jsonify({
         "status": "ONLINE",
         "service": "Naomi-Chan™ DJ Company Event Operations",
@@ -407,8 +453,71 @@ def api_status():
         "catalog_items": catalog_count,
         "barcode_items": barcode_count,
         "live_events": live_events,
+        "connected_devices": connected_devices,
         "server_time": int(time.time()),
     })
+
+
+@app.route("/api/devices", methods=["GET"])
+def api_devices():
+    with get_db() as conn:
+        rows = conn.execute("SELECT * FROM devices ORDER BY last_seen DESC").fetchall()
+    current = now_ms()
+    return jsonify([device_to_dict(row, current) for row in rows])
+
+
+@app.route("/api/devices/heartbeat", methods=["POST"])
+def api_device_heartbeat():
+    data = json_object()
+    if data is None:
+        return jsonify({"error": "Expected a JSON object"}), 400
+
+    device_id = clean_text(data.get("device_id"), "", 64)
+    if not device_id:
+        return jsonify({"error": "device_id is required"}), 400
+
+    stamp = now_ms()
+    device_name = clean_text(data.get("device_name"), "Naomi-Chan PDA", 120)
+    manufacturer = clean_text(data.get("manufacturer"), "", 80)
+    model = clean_text(data.get("model"), "", 100)
+    android_version = clean_text(data.get("android_version"), "", 32)
+    app_version = clean_text(data.get("app_version"), "", 32)
+    operator_name = clean_text(data.get("operator_name"), "", 120)
+    shift_id = clean_text(data.get("shift_id"), "", 80)
+    remote_addr = clean_text(request.remote_addr, "", 64)
+    try:
+        sdk = max(0, min(int(data.get("sdk", 0)), 1000))
+        unsynced = max(0, min(int(data.get("unsynced_receipts", 0)), 100000))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid numeric device metadata"}), 400
+    printer_connected = 1 if bool(data.get("printer_connected", False)) else 0
+
+    with get_db() as conn:
+        conn.execute(
+            """INSERT INTO devices
+               (id, device_name, manufacturer, model, android_version, sdk, app_version,
+                operator_name, shift_id, printer_connected, unsynced_receipts,
+                remote_addr, first_seen, last_seen)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(id) DO UPDATE SET
+                 device_name=excluded.device_name,
+                 manufacturer=excluded.manufacturer,
+                 model=excluded.model,
+                 android_version=excluded.android_version,
+                 sdk=excluded.sdk,
+                 app_version=excluded.app_version,
+                 operator_name=CASE WHEN excluded.operator_name<>'' THEN excluded.operator_name ELSE devices.operator_name END,
+                 shift_id=CASE WHEN excluded.shift_id<>'' THEN excluded.shift_id ELSE devices.shift_id END,
+                 printer_connected=excluded.printer_connected,
+                 unsynced_receipts=excluded.unsynced_receipts,
+                 remote_addr=excluded.remote_addr,
+                 last_seen=excluded.last_seen""",
+            (device_id, device_name, manufacturer, model, android_version, sdk, app_version,
+             operator_name, shift_id, printer_connected, unsynced, remote_addr, stamp, stamp),
+        )
+        row = conn.execute("SELECT * FROM devices WHERE id=?", (device_id,)).fetchone()
+        conn.commit()
+    return jsonify(device_to_dict(row))
 
 
 @app.route("/api/bars", methods=["GET"])
@@ -570,8 +679,18 @@ def api_get_orders():
 
 @app.route("/api/orders/pending", methods=["GET"])
 def api_get_pending_orders():
+    device_id = clean_text(request.args.get("device_id"), "", 64)
     with get_db() as conn:
-        rows = conn.execute("SELECT * FROM orders WHERE status='PENDING' ORDER BY created_at ASC LIMIT 200").fetchall()
+        if device_id:
+            rows = conn.execute(
+                """SELECT * FROM orders
+                   WHERE status='PENDING'
+                     AND (target_device_id IS NULL OR target_device_id='' OR target_device_id=?)
+                   ORDER BY created_at ASC LIMIT 200""",
+                (device_id,),
+            ).fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM orders WHERE status='PENDING' ORDER BY created_at ASC LIMIT 200").fetchall()
     return jsonify([order_to_dict(row) for row in rows])
 
 
@@ -587,18 +706,20 @@ def api_create_order():
         return jsonify({"error": "Too many line items"}), 400
 
     event_id = clean_text(data.get("event_id"), "", 64)
+    target_device_id = clean_text(data.get("target_device_id"), "", 64)
     sanitized_items: list[dict[str, Any]] = []
     subtotal = 0.0
 
-    # Resolve the event, validate every catalogue row, calculate totals and insert
-    # the order using one SQLite connection. The previous path opened a new
-    # connection for every line item in the cart.
     with get_db() as conn:
         event = find_event(event_id, conn=conn) if event_id else None
         if event_id and event is None:
             return jsonify({"error": "Selected event was not found"}), 400
         if event and event["status"] == "CLOSED":
             return jsonify({"error": "Selected event is closed"}), 400
+        if target_device_id:
+            target = conn.execute("SELECT id FROM devices WHERE id=?", (target_device_id,)).fetchone()
+            if target is None:
+                return jsonify({"error": "Selected PDA is not registered with the gateway"}), 400
 
         for raw_item in raw_items:
             if not isinstance(raw_item, dict):
@@ -641,9 +762,13 @@ def api_create_order():
         stamp = now_ms()
         conn.execute(
             """INSERT INTO orders
-               (id, event_id, client_name, client_contact, venue_name, items_json, subtotal, tax_percent, tax_amount, grand_total, payment_method, notes, status, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)""",
-            (order_id, event_id or None, client_name, client_contact, venue_name, json.dumps(sanitized_items, separators=(",", ":")), subtotal, tax_percent, tax_amount, grand_total, payment_method, notes, stamp),
+               (id, event_id, target_device_id, client_name, client_contact, venue_name,
+                items_json, subtotal, tax_percent, tax_amount, grand_total,
+                payment_method, notes, status, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)""",
+            (order_id, event_id or None, target_device_id or None, client_name, client_contact,
+             venue_name, json.dumps(sanitized_items, separators=(",", ":")), subtotal,
+             tax_percent, tax_amount, grand_total, payment_method, notes, stamp),
         )
         conn.commit()
 
@@ -652,6 +777,7 @@ def api_create_order():
         "message": f"Event order {order_id} created",
         "order_id": order_id,
         "event_id": event_id,
+        "target_device_id": target_device_id,
         "grand_total": grand_total,
         "status": "PENDING",
     }), 201
