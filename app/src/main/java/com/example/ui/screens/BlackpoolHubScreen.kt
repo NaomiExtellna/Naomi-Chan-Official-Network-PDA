@@ -246,7 +246,7 @@ private fun VenueCardCompact(
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-        shape = RoundedCornerShape(13.dp),
+        shape = RoundedCornerShape(5.dp),
         border = BorderStroke(1.dp, NaomiBorder),
         modifier = modifier.fillMaxWidth()
     ) {
@@ -282,7 +282,7 @@ private fun VenueCardCompact(
             Button(
                 onClick = onCreateReceipt,
                 colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(4.dp),
                 modifier = Modifier.fillMaxWidth().height(38.dp)
             ) {
                 Icon(Icons.Default.EditNote, contentDescription = null, modifier = Modifier.size(15.dp))
@@ -325,7 +325,7 @@ private fun AllTramStops() {
 
         Surface(
             color = NaomiSurfaceVariant,
-            shape = RoundedCornerShape(11.dp),
+            shape = RoundedCornerShape(4.dp),
             border = BorderStroke(1.dp, NaomiBorder),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -370,7 +370,7 @@ private fun AllTramStops() {
 private fun TramStopCardCompact(number: Int?, stop: TramStopInfo, modifier: Modifier = Modifier) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-        shape = RoundedCornerShape(11.dp),
+        shape = RoundedCornerShape(4.dp),
         border = BorderStroke(1.dp, if (stop.isBranchStop) NaomiOrange.copy(alpha = 0.55f) else NaomiBorder),
         modifier = modifier.fillMaxWidth()
     ) {
@@ -381,7 +381,7 @@ private fun TramStopCardCompact(number: Int?, stop: TramStopInfo, modifier: Modi
             Box(
                 modifier = Modifier.size(32.dp).background(
                     if (stop.isBranchStop) NaomiOrange.copy(alpha = 0.13f) else NaomiSurfaceVariant,
-                    RoundedCornerShape(8.dp)
+                    RoundedCornerShape(3.dp)
                 ),
                 contentAlignment = Alignment.Center
             ) {
@@ -455,12 +455,12 @@ private fun TramBoard() {
     ) {
         Card(
             colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-            shape = RoundedCornerShape(13.dp),
+            shape = RoundedCornerShape(5.dp),
             border = BorderStroke(1.dp, NaomiBorder),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -499,7 +499,7 @@ private fun TramBoard() {
 
         Surface(
             color = NaomiSurfaceVariant,
-            shape = RoundedCornerShape(10.dp),
+            shape = RoundedCornerShape(4.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
@@ -540,7 +540,7 @@ private fun TramBoard() {
 private fun DepartureCardCompact(departure: TramDeparture, modifier: Modifier = Modifier) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-        shape = RoundedCornerShape(11.dp),
+        shape = RoundedCornerShape(4.dp),
         border = BorderStroke(1.dp, if (departure.isLive) NaomiSuccess.copy(alpha = 0.55f) else NaomiBorder),
         modifier = modifier.fillMaxWidth()
     ) {
@@ -583,7 +583,7 @@ private fun SelectorBar(
             modifier = Modifier.weight(1f).height(38.dp),
             color = NaomiSurface,
             border = BorderStroke(1.dp, NaomiBorder),
-            shape = RoundedCornerShape(10.dp)
+            shape = RoundedCornerShape(4.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 9.dp),
@@ -604,7 +604,7 @@ private fun EmptyPosPanel(title: String, subtitle: String) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, NaomiBorder),
-        shape = RoundedCornerShape(13.dp),
+        shape = RoundedCornerShape(5.dp),
         modifier = Modifier.fillMaxSize()
     ) {
         Column(
