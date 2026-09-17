@@ -58,7 +58,7 @@ class UnifiedPrinterManager(private val context: Context) {
 
     companion object {
         private const val TAG = "NaomiPrinterManager"
-        private const val ACTION_USB_PERMISSION = "com.aistudio.naomichan.pos.USB_PERMISSION"
+        private const val ACTION_USB_PERMISSION = "com.naomichan.pos.USB_PERMISSION"
         private const val SPP_UUID = "00001101-0000-1000-8000-00805F9B34FB"
 
         private const val STATUS_NORMAL = 1
@@ -293,14 +293,22 @@ class UnifiedPrinterManager(private val context: Context) {
         logoBitmap: Bitmap?
     ): PrintResult = withContext(Dispatchers.IO) {
         _status.value = _status.value.copy(isPrinting = true)
-        val bytes = EscPosBuilder(totalColumns = 32).assembleNaomiReceipt(receipt, logoBitmap)
-        _lastEscPosBytes.value = bytes
+
+        // The built-in SUNMI printer uses the vendor's native API. Only external
+        // Bluetooth/USB printers need an ESC/POS byte stream.
+        val bytes = if (channel == PrinterChannel.SUNMI_BUILTIN) {
+            null
+        } else {
+            EscPosBuilder(totalColumns = 32).assembleNaomiReceipt(receipt, logoBitmap).also {
+                _lastEscPosBytes.value = it
+            }
+        }
 
         try {
             when (channel) {
-                PrinterChannel.SUNMI_BUILTIN -> printViaSunmi(bytes)
-                PrinterChannel.BLUETOOTH -> printViaBluetooth(bytes)
-                PrinterChannel.USB_OTG -> printViaUsb(bytes)
+                PrinterChannel.SUNMI_BUILTIN -> printViaSunmi(receipt, logoBitmap)
+                PrinterChannel.BLUETOOTH -> printViaBluetooth(bytes ?: byteArrayOf())
+                PrinterChannel.USB_OTG -> printViaUsb(bytes ?: byteArrayOf())
             }
         } catch (e: Exception) {
             Log.e(TAG, "Unhandled print error", e)
@@ -310,7 +318,7 @@ class UnifiedPrinterManager(private val context: Context) {
         }
     }
 
-    private fun printViaSunmi(data: ByteArray): PrintResult {
+    private fun printViaSunmi(receipt: ReceiptData, logoBitmap: Bitmap?): PrintResult {
         val service = sunmiPrinterService
             ?: return PrintResult.Error(
                 "SUNMI printer service is not connected. No receipt was printed.",
@@ -330,32 +338,15 @@ class UnifiedPrinterManager(private val context: Context) {
             return PrintResult.Error("SUNMI V2 printer is overheated. Allow it to cool before retrying.", PrinterChannel.SUNMI_BUILTIN)
         }
 
-        return try {
-            service.printerInit(null)
-            service.sendRAWData(data, null)
-            refreshSunmiStatus()
-            val after = _status.value
+        val result = SunmiNativePrinter.print(service, receipt, logoBitmap)
+        refreshSunmiStatus()
+        val after = _status.value
 
-            when {
-                !after.isConnected -> PrintResult.Error(
-                    after.lastError ?: "SUNMI printer communication failed after dispatch",
-                    PrinterChannel.SUNMI_BUILTIN
-                )
-                !after.hasPaper -> PrintResult.OutOfPaper()
-                after.isCoverOpen -> PrintResult.Error("SUNMI V2 printer cover is open.", PrinterChannel.SUNMI_BUILTIN)
-                after.isOverheated -> PrintResult.Error("SUNMI V2 printer overheated while printing.", PrinterChannel.SUNMI_BUILTIN)
-                else -> PrintResult.Success(
-                    "Receipt dispatched to SUNMI V2 built-in 58mm printer",
-                    PrinterChannel.SUNMI_BUILTIN,
-                    data.size
-                )
-            }
-        } catch (e: RemoteException) {
-            Log.e(TAG, "SUNMI V2 print failed", e)
-            PrintResult.Error(
-                "SUNMI V2 printing failed: ${e.localizedMessage ?: "printer service error"}",
-                PrinterChannel.SUNMI_BUILTIN
-            )
+        return when {
+            !after.hasPaper -> PrintResult.OutOfPaper()
+            after.isCoverOpen -> PrintResult.Error("SUNMI V2 printer cover is open.", PrinterChannel.SUNMI_BUILTIN)
+            after.isOverheated -> PrintResult.Error("SUNMI V2 printer overheated while printing.", PrinterChannel.SUNMI_BUILTIN)
+            else -> result
         }
     }
 
