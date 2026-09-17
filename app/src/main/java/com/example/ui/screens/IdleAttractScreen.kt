@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.Color as AndroidColor
 import android.view.View
+import android.view.WindowManager
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -36,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -64,6 +66,7 @@ fun IdleAttractScreen(onDismiss: () -> Unit) {
         val previousSystemUi = decorView?.systemUiVisibility ?: 0
         val previousStatusBarColor = window?.statusBarColor
         val previousNavigationBarColor = window?.navigationBarColor
+        val keepScreenOnWasSet = window?.attributes?.flags?.and(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) != 0
 
         if (decorView != null) {
             decorView.systemUiVisibility = previousSystemUi or
@@ -76,15 +79,16 @@ fun IdleAttractScreen(onDismiss: () -> Unit) {
         }
         window?.statusBarColor = AndroidColor.TRANSPARENT
         window?.navigationBarColor = AndroidColor.TRANSPARENT
+        window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         onDispose {
             if (decorView != null) decorView.systemUiVisibility = previousSystemUi
             if (previousStatusBarColor != null) window?.statusBarColor = previousStatusBarColor
             if (previousNavigationBarColor != null) window?.navigationBarColor = previousNavigationBarColor
+            if (!keepScreenOnWasSet) window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
 
-    // Keep exactly the four bundled campaign PNGs in the attract rotation.
     val adResourceIds = remember {
         listOf(
             R.drawable.promo_ad_01,
@@ -127,24 +131,53 @@ fun IdleAttractScreen(onDismiss: () -> Unit) {
             )
     ) {
         if (adResourceIds.isNotEmpty()) {
-            // One advert only. Fit keeps every campaign PNG fully visible with its
-            // original aspect ratio; no duplicate backdrop, crop, frame or compression.
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = 6.dp, end = 6.dp, top = 58.dp, bottom = 188.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(adResourceIds[adIndex]),
-                    contentDescription = "Naomi-Chan promotion ${adIndex + 1} of ${adResourceIds.size}",
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
+            val painter = painterResource(adResourceIds[adIndex])
+
+            // Fill the tall terminal display with the current campaign artwork so there
+            // are no black letterbox blocks. This layer is only an edge-fill backdrop.
+            Image(
+                painter = painter,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                alpha = 0.58f,
+                modifier = Modifier.fillMaxSize()
+            )
+
+            // The readable poster itself stays fully visible and keeps its original ratio.
+            // There is no frame or reserved header/footer space around it.
+            Image(
+                painter = painter,
+                contentDescription = "Naomi-Chan promotion ${adIndex + 1} of ${adResourceIds.size}",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize()
+            )
         } else {
             PlaceholderPromotion()
         }
+
+        // Soft edge scrims keep the clock and reader legible without creating black panels.
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(92.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.Black.copy(alpha = 0.72f), Color.Transparent)
+                    )
+                )
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(192.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.78f))
+                    )
+                )
+        )
 
         PlainHeader(
             time = time,
@@ -158,11 +191,11 @@ fun IdleAttractScreen(onDismiss: () -> Unit) {
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 14.dp),
+                .padding(horizontal = 18.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             AdPositionDots(adResourceIds.size, adIndex)
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             NfcReaderPad()
         }
     }
@@ -184,7 +217,7 @@ private fun PlainHeader(time: String, modifier: Modifier = Modifier) {
             )
             Text(
                 text = "Official Network POS",
-                color = Color.White.copy(alpha = 0.72f),
+                color = Color.White.copy(alpha = 0.78f),
                 fontSize = 8.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -193,12 +226,12 @@ private fun PlainHeader(time: String, modifier: Modifier = Modifier) {
             Text(
                 text = time,
                 color = Color.White,
-                fontSize = 18.sp,
+                fontSize = 30.sp,
                 fontWeight = FontWeight.Black
             )
             Text(
                 text = "ATTRACT MODE",
-                color = Color.White.copy(alpha = 0.58f),
+                color = Color.White.copy(alpha = 0.70f),
                 fontSize = 7.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.6.sp
@@ -218,7 +251,7 @@ private fun AdPositionDots(count: Int, selected: Int) {
                 modifier = Modifier
                     .size(if (index == selected) 7.dp else 5.dp)
                     .background(
-                        color = if (index == selected) Color.White else Color.White.copy(alpha = 0.36f),
+                        color = if (index == selected) Color.White else Color.White.copy(alpha = 0.42f),
                         shape = CircleShape
                     )
             )
@@ -231,11 +264,11 @@ private fun NfcReaderPad() {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(5.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(38.dp)
+                .size(34.dp)
                 .background(Color.White, CircleShape),
             contentAlignment = Alignment.Center
         ) {
@@ -243,43 +276,43 @@ private fun NfcReaderPad() {
                 imageVector = Icons.Default.Contactless,
                 contentDescription = null,
                 tint = Color(0xFF55565A),
-                modifier = Modifier.size(25.dp)
+                modifier = Modifier.size(23.dp)
             )
         }
 
         Text(
             text = "NFC TAG READER",
             color = Color.White,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.5.sp
         )
 
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.68f)
+                .fillMaxWidth(0.62f)
                 .height(1.dp)
-                .background(Color.White.copy(alpha = 0.22f))
+                .background(Color.White.copy(alpha = 0.32f))
         )
 
         Box(
             modifier = Modifier
-                .size(62.dp)
+                .size(54.dp)
                 .border(3.dp, Color.White, CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = Modifier
-                    .width(27.dp)
-                    .height(38.dp)
+                    .width(24.dp)
+                    .height(33.dp)
                     .border(2.dp, Color.White, RoundedCornerShape(4.dp))
             )
         }
 
         Text(
             text = "HOLD NEAR TAG",
-            color = Color.White.copy(alpha = 0.86f),
-            fontSize = 11.sp,
+            color = Color.White.copy(alpha = 0.90f),
+            fontSize = 10.sp,
             fontWeight = FontWeight.Medium,
             letterSpacing = 0.4.sp
         )
@@ -291,7 +324,7 @@ private fun NfcReaderPad() {
         )
         Text(
             text = "Display only · Payment begins from Sell",
-            color = Color.White.copy(alpha = 0.45f),
+            color = Color.White.copy(alpha = 0.56f),
             fontSize = 7.sp,
             textAlign = TextAlign.Center
         )
