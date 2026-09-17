@@ -1,6 +1,7 @@
 package com.example
 
 import android.app.Application
+import com.example.network.GatewaySettings
 import com.example.util.DiagnosticLog
 
 /**
@@ -11,6 +12,7 @@ import com.example.util.DiagnosticLog
 class NaomiChanApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        GatewaySettings.initialize(this)
         DiagnosticLog.installCrashHandler(this)
         DiagnosticLog.log(
             this,
