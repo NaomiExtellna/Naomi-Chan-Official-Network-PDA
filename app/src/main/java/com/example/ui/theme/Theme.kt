@@ -12,11 +12,29 @@ private val DarkColorScheme = darkColorScheme(
     primaryContainer = NaomiDeepRed,
     onPrimaryContainer = Color(0xFFFFE4DF),
     secondary = NaomiOrange,
-    onSecondary = Color(0xFF221006),
-    secondaryContainer = Color(0xFF52301F),
-    onSecondaryContainer = Color(0xFFFFE7DB),
-    tertiary = Color(0xFFD0A36E),
-    onTertiary = Color(0xFF24180B),
+    onSecondary = Color.White,
+    background = Color(0xFF0D0F13),
+    onBackground = Color(0xFFF5F7FA),
+    surface = Color(0xFF171A20),
+    onSurface = Color(0xFFF5F7FA),
+    surfaceVariant = Color(0xFF20242C),
+    onSurfaceVariant = Color(0xFFB6BDC8),
+    outline = Color(0xFF303640),
+    error = NaomiError,
+    onError = Color.White
+)
+
+private val LightColorScheme = lightColorScheme(
+    primary = NaomiRed,
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFFFE3DD),
+    onPrimaryContainer = Color(0xFF4A1510),
+    secondary = NaomiOrange,
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFFFE8DC),
+    onSecondaryContainer = Color(0xFF4B2412),
+    tertiary = NaomiDeepRed,
+    onTertiary = Color.White,
     background = NaomiDarkBg,
     onBackground = NaomiTextPrimary,
     surface = NaomiSurface,
@@ -28,31 +46,9 @@ private val DarkColorScheme = darkColorScheme(
     onError = Color.White
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = NaomiRed,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFDDD6),
-    onPrimaryContainer = Color(0xFF491008),
-    secondary = NaomiOrange,
-    onSecondary = Color(0xFF2A1206),
-    secondaryContainer = Color(0xFFFFDBCA),
-    onSecondaryContainer = Color(0xFF351000),
-    tertiary = NaomiDeepRed,
-    onTertiary = Color.White,
-    background = Color(0xFFF7F8FA),
-    onBackground = Color(0xFF181B20),
-    surface = Color.White,
-    onSurface = Color(0xFF181B20),
-    surfaceVariant = Color(0xFFF0F2F5),
-    onSurfaceVariant = Color(0xFF4E5661),
-    outline = Color(0xFFD3D8DE),
-    error = NaomiError,
-    onError = Color.White
-)
-
 @Composable
 fun NaomiChanTheme(
-    darkTheme: Boolean = true,
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
