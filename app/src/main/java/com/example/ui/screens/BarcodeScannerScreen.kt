@@ -54,13 +54,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.model.ReceiptData
 import com.example.ui.PosViewModel
 import com.example.ui.theme.NaomiBorder
@@ -425,7 +425,9 @@ private fun BarcodeCameraPreview(onBarcode: (String, String) -> Unit) {
         providerFuture.addListener(listener, ContextCompat.getMainExecutor(context))
 
         onDispose {
-            runCatching { providerFuture.get().unbindAll() }
+            if (providerFuture.isDone) {
+                runCatching { providerFuture.get().unbindAll() }
+            }
             runCatching { scanner.close() }
             analyzerExecutor.shutdown()
         }
