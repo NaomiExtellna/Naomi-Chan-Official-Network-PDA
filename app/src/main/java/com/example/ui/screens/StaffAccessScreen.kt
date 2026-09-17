@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -75,13 +76,26 @@ fun StaffAccessScreen(
     onRegister: (String, String, String, String) -> Unit,
     onRecoverAdmin: (String, String, String) -> Unit
 ) {
+    val context = LocalContext.current
+    val preferences = remember(context) {
+        context.getSharedPreferences("naomi_staff_access", android.content.Context.MODE_PRIVATE)
+    }
+
     var mode by remember { mutableStateOf(AccessMode.LOGIN) }
-    var username by remember { mutableStateOf("") }
+    var username by remember {
+        mutableStateOf(preferences.getString("last_username", "").orEmpty())
+    }
     var displayName by remember { mutableStateOf("") }
     var credential by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
     var recoveryCode by remember { mutableStateOf("") }
     var usePinPad by remember { mutableStateOf(true) }
+
+    fun submitLogin(loginCredential: String = credential) {
+        if (username.isBlank() || loginCredential.isBlank() || state.isAuthenticating) return
+        preferences.edit().putString("last_username", username.trim()).apply()
+        onLogin(username, loginCredential)
+    }
 
     val canSubmitLogin = username.isNotBlank() &&
         credential.isNotBlank() &&
@@ -95,8 +109,8 @@ fun StaffAccessScreen(
                 Brush.verticalGradient(
                     colors = listOf(
                         NaomiDarkBg,
-                        Color(0xFF12151A),
-                        Color(0xFF171A20)
+                        Color(0xFFF8F9FA),
+                        Color.White
                     )
                 )
             )
@@ -111,28 +125,26 @@ fun StaffAccessScreen(
         ) {
             Surface(
                 shape = RoundedCornerShape(18.dp),
-                color = NaomiSurfaceVariant,
+                color = NaomiSurface,
                 border = BorderStroke(1.dp, NaomiBorder)
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.img_naomi_logo),
                     contentDescription = "Naomi-Chan logo",
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(60.dp)
+                    modifier = Modifier.size(64.dp)
                 )
             }
 
             Spacer(modifier = Modifier.height(14.dp))
-
             Text(
-                text = "Naomi-Chan™ Operations",
+                text = "Naomi-Chan™ POS",
                 color = NaomiTextPrimary,
-                fontSize = 23.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 0.2.sp
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black
             )
             Text(
-                text = "Secure staff terminal · SUNMI V2",
+                text = "Secure staff access · SUNMI V2",
                 color = NaomiTextSecondary,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium
@@ -141,7 +153,7 @@ fun StaffAccessScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             if (state.isLoading) {
-                CircularProgressIndicator(color = NaomiOrange)
+                CircularProgressIndicator(color = NaomiRed)
                 return@Column
             }
 
@@ -155,51 +167,7 @@ fun StaffAccessScreen(
                     modifier = Modifier.padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(13.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = NaomiRed.copy(alpha = 0.14f)
-                        ) {
-                            Icon(
-                                imageVector = when {
-                                    state.needsAdminSetup -> Icons.Default.AdminPanelSettings
-                                    mode == AccessMode.RECOVER -> Icons.Default.Key
-                                    else -> Icons.Default.Security
-                                },
-                                contentDescription = null,
-                                tint = NaomiOrange,
-                                modifier = Modifier.padding(9.dp).size(21.dp)
-                            )
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = when {
-                                    state.needsAdminSetup -> "Administrator setup"
-                                    mode == AccessMode.RECOVER -> "Recover administrator"
-                                    mode == AccessMode.REGISTER -> "Register staff account"
-                                    else -> "Staff sign in"
-                                },
-                                color = NaomiTextPrimary,
-                                fontSize = 19.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = when {
-                                    state.needsAdminSetup -> "Secure this terminal before first use."
-                                    mode == AccessMode.LOGIN -> if (usePinPad) "Enter your 6-digit staff PIN." else "Authenticate with your staff password."
-                                    mode == AccessMode.REGISTER -> "New accounts require administrator approval."
-                                    else -> "Use the one-time recovery code issued for Naomi."
-                                },
-                                color = NaomiTextSecondary,
-                                fontSize = 11.sp
-                            )
-                        }
-                    }
-
+                    AccessHeading(state = state, mode = mode, usePinPad = usePinPad)
                     HorizontalDivider(color = NaomiBorder)
 
                     when {
@@ -231,6 +199,11 @@ fun StaffAccessScreen(
                                 value = username,
                                 onValueChange = { username = it },
                                 label = { Text("Username") },
+                                supportingText = {
+                                    if (preferences.getString("last_username", "").orEmpty().isNotBlank()) {
+                                        Text("Last staff username remembered on this terminal.")
+                                    }
+                                },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                                 modifier = Modifier.fillMaxWidth()
@@ -242,14 +215,16 @@ fun StaffAccessScreen(
                                     enabled = !state.isAuthenticating,
                                     onDigit = { digit ->
                                         if (credential.length < 6) {
-                                            credential += digit
+                                            val updated = credential + digit
+                                            credential = updated
+                                            if (updated.length == 6 && username.isNotBlank()) {
+                                                submitLogin(updated)
+                                            }
                                         }
                                     },
                                     onClear = { credential = "" },
                                     onBackspace = {
-                                        if (credential.isNotEmpty()) {
-                                            credential = credential.dropLast(1)
-                                        }
+                                        if (credential.isNotEmpty()) credential = credential.dropLast(1)
                                     }
                                 )
                             } else {
@@ -264,9 +239,7 @@ fun StaffAccessScreen(
                                         imeAction = ImeAction.Done
                                     ),
                                     keyboardActions = KeyboardActions(
-                                        onDone = {
-                                            if (canSubmitLogin) onLogin(username, credential)
-                                        }
+                                        onDone = { if (canSubmitLogin) submitLogin() }
                                     ),
                                     modifier = Modifier.fillMaxWidth()
                                 )
@@ -277,7 +250,7 @@ fun StaffAccessScreen(
                                 enabled = canSubmitLogin,
                                 loading = state.isAuthenticating,
                                 icon = Icons.Default.Badge,
-                                onClick = { onLogin(username, credential) }
+                                onClick = { submitLogin() }
                             )
 
                             TextButton(
@@ -419,6 +392,54 @@ fun StaffAccessScreen(
 }
 
 @Composable
+private fun AccessHeading(state: AuthUiState, mode: AccessMode, usePinPad: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = NaomiRed.copy(alpha = 0.08f)
+        ) {
+            Icon(
+                imageVector = when {
+                    state.needsAdminSetup -> Icons.Default.AdminPanelSettings
+                    mode == AccessMode.RECOVER -> Icons.Default.Key
+                    else -> Icons.Default.Security
+                },
+                contentDescription = null,
+                tint = NaomiRed,
+                modifier = Modifier.padding(9.dp).size(21.dp)
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = when {
+                    state.needsAdminSetup -> "Administrator setup"
+                    mode == AccessMode.RECOVER -> "Recover administrator"
+                    mode == AccessMode.REGISTER -> "Register staff account"
+                    else -> "Staff sign in"
+                },
+                color = NaomiTextPrimary,
+                fontSize = 19.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = when {
+                    state.needsAdminSetup -> "Secure this terminal before first use."
+                    mode == AccessMode.LOGIN -> if (usePinPad) "Enter your 6-digit staff PIN." else "Authenticate with your staff password."
+                    mode == AccessMode.REGISTER -> "New accounts require administrator approval."
+                    else -> "Use the one-time recovery code issued for Naomi."
+                },
+                color = NaomiTextSecondary,
+                fontSize = 11.sp
+            )
+        }
+    }
+}
+
+@Composable
 private fun PinEntryDisplay(pinLength: Int) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -441,16 +462,13 @@ private fun PinEntryDisplay(pinLength: Int) {
                 Surface(
                     modifier = Modifier.weight(1f).height(48.dp),
                     shape = RoundedCornerShape(11.dp),
-                    color = if (filled) NaomiRed.copy(alpha = 0.12f) else NaomiSurfaceVariant,
-                    border = BorderStroke(
-                        1.dp,
-                        if (filled) NaomiOrange.copy(alpha = 0.75f) else NaomiBorder
-                    )
+                    color = if (filled) NaomiRed.copy(alpha = 0.08f) else NaomiSurfaceVariant,
+                    border = BorderStroke(1.dp, if (filled) NaomiRed.copy(alpha = 0.55f) else NaomiBorder)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             text = if (filled) "●" else "",
-                            color = NaomiOrange,
+                            color = NaomiRed,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Black
                         )
@@ -468,19 +486,13 @@ private fun PinKeypad(
     onClear: () -> Unit,
     onBackspace: () -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         listOf(
             listOf("1", "2", "3"),
             listOf("4", "5", "6"),
             listOf("7", "8", "9")
         ).forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { digit ->
                     PinDigitButton(
                         label = digit,
@@ -492,35 +504,28 @@ private fun PinKeypad(
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = onClear,
                 enabled = enabled,
                 border = BorderStroke(1.dp, NaomiBorder),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = NaomiTextSecondary),
                 shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.weight(1f).height(54.dp)
+                modifier = Modifier.weight(1f).height(56.dp)
             ) {
                 Text("Clear", fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
-
             PinDigitButton(
                 label = "0",
                 enabled = enabled,
                 modifier = Modifier.weight(1f),
                 onClick = { onDigit("0") }
             )
-
             OutlinedButton(
                 onClick = onBackspace,
                 enabled = enabled,
                 border = BorderStroke(1.dp, NaomiBorder),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = NaomiTextPrimary),
                 shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.weight(1f).height(54.dp)
+                modifier = Modifier.weight(1f).height(56.dp)
             ) {
                 Text("⌫", fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
@@ -544,13 +549,9 @@ private fun PinDigitButton(
         ),
         border = BorderStroke(1.dp, NaomiBorder),
         shape = RoundedCornerShape(12.dp),
-        modifier = modifier.height(54.dp)
+        modifier = modifier.height(56.dp)
     ) {
-        Text(
-            text = label,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold
-        )
+        Text(text = label, fontSize = 20.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -567,14 +568,10 @@ private fun PrimaryActionButton(
         enabled = enabled,
         colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
         shape = RoundedCornerShape(13.dp),
-        modifier = Modifier.fillMaxWidth().height(50.dp)
+        modifier = Modifier.fillMaxWidth().height(54.dp)
     ) {
         if (loading) {
-            CircularProgressIndicator(
-                color = Color.White,
-                strokeWidth = 2.dp,
-                modifier = Modifier.size(18.dp)
-            )
+            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
         } else {
             Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
         }
@@ -610,19 +607,13 @@ fun RecoveryCodeNoticeScreen(code: String, onAcknowledge: () -> Unit) {
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        code,
-                        color = NaomiOrange,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Black,
-                        modifier = Modifier.padding(14.dp)
-                    )
+                    Text(code, color = NaomiOrange, fontSize = 20.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(14.dp))
                 }
                 Button(
                     onClick = onAcknowledge,
                     colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
                     shape = RoundedCornerShape(13.dp),
-                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                    modifier = Modifier.fillMaxWidth().height(54.dp)
                 ) {
                     Text("I have saved this code", fontWeight = FontWeight.Bold)
                 }
@@ -694,10 +685,7 @@ private fun CredentialFields(
         supportingText = { Text("6–12 digit PIN, or password with at least 8 characters.") },
         visualTransformation = PasswordVisualTransformation(),
         singleLine = true,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = KeyboardType.Password,
-            imeAction = ImeAction.Next
-        ),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
         modifier = Modifier.fillMaxWidth()
     )
     OutlinedTextField(
@@ -706,10 +694,7 @@ private fun CredentialFields(
         label = { Text("Confirm credential") },
         visualTransformation = PasswordVisualTransformation(),
         singleLine = true,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = KeyboardType.Password,
-            imeAction = ImeAction.Done
-        ),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
         modifier = Modifier.fillMaxWidth()
     )
 }

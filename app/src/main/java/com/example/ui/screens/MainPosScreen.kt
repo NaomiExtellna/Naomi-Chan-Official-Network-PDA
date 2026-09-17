@@ -85,7 +85,7 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
 
     val snackbarHostState = remember { SnackbarHostState() }
     var showChannelDialog by remember { mutableStateOf(false) }
-    var activeTab by remember { mutableStateOf(MainTab.DASHBOARD) }
+    var activeTab by remember { mutableStateOf(MainTab.RECEIPT) }
     var receiptStep by remember { mutableIntStateOf(0) }
     var businessCardDraft by remember { mutableStateOf(BusinessCardDraft()) }
 
@@ -94,10 +94,10 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
     }
     val navItems = remember {
         listOf(
-            MainNavItem(MainTab.DASHBOARD, Icons.Default.Home, "Home"),
-            MainNavItem(MainTab.RECEIPT, Icons.Default.ReceiptLong, "Receipt"),
+            MainNavItem(MainTab.RECEIPT, Icons.Default.ReceiptLong, "Sell"),
             MainNavItem(MainTab.SCAN, Icons.Default.QrCodeScanner, "Scan"),
-            MainNavItem(MainTab.HISTORY, Icons.Default.CloudSync, "Ledger"),
+            MainNavItem(MainTab.HISTORY, Icons.Default.CloudSync, "Activity"),
+            MainNavItem(MainTab.DASHBOARD, Icons.Default.Home, "Home"),
             MainNavItem(MainTab.MORE, Icons.Default.MoreHoriz, "More")
         )
     }
@@ -135,7 +135,7 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                 containerColor = NaomiSurface,
                 tonalElevation = 0.dp,
                 modifier = Modifier
-                    .height(68.dp)
+                    .height(66.dp)
                     .navigationBarsPadding()
                     .testTag("main_navigation_bar")
             ) {
@@ -149,13 +149,13 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                             Icon(
                                 imageVector = item.icon,
                                 contentDescription = item.label,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(23.dp)
                             )
                         },
                         label = {
                             Text(
                                 text = item.label,
-                                fontSize = 9.sp,
+                                fontSize = 10.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                 maxLines = 1
                             )
@@ -165,7 +165,7 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                             selectedTextColor = NaomiTextPrimary,
                             unselectedIconColor = NaomiTextSecondary,
                             unselectedTextColor = NaomiTextSecondary,
-                            indicatorColor = NaomiOrange.copy(alpha = 0.12f)
+                            indicatorColor = NaomiOrange.copy(alpha = 0.10f)
                         ),
                         modifier = Modifier.testTag("nav_tab_${item.tab.name}")
                     )
@@ -218,10 +218,15 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                 )
 
                 MainTab.MORE -> MoreHubScreen(
+                    staffName = currentUser?.displayName ?: "Staff",
+                    staffRole = if (currentUser?.isAdmin == true) "Administrator" else "Staff",
+                    shiftOpen = authState.activeShift != null,
                     onBusinessCard = { activeTab = MainTab.BUSINESS_CARD },
                     onBlackpool = { activeTab = MainTab.BLACKPOOL },
                     onPrinters = { activeTab = MainTab.PRINTERS },
-                    onOperations = { activeTab = MainTab.OPERATIONS }
+                    onOperations = { activeTab = MainTab.OPERATIONS },
+                    onLockTerminal = authViewModel::logout,
+                    onSignOut = authViewModel::logout
                 )
 
                 MainTab.PREVIEW -> ThermalPreviewScreen(viewModel = viewModel, receipt = currentReceipt)

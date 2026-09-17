@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -50,6 +51,7 @@ import com.example.ui.theme.NaomiOrange
 import com.example.ui.theme.NaomiRed
 import com.example.ui.theme.NaomiSuccess
 import com.example.ui.theme.NaomiSurface
+import com.example.ui.theme.NaomiSurfaceVariant
 import com.example.ui.theme.NaomiTextPrimary
 import com.example.ui.theme.NaomiTextSecondary
 import kotlinx.coroutines.delay
@@ -84,14 +86,11 @@ fun EventDashboardScreen(
             ?: BlackpoolTramStops.FEATURED.first()
     }
     val clockFormatter = remember { SimpleDateFormat("HH:mm", Locale.UK) }
-    val dateFormatter = remember { SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.UK) }
+    val dateFormatter = remember { SimpleDateFormat("EEE, dd MMM", Locale.UK) }
     val minuteKey = now / DASHBOARD_CLOCK_TICK_MS
     val clockText = remember(minuteKey) { clockFormatter.format(Date(now)) }
     val dateText = remember(now / 86_400_000L) { dateFormatter.format(Date(now)) }
 
-    // A seconds clock forced the entire dashboard to recompose every second on the
-    // low-RAM SUNMI V2. The UI only needs minute precision, so align updates to the
-    // next minute boundary instead of running 60 recompositions per minute.
     LaunchedEffect(Unit) {
         while (true) {
             val current = System.currentTimeMillis()
@@ -113,197 +112,212 @@ fun EventDashboardScreen(
             .fillMaxSize()
             .background(NaomiDarkBg)
             .verticalScroll(rememberScrollState())
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "STAFF TERMINAL",
-                    color = NaomiOrange,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.2.sp
+                    text = "Home",
+                    color = NaomiTextPrimary,
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Black
                 )
                 Text(
-                    text = "$clockText  •  ${user.displayName}",
-                    color = NaomiTextPrimary,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Black,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    text = "$dateText · $clockText",
+                    color = NaomiTextSecondary,
+                    fontSize = 11.sp
                 )
-                Text(dateText, color = NaomiTextSecondary, fontSize = 11.sp)
             }
-            StatusPill(
-                label = if (authState.activeShift != null) "SHIFT OPEN" else "NO SHIFT",
-                active = authState.activeShift != null
-            )
+            ShiftBadge(active = authState.activeShift != null)
         }
+
+        Text(
+            text = "Hi ${user.displayName}",
+            color = NaomiTextPrimary,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
+        )
 
         Card(
             colors = CardDefaults.cardColors(containerColor = NaomiSurface),
             border = BorderStroke(1.dp, NaomiBorder),
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(20.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("QUICK ACTIONS", color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("QUICK ACTIONS", color = NaomiTextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.7.sp)
                 Button(
                     onClick = { posViewModel.resetNewReceipt(); onNewReceipt() },
                     colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth().height(52.dp)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.size(7.dp))
-                    Text("New receipt", fontWeight = FontWeight.Black)
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text("Start new sale", fontWeight = FontWeight.Black, fontSize = 14.sp)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedButton(
                         onClick = onScan,
-                        border = BorderStroke(1.dp, NaomiOrange.copy(alpha = 0.75f)),
-                        modifier = Modifier.weight(1f)
+                        border = BorderStroke(1.dp, NaomiBorder),
+                        shape = RoundedCornerShape(13.dp),
+                        modifier = Modifier.weight(1f).height(46.dp)
                     ) {
-                        Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(17.dp))
-                        Spacer(modifier = Modifier.size(5.dp))
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.size(6.dp))
                         Text("Scan")
                     }
                     OutlinedButton(
                         onClick = onBlackpool,
                         border = BorderStroke(1.dp, NaomiBorder),
-                        modifier = Modifier.weight(1f)
+                        shape = RoundedCornerShape(13.dp),
+                        modifier = Modifier.weight(1f).height(46.dp)
                     ) {
-                        Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(17.dp))
-                        Spacer(modifier = Modifier.size(5.dp))
+                        Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.size(6.dp))
                         Text("Venues")
                     }
                 }
             }
         }
 
-        DashboardCard("Current transaction") {
-            DashboardLine("Venue", receipt.venueName)
-            DashboardLine("Draft", receipt.id)
-            DashboardLine("Items", receipt.items.sumOf { it.quantity }.toString())
-            DashboardLine("Total", com.example.model.ReceiptData.formatCurrency(receipt.grandTotal))
+        SummaryCard("Current sale") {
+            if (receipt.items.isEmpty() && receipt.clientName.isBlank()) {
+                Text("No sale in progress", color = NaomiTextSecondary, fontSize = 12.sp)
+            } else {
+                SummaryLine("Customer", receipt.clientName.ifBlank { "Not set" })
+                SummaryLine("Items", receipt.items.sumOf { it.quantity }.toString())
+                SummaryLine("Total", com.example.model.ReceiptData.formatCurrency(receipt.grandTotal), emphasize = true)
+            }
         }
 
-        DashboardCard("Terminal health") {
-            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                MiniStatus("Printer", if (printer.isConnected) "READY" else "OFFLINE", printer.isConnected, Modifier.weight(1f))
-                MiniStatus("Gateway", if (gatewayOnline) "ONLINE" else "OFFLINE", gatewayOnline, Modifier.weight(1f))
-                MiniStatus("Sync", if (unsynced == 0) "CLEAR" else "$unsynced WAIT", unsynced == 0, Modifier.weight(1f))
+        SummaryCard("Device status") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HealthTile("Printer", if (printer.isConnected) "Ready" else "Offline", printer.isConnected, Modifier.weight(1f))
+                HealthTile("Gateway", if (gatewayOnline) "Online" else "Offline", gatewayOnline, Modifier.weight(1f))
+                HealthTile("Sync", if (unsynced == 0) "Clear" else "$unsynced pending", unsynced == 0, Modifier.weight(1f))
             }
         }
 
         if (authState.activeShift == null) {
-            DashboardCard("Shift required") {
-                Text(
-                    "Open a staff shift before finalising transactions.",
-                    color = NaomiTextSecondary,
-                    fontSize = 10.sp
-                )
+            SummaryCard("Shift") {
+                Text("Open a staff shift before finalising transactions.", color = NaomiTextSecondary, fontSize = 11.sp)
                 Button(
                     onClick = onOps,
-                    colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                    modifier = Modifier.fillMaxWidth()
+                    colors = ButtonDefaults.buttonColors(containerColor = NaomiSurfaceVariant),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().height(46.dp)
                 ) {
-                    Text("Open staff operations", fontWeight = FontWeight.Black)
+                    Text("Open staff operations", color = NaomiTextPrimary, fontWeight = FontWeight.Bold)
                 }
             }
         } else {
-            DashboardCard("Current shift") {
-                DashboardLine("Status", "OPEN • ${formatDuration(now - authState.activeShift!!.openedAt)}")
-                DashboardLine("Reference", authState.activeShift!!.id.take(8).uppercase(Locale.ROOT))
-                DashboardLine("Role", if (user.isAdmin) "Naomi Admin" else "Staff")
+            SummaryCard("Shift") {
+                SummaryLine("Status", "Open · ${formatDuration(now - authState.activeShift!!.openedAt)}")
+                SummaryLine("Role", if (user.isAdmin) "Naomi Admin" else "Staff")
             }
         }
 
-        DashboardCard("Blackpool • Tower") {
+        SummaryCard("Blackpool · Tower") {
             if (departures.isEmpty()) {
-                Text("Live tram information unavailable.", color = NaomiTextSecondary, fontSize = 10.sp)
+                Text("Live tram information unavailable.", color = NaomiTextSecondary, fontSize = 11.sp)
             } else {
                 departures.take(3).forEach { departure ->
-                    DashboardLine(
+                    SummaryLine(
                         "${departure.directionLabel} → ${departure.destination}",
-                        departure.departureTime + if (departure.isLive) " LIVE" else ""
+                        departure.departureTime + if (departure.isLive) " live" else ""
                     )
                 }
             }
         }
 
-        OutlinedButton(onClick = onOps, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(17.dp))
-            Spacer(modifier = Modifier.size(6.dp))
+        OutlinedButton(
+            onClick = onOps,
+            border = BorderStroke(1.dp, NaomiBorder),
+            shape = RoundedCornerShape(13.dp),
+            modifier = Modifier.fillMaxWidth().height(46.dp)
+        ) {
+            Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.size(7.dp))
             Text("Staff operations")
         }
     }
 }
 
 @Composable
-private fun StatusPill(label: String, active: Boolean) {
+private fun ShiftBadge(active: Boolean) {
     Surface(
-        color = if (active) NaomiSuccess.copy(alpha = 0.13f) else NaomiOrange.copy(alpha = 0.13f),
-        border = BorderStroke(1.dp, if (active) NaomiSuccess.copy(alpha = 0.45f) else NaomiOrange.copy(alpha = 0.45f)),
-        shape = RoundedCornerShape(18.dp)
+        color = if (active) NaomiSuccess.copy(alpha = 0.12f) else NaomiOrange.copy(alpha = 0.12f),
+        border = BorderStroke(1.dp, if (active) NaomiSuccess.copy(alpha = 0.35f) else NaomiOrange.copy(alpha = 0.35f)),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Text(
-            text = label,
+            text = if (active) "Shift open" else "No shift",
             color = if (active) NaomiSuccess else NaomiOrange,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Black,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
         )
     }
 }
 
 @Composable
-private fun MiniStatus(label: String, value: String, healthy: Boolean, modifier: Modifier = Modifier) {
+private fun HealthTile(label: String, value: String, healthy: Boolean, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
-        color = if (healthy) NaomiSuccess.copy(alpha = 0.08f) else NaomiOrange.copy(alpha = 0.08f),
+        color = NaomiSurfaceVariant,
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, if (healthy) NaomiSuccess.copy(alpha = 0.26f) else NaomiOrange.copy(alpha = 0.26f))
+        border = BorderStroke(1.dp, NaomiBorder)
     ) {
-        Column(modifier = Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, color = NaomiTextSecondary, fontSize = 8.sp)
-            Text(value, color = if (healthy) NaomiSuccess else NaomiOrange, fontWeight = FontWeight.Black, fontSize = 9.sp)
+        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(label, color = NaomiTextSecondary, fontSize = 9.sp)
+            Text(
+                value,
+                color = if (healthy) NaomiSuccess else NaomiOrange,
+                fontWeight = FontWeight.Bold,
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
 
 @Composable
-private fun DashboardCard(title: String, content: @Composable () -> Unit) {
+private fun SummaryCard(title: String, content: @Composable () -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, NaomiBorder),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(title.uppercase(Locale.ROOT), color = NaomiOrange, fontWeight = FontWeight.Black, fontSize = 9.sp, letterSpacing = 0.8.sp)
+        Column(modifier = Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             content()
         }
     }
 }
 
 @Composable
-private fun DashboardLine(label: String, value: String) {
+private fun SummaryLine(label: String, value: String, emphasize: Boolean = false) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = NaomiTextSecondary, fontSize = 10.sp, modifier = Modifier.weight(0.38f))
+        Text(label, color = NaomiTextSecondary, fontSize = 11.sp, modifier = Modifier.weight(0.48f))
         Text(
             value,
             color = NaomiTextPrimary,
-            fontWeight = FontWeight.Bold,
-            fontSize = 10.sp,
+            fontWeight = if (emphasize) FontWeight.Black else FontWeight.Medium,
+            fontSize = if (emphasize) 13.sp else 11.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(0.62f)
+            modifier = Modifier.weight(0.52f)
         )
     }
 }

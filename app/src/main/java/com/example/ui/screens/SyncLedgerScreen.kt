@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -84,7 +86,6 @@ fun SyncLedgerScreen(
     val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
     val isWirelessSyncing by viewModel.isWirelessSyncing.collectAsStateWithLifecycle()
     val gatewayOnline by viewModel.isWirelessOnline.collectAsStateWithLifecycle()
-    val gatewayUrl by viewModel.wirelessServerUrl.collectAsStateWithLifecycle()
     val pendingOrders by viewModel.pendingWirelessOrders.collectAsStateWithLifecycle()
 
     var query by remember { mutableStateOf("") }
@@ -116,130 +117,106 @@ fun SyncLedgerScreen(
     }
 
     val syncBusy = isSyncing || isWirelessSyncing
+    val needsAttention = !gatewayOnline || unsyncedCount > 0 || pendingOrders.isNotEmpty()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(NaomiDarkBg)
-            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
             .testTag("sync_ledger_screen")
     ) {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-            shape = RoundedCornerShape(12.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, NaomiBorder),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("PDA ↔ WEB GATEWAY SYNC", color = NaomiOrange, fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                        Text(
-                            if (gatewayOnline) "Connected to event operations" else "Gateway offline / unreachable",
-                            color = NaomiTextPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
-                        Text(
-                            "$unsyncedCount local receipt(s) • ${pendingOrders.size} incoming web order(s)",
-                            color = NaomiTextSecondary,
-                            fontSize = 9.5.sp
-                        )
-                    }
-                    Icon(
-                        imageVector = if (gatewayOnline) Icons.Default.CloudDone else Icons.Default.CloudOff,
-                        contentDescription = null,
-                        tint = if (gatewayOnline) NaomiSuccess else NaomiOrange,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+        Text("Activity", color = NaomiTextPrimary, fontSize = 28.sp, fontWeight = FontWeight.Black)
+        Text(
+            "Transactions, corrections and sync status.",
+            color = NaomiTextSecondary,
+            fontSize = 12.sp,
+            modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+        )
 
-                Text(gatewayUrl, color = NaomiTextSecondary, fontSize = 9.sp, maxLines = 1)
-
-                Button(
-                    onClick = { viewModel.syncGatewayNow() },
-                    enabled = !syncBusy,
-                    colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                    modifier = Modifier.fillMaxWidth().testTag("sync_all_btn")
-                ) {
-                    if (syncBusy) {
-                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Synchronising…", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    } else {
-                        Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(15.dp))
-                        Spacer(modifier = Modifier.width(5.dp))
-                        Text("Sync PDA with Flask gateway", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
+        SyncStatusCard(
+            gatewayOnline = gatewayOnline,
+            unsyncedCount = unsyncedCount,
+            pendingCount = pendingOrders.size,
+            busy = syncBusy,
+            emphasized = needsAttention,
+            onSync = { viewModel.syncGatewayNow() }
+        )
 
         if (pendingOrders.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Card(
-                colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-                shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, NaomiOrange.copy(alpha = 0.55f)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("INCOMING WEB ORDERS", color = NaomiOrange, fontWeight = FontWeight.Black, fontSize = 10.sp)
-                    Text(
-                        "Orders sent from the Flask event terminal to this PDA. Printing acknowledges them back to the gateway.",
-                        color = NaomiTextSecondary,
-                        fontSize = 9.5.sp
-                    )
-                    pendingOrders.take(5).forEach { order ->
-                        IncomingOrderRow(order = order, onPrint = { viewModel.loadAndPrintWirelessOrder(order) })
-                    }
-                    if (pendingOrders.size > 5) {
-                        Text("+ ${pendingOrders.size - 5} more queued order(s)", color = NaomiTextSecondary, fontSize = 9.sp)
-                    }
-                }
-            }
+            Spacer(modifier = Modifier.height(10.dp))
+            IncomingOrdersCard(
+                orders = pendingOrders,
+                onPrint = { order -> viewModel.loadAndPrintWirelessOrder(order) }
+            )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
-            label = { Text("Search receipt, venue, customer or staff") },
+            label = { Text("Search transactions") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
 
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(vertical = 8.dp)
+        ) {
             items(LedgerFilter.values()) { item ->
                 FilterChip(
                     selected = filter == item,
                     onClick = { filter = item },
-                    label = { Text(item.name.lowercase().replaceFirstChar { it.titlecase() }, fontSize = 9.sp) },
-                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = NaomiRed, selectedLabelColor = Color.White)
+                    label = {
+                        Text(
+                            item.name.lowercase().replaceFirstChar { it.titlecase() },
+                            fontSize = 11.sp
+                        )
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = NaomiRed,
+                        selectedLabelColor = Color.White
+                    ),
+                    modifier = Modifier.height(44.dp)
                 )
             }
         }
 
-        Text("${visibleReceipts.size} of ${receipts.size} receipt(s)", color = NaomiTextSecondary, fontSize = 10.sp, modifier = Modifier.padding(vertical = 5.dp))
+        Text(
+            if (receipts.isEmpty()) "No transactions" else "${visibleReceipts.size} transaction(s)",
+            color = NaomiTextSecondary,
+            fontSize = 11.sp,
+            modifier = Modifier.padding(bottom = 7.dp)
+        )
 
         if (visibleReceipts.isEmpty()) {
-            Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.History, contentDescription = null, tint = NaomiTextSecondary, modifier = Modifier.size(42.dp))
-                    Text("No receipts match this view.", color = NaomiTextSecondary, fontSize = 12.sp)
-                }
-            }
+            EmptyActivityState(
+                title = if (receipts.isEmpty()) "No transactions yet" else "No transactions match this view",
+                subtitle = if (receipts.isEmpty()) {
+                    "Completed sales will appear here automatically."
+                } else {
+                    "Try another search or filter."
+                },
+                modifier = Modifier.weight(1f)
+            )
         } else {
-            LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 items(visibleReceipts, key = { it.id }) { receipt ->
-                    ReceiptLedgerCard(
+                    ReceiptActivityCard(
                         receipt = receipt,
                         showFinancials = showFinancials,
                         canVoid = canVoid,
                         onReprint = { viewModel.reprintReceipt(receipt) },
                         onVoid = { voidTarget = receipt; voidReason = "" },
-                        onCorrect = { viewModel.prepareCorrection(receipt); onEditCorrection() }
+                        onCorrect = {
+                            viewModel.prepareCorrection(receipt)
+                            onEditCorrection()
+                        }
                     )
                 }
             }
@@ -250,63 +227,201 @@ fun SyncLedgerScreen(
         AlertDialog(
             onDismissRequest = { voidTarget = null },
             containerColor = NaomiSurface,
-            title = { Text("Void ${receipt.id}?", color = NaomiTextPrimary, fontWeight = FontWeight.Black) },
+            title = {
+                Text("Void ${receipt.id}?", color = NaomiTextPrimary, fontWeight = FontWeight.Black)
+            },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("This does not delete the transaction. It records a VOID entry with staff name, reason and timestamp.", color = NaomiTextSecondary, fontSize = 11.sp)
-                    OutlinedTextField(value = voidReason, onValueChange = { voidReason = it }, label = { Text("Reason for void") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+                    Text(
+                        "This keeps the transaction in Activity and records the staff member, reason and time.",
+                        color = NaomiTextSecondary,
+                        fontSize = 12.sp
+                    )
+                    OutlinedTextField(
+                        value = voidReason,
+                        onValueChange = { voidReason = it },
+                        label = { Text("Reason for void") },
+                        minLines = 2,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             },
             confirmButton = {
                 Button(
-                    onClick = { viewModel.voidReceipt(receipt, voidReason); voidTarget = null },
+                    onClick = {
+                        viewModel.voidReceipt(receipt, voidReason)
+                        voidTarget = null
+                    },
                     enabled = canVoid && voidReason.trim().length >= 3,
                     colors = ButtonDefaults.buttonColors(containerColor = NaomiRed)
-                ) { Text("Void Receipt") }
+                ) {
+                    Text("Void transaction")
+                }
             },
-            dismissButton = { TextButton(onClick = { voidTarget = null }) { Text("Cancel", color = NaomiTextSecondary) } }
+            dismissButton = {
+                TextButton(onClick = { voidTarget = null }) {
+                    Text("Cancel", color = NaomiTextSecondary)
+                }
+            }
         )
     }
 }
 
 @Composable
-private fun IncomingOrderRow(order: WirelessOrder, onPrint: () -> Unit) {
-    Surface(
-        color = NaomiSurfaceVariant,
-        shape = RoundedCornerShape(9.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, NaomiBorder),
+private fun SyncStatusCard(
+    gatewayOnline: Boolean,
+    unsyncedCount: Int,
+    pendingCount: Int,
+    busy: Boolean,
+    emphasized: Boolean,
+    onSync: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = NaomiSurface),
+        border = BorderStroke(
+            1.dp,
+            if (emphasized) NaomiOrange.copy(alpha = 0.45f) else NaomiBorder
+        ),
+        shape = RoundedCornerShape(18.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(order.id, color = NaomiTextPrimary, fontWeight = FontWeight.Black, fontSize = 11.sp)
-                Text("${order.clientName} • ${order.venueName}", color = NaomiTextSecondary, fontSize = 9.5.sp, maxLines = 1)
-                Text(
-                    "${order.items.sumOf { it.quantity }} item(s) • ${ReceiptData.formatCurrency(order.grandTotal)}",
-                    color = NaomiOrange,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 9.5.sp
-                )
-            }
-            Button(
-                onClick = onPrint,
-                colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                modifier = Modifier.height(36.dp)
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(14.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Print", fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Surface(
+                        color = if (gatewayOnline) NaomiSuccess.copy(alpha = 0.10f) else NaomiOrange.copy(alpha = 0.10f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (gatewayOnline) Icons.Default.CloudDone else Icons.Default.CloudOff,
+                            contentDescription = null,
+                            tint = if (gatewayOnline) NaomiSuccess else NaomiOrange,
+                            modifier = Modifier.padding(9.dp).size(20.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            if (gatewayOnline) "Sync ready" else "Working offline",
+                            color = NaomiTextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            when {
+                                unsyncedCount > 0 -> "$unsyncedCount transaction(s) waiting to sync"
+                                pendingCount > 0 -> "$pendingCount incoming order(s)"
+                                gatewayOnline -> "Everything is up to date"
+                                else -> "Sales stay safely on this PDA until connection returns"
+                            },
+                            color = NaomiTextSecondary,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            }
+
+            if (emphasized || busy) {
+                Button(
+                    onClick = onSync,
+                    enabled = !busy,
+                    colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth().height(50.dp).testTag("sync_all_btn")
+                ) {
+                    if (busy) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(17.dp), strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(7.dp))
+                        Text("Synchronising…", fontWeight = FontWeight.Bold)
+                    } else {
+                        Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(7.dp))
+                        Text("Sync now", fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ReceiptLedgerCard(
+private fun IncomingOrdersCard(
+    orders: List<WirelessOrder>,
+    onPrint: (WirelessOrder) -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = NaomiSurface),
+        border = BorderStroke(1.dp, NaomiOrange.copy(alpha = 0.35f)),
+        shape = RoundedCornerShape(18.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            Text("Incoming orders", color = NaomiTextPrimary, fontWeight = FontWeight.Black, fontSize = 15.sp)
+            orders.take(4).forEach { order ->
+                Surface(
+                    color = NaomiSurfaceVariant,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, NaomiBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(11.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(order.clientName, color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text(
+                                "${order.venueName} · ${ReceiptData.formatCurrency(order.grandTotal)}",
+                                color = NaomiTextSecondary,
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Button(
+                            onClick = { onPrint(order) },
+                            colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.height(44.dp)
+                        ) {
+                            Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text("Print", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+            if (orders.size > 4) {
+                Text("+ ${orders.size - 4} more queued", color = NaomiTextSecondary, fontSize = 11.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyActivityState(title: String, subtitle: String, modifier: Modifier = Modifier) {
+    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(18.dp)) {
+                Icon(
+                    Icons.Default.History,
+                    contentDescription = null,
+                    tint = NaomiTextSecondary,
+                    modifier = Modifier.padding(14.dp).size(30.dp)
+                )
+            }
+            Text(title, color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Text(subtitle, color = NaomiTextSecondary, fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
+private fun ReceiptActivityCard(
     receipt: ReceiptData,
     showFinancials: Boolean,
     canVoid: Boolean,
@@ -315,47 +430,84 @@ private fun ReceiptLedgerCard(
     onCorrect: () -> Unit
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = if (receipt.isVoided) NaomiSurfaceVariant else NaomiSurface),
-        shape = RoundedCornerShape(10.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, if (receipt.isVoided) NaomiOrange else NaomiBorder),
+        colors = CardDefaults.cardColors(containerColor = NaomiSurface),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, if (receipt.isVoided) NaomiOrange.copy(alpha = 0.55f) else NaomiBorder),
         modifier = Modifier.fillMaxWidth().testTag("receipt_item_${receipt.id}")
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(11.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(receipt.id, color = NaomiTextPrimary, fontWeight = FontWeight.Black, fontSize = 13.sp)
                         Spacer(modifier = Modifier.width(6.dp))
-                        StatusPill(if (receipt.isVoided) "VOID" else if (receipt.isBufferedOffline) "PENDING" else "SYNCED", receipt)
+                        ActivityStatusPill(
+                            if (receipt.isVoided) "VOID" else if (receipt.isBufferedOffline) "PENDING" else "SYNCED",
+                            receipt
+                        )
                     }
-                    Text("${receipt.clientName} • ${receipt.venueName}", color = NaomiTextPrimary, fontSize = 11.sp)
-                    Text("${receipt.formattedDate()} • ${receipt.paymentMethod.label}", color = NaomiTextSecondary, fontSize = 9.5.sp)
-                    if (receipt.processedBy.isNotBlank()) Text("Processed by ${receipt.processedBy}", color = NaomiTextSecondary, fontSize = 9.5.sp)
-                    receipt.replacesReceiptId?.let { Text("Correction of $it", color = NaomiOrange, fontSize = 9.5.sp, fontWeight = FontWeight.Bold) }
-                    if (receipt.isVoided) Text("VOID: ${receipt.voidReason.orEmpty()} • ${receipt.voidedBy.orEmpty()}", color = NaomiOrange, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "${receipt.clientName} · ${receipt.venueName}",
+                        color = NaomiTextPrimary,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        "${receipt.formattedDate()} · ${receipt.paymentMethod.label}",
+                        color = NaomiTextSecondary,
+                        fontSize = 11.sp
+                    )
+                    if (receipt.processedBy.isNotBlank()) {
+                        Text("Processed by ${receipt.processedBy}", color = NaomiTextSecondary, fontSize = 10.sp)
+                    }
+                    receipt.replacesReceiptId?.let {
+                        Text("Correction of $it", color = NaomiOrange, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                    if (receipt.isVoided) {
+                        Text(
+                            "VOID: ${receipt.voidReason.orEmpty()} · ${receipt.voidedBy.orEmpty()}",
+                            color = NaomiOrange,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
                 Text(
                     if (!showFinancials) "HIDDEN" else if (receipt.isEffectivelyFree) "FREE" else ReceiptData.formatCurrency(receipt.grandTotal),
-                    color = if (!showFinancials || receipt.isVoided) NaomiTextSecondary else if (receipt.isEffectivelyFree) NaomiSuccess else NaomiOrange,
+                    color = if (!showFinancials || receipt.isVoided) NaomiTextSecondary else if (receipt.isEffectivelyFree) NaomiSuccess else NaomiTextPrimary,
                     fontWeight = FontWeight.Black,
-                    fontSize = 14.sp
+                    fontSize = 15.sp
                 )
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedButton(onClick = onReprint, enabled = !receipt.isVoided, modifier = Modifier.weight(1f).height(34.dp)) {
-                    Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(13.dp)); Spacer(modifier = Modifier.width(3.dp)); Text("Reprint", fontSize = 9.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                OutlinedButton(
+                    onClick = onReprint,
+                    enabled = !receipt.isVoided,
+                    modifier = Modifier.weight(1f).height(44.dp)
+                ) {
+                    Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Reprint", fontSize = 10.sp)
                 }
-                OutlinedButton(onClick = onCorrect, modifier = Modifier.weight(1f).height(34.dp)) {
-                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(13.dp)); Spacer(modifier = Modifier.width(3.dp)); Text("Correct", fontSize = 9.sp)
+                OutlinedButton(
+                    onClick = onCorrect,
+                    modifier = Modifier.weight(1f).height(44.dp)
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Correct", fontSize = 10.sp)
                 }
                 Button(
                     onClick = onVoid,
                     enabled = canVoid && !receipt.isVoided,
                     colors = ButtonDefaults.buttonColors(containerColor = NaomiDeepRed),
-                    modifier = Modifier.weight(1f).height(34.dp)
+                    modifier = Modifier.weight(1f).height(44.dp)
                 ) {
-                    Icon(Icons.Default.VisibilityOff, contentDescription = null, modifier = Modifier.size(13.dp)); Spacer(modifier = Modifier.width(3.dp)); Text("Void", fontSize = 9.sp)
+                    Icon(Icons.Default.VisibilityOff, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Void", fontSize = 10.sp)
                 }
             }
         }
@@ -363,13 +515,19 @@ private fun ReceiptLedgerCard(
 }
 
 @Composable
-private fun StatusPill(label: String, receipt: ReceiptData) {
+private fun ActivityStatusPill(label: String, receipt: ReceiptData) {
     val color = when {
         receipt.isVoided -> NaomiOrange
         receipt.isBufferedOffline -> NaomiOrange
         else -> NaomiSuccess
     }
-    Surface(shape = RoundedCornerShape(4.dp), color = color.copy(alpha = 0.18f)) {
-        Text(label, color = color, fontWeight = FontWeight.Bold, fontSize = 8.sp, modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
+    Surface(shape = RoundedCornerShape(10.dp), color = color.copy(alpha = 0.12f)) {
+        Text(
+            label,
+            color = color,
+            fontWeight = FontWeight.Bold,
+            fontSize = 8.sp,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+        )
     }
 }
