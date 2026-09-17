@@ -55,6 +55,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.model.ReceiptData
 import com.example.model.WirelessOrder
 import com.example.ui.PosViewModel
+import com.example.ui.syncGatewayNow
 import com.example.ui.theme.NaomiBorder
 import com.example.ui.theme.NaomiDarkBg
 import com.example.ui.theme.NaomiDeepRed
@@ -156,13 +157,7 @@ fun SyncLedgerScreen(
                 Text(gatewayUrl, color = NaomiTextSecondary, fontSize = 9.sp, maxLines = 1)
 
                 Button(
-                    onClick = {
-                        // Full manual cycle: announce this PDA, pull its targeted queue,
-                        // and retry any locally buffered receipts.
-                        viewModel.checkWirelessConnection()
-                        viewModel.fetchPendingWirelessOrders()
-                        viewModel.syncAllBufferedTransactions()
-                    },
+                    onClick = { viewModel.syncGatewayNow() },
                     enabled = !syncBusy,
                     colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
                     modifier = Modifier.fillMaxWidth().testTag("sync_all_btn")
