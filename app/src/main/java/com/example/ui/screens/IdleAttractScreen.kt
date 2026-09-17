@@ -50,25 +50,23 @@ import java.util.Locale
 
 private const val AD_ROTATION_MS = 12_000L
 
-/**
- * Customer-facing idle display for the SUNMI V2.
- *
- * This deliberately looks like a modern contactless terminal without pretending to
- * process NFC payments. Any tap exits attract mode and returns to the real POS flow.
- *
- * Drop campaign PNGs into res/drawable using these names and they are discovered at runtime:
- * promo_ad_01.png ... promo_ad_06.png
- */
 @Composable
 fun IdleAttractScreen(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val adResourceIds = remember(context) {
-        (1..6).mapNotNull { index ->
+        val bundled = listOf(
+            R.drawable.promo_ad_01,
+            R.drawable.promo_ad_02,
+            R.drawable.promo_ad_03,
+            R.drawable.promo_ad_04
+        )
+        val optional = (5..6).mapNotNull { index ->
             val name = "promo_ad_${index.toString().padStart(2, '0')}"
             context.resources
                 .getIdentifier(name, "drawable", context.packageName)
                 .takeIf { it != 0 }
         }
+        bundled + optional
     }
 
     var adIndex by remember(adResourceIds) { mutableIntStateOf(0) }
