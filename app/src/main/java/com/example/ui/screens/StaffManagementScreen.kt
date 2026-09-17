@@ -7,10 +7,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -25,12 +24,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.StaffAccount
@@ -53,38 +54,72 @@ fun StaffManagementScreen(authViewModel: AuthViewModel) {
     val accounts by authViewModel.staffAccounts.collectAsState()
     val user = state.currentUser ?: return
     var showChangeOwn by remember { mutableStateOf(false) }
+    var page by remember { mutableIntStateOf(0) }
 
-    Column(modifier = Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("STAFF & SECURITY", color = NaomiOrange, fontSize = 10.sp, fontWeight = FontWeight.Black)
-        Text(if (user.isAdmin) "Naomi Admin Controls" else "My Staff Access", color = NaomiTextPrimary, fontSize = 19.sp, fontWeight = FontWeight.Black)
+    val visibleAccounts = if (user.isAdmin) accounts else accounts.filter { it.id == user.id }
+    val pages = pageCount(visibleAccounts.size, 1)
+    val account = pageSlice(visibleAccounts, page, 1).firstOrNull()
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { showChangeOwn = true }, modifier = Modifier.weight(1f)) { Text("Change My PIN") }
+    Column(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("STAFF & SECURITY", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                Text(
+                    if (user.isAdmin) "Admin controls" else "My staff access",
+                    color = NaomiTextPrimary,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            OutlinedButton(onClick = { showChangeOwn = true }, modifier = Modifier.weight(1f).height(38.dp)) {
+                Text("Change my PIN", fontSize = 8.sp)
+            }
             if (user.isAdmin) {
                 Button(
                     onClick = authViewModel::rotateAdminRecovery,
                     colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                    modifier = Modifier.weight(1f)
-                ) { Text("Recovery Code", fontSize = 10.sp) }
+                    modifier = Modifier.weight(1f).height(38.dp)
+                ) { Text("Recovery code", fontSize = 8.sp) }
             }
         }
 
-        if (!user.isAdmin) {
-            PermissionSummary(user)
+        if (account == null) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = NaomiSurface),
+                border = BorderStroke(1.dp, NaomiBorder),
+                modifier = Modifier.fillMaxWidth().weight(1f)
+            ) {
+                Column(modifier = Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.Center) {
+                    Text("No staff accounts available", color = NaomiTextSecondary, fontSize = 10.sp)
+                }
+            }
+        } else {
+            StaffCardCompact(account, user, authViewModel, Modifier.fillMaxWidth().weight(1f))
         }
 
-        LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(if (user.isAdmin) accounts else accounts.filter { it.id == user.id }, key = { it.id }) { account ->
-                StaffCard(account, user, authViewModel)
-            }
-        }
+        PosPager(
+            page = page,
+            totalPages = pages,
+            onPrevious = { page = (page - 1).coerceAtLeast(0) },
+            onNext = { page = (page + 1).coerceAtMost(pages - 1) },
+            label = "STAFF"
+        )
     }
 
     if (showChangeOwn) {
         ChangeCredentialDialog(
             title = "Change My PIN / Password",
             onDismiss = { showChangeOwn = false },
-            onSave = { a, b -> authViewModel.changeOwnCredential(a, b); showChangeOwn = false }
+            onSave = { a, b ->
+                authViewModel.changeOwnCredential(a, b)
+                showChangeOwn = false
+            }
         )
     }
 
@@ -92,11 +127,21 @@ fun StaffManagementScreen(authViewModel: AuthViewModel) {
         AlertDialog(
             onDismissRequest = authViewModel::clearAdminGeneratedCode,
             containerColor = NaomiSurface,
-            title = { Text(state.adminGeneratedCodeLabel ?: "Generated Credential", color = NaomiTextPrimary, fontWeight = FontWeight.Black) },
+            title = {
+                Text(
+                    state.adminGeneratedCodeLabel ?: "Generated Credential",
+                    color = NaomiTextPrimary,
+                    fontWeight = FontWeight.Black
+                )
+            },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(code, color = NaomiOrange, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                    Text("Give this temporary PIN directly to the staff member. They must replace it immediately after signing in.", color = NaomiTextSecondary, fontSize = 11.sp)
+                    Text(
+                        "Give this temporary PIN directly to the staff member. They must replace it after signing in.",
+                        color = NaomiTextSecondary,
+                        fontSize = 10.sp
+                    )
                 }
             },
             confirmButton = { Button(onClick = authViewModel::clearAdminGeneratedCode) { Text("Done") } }
@@ -105,29 +150,37 @@ fun StaffManagementScreen(authViewModel: AuthViewModel) {
 }
 
 @Composable
-private fun StaffCard(account: StaffAccount, requester: StaffAccount, auth: AuthViewModel) {
+private fun StaffCardCompact(
+    account: StaffAccount,
+    requester: StaffAccount,
+    auth: AuthViewModel,
+    modifier: Modifier = Modifier
+) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, if (account.isLocked) NaomiOrange else NaomiBorder),
-        shape = RoundedCornerShape(11.dp),
-        modifier = Modifier.fillMaxWidth()
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier
     ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(account.displayName, color = NaomiTextPrimary, fontWeight = FontWeight.Black)
-                    Text("@${account.username} • ${account.role.name}", color = NaomiTextSecondary, fontSize = 10.sp)
+                    Text(account.displayName, color = NaomiTextPrimary, fontWeight = FontWeight.Black, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("@${account.username} · ${account.role.name}", color = NaomiTextSecondary, fontSize = 8.sp)
                     val status = when {
                         account.isLocked -> "LOCKED"
                         account.isActive -> "ACTIVE"
                         else -> "PENDING / DISABLED"
                     }
-                    Text(status, color = if (account.isActive && !account.isLocked) NaomiSuccess else NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    Text(status, color = if (account.isActive && !account.isLocked) NaomiSuccess else NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black)
                     account.lastLoginAt?.let {
-                        Text("Last login: ${formatStaffTime(it)}", color = NaomiTextSecondary, fontSize = 9.sp)
+                        Text("Last login ${formatStaffTime(it)}", color = NaomiTextSecondary, fontSize = 7.sp)
                     }
                 }
-                if (account.id == requester.id) Text("YOU", color = NaomiOrange, fontWeight = FontWeight.Black, fontSize = 10.sp)
+                if (account.id == requester.id) Text("YOU", color = NaomiOrange, fontWeight = FontWeight.Black, fontSize = 8.sp)
             }
 
             if (requester.isAdmin && !account.isAdmin) {
@@ -135,50 +188,78 @@ private fun StaffCard(account: StaffAccount, requester: StaffAccount, auth: Auth
                     Button(
                         onClick = { auth.setStaffActive(account.id, !account.isActive) },
                         colors = ButtonDefaults.buttonColors(containerColor = if (account.isActive) NaomiSurfaceVariant else NaomiRed),
-                        modifier = Modifier.weight(1f)
-                    ) { Text(if (account.isActive) "Disable" else "Approve / Enable", fontSize = 9.sp) }
-                    OutlinedButton(onClick = { auth.resetStaffCredential(account.id) }, modifier = Modifier.weight(1f)) {
-                        Text("Reset PIN", fontSize = 9.sp)
-                    }
+                        modifier = Modifier.weight(1f).height(36.dp)
+                    ) { Text(if (account.isActive) "Disable" else "Enable", fontSize = 8.sp) }
+                    OutlinedButton(
+                        onClick = { auth.resetStaffCredential(account.id) },
+                        modifier = Modifier.weight(1f).height(36.dp)
+                    ) { Text("Reset PIN", fontSize = 8.sp) }
                 }
+
                 if (account.isLocked || account.failedAttempts > 0) {
-                    OutlinedButton(onClick = { auth.unlockStaff(account.id) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Clear Login Lock (${account.failedAttempts} failed attempt(s))", fontSize = 9.sp)
+                    OutlinedButton(
+                        onClick = { auth.unlockStaff(account.id) },
+                        modifier = Modifier.fillMaxWidth().height(34.dp)
+                    ) {
+                        Text("Clear login lock · ${account.failedAttempts} failed", fontSize = 7.sp)
                     }
                 }
-                Text("Permissions", color = NaomiTextSecondary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                PermissionChip("Void", account.canVoid) {
-                    auth.setStaffPermissions(account.id, it, account.canExport, account.canEditVenues, account.canChangeGateway, account.canViewTotals)
+
+                Text("PERMISSIONS", color = NaomiTextSecondary, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    PermissionChip("Void", account.canVoid, Modifier.weight(1f)) {
+                        auth.setStaffPermissions(account.id, it, account.canExport, account.canEditVenues, account.canChangeGateway, account.canViewTotals)
+                    }
+                    PermissionChip("Export", account.canExport, Modifier.weight(1f)) {
+                        auth.setStaffPermissions(account.id, account.canVoid, it, account.canEditVenues, account.canChangeGateway, account.canViewTotals)
+                    }
+                    PermissionChip("Venues", account.canEditVenues, Modifier.weight(1f)) {
+                        auth.setStaffPermissions(account.id, account.canVoid, account.canExport, it, account.canChangeGateway, account.canViewTotals)
+                    }
                 }
-                PermissionChip("Export / Backup", account.canExport) {
-                    auth.setStaffPermissions(account.id, account.canVoid, it, account.canEditVenues, account.canChangeGateway, account.canViewTotals)
-                }
-                PermissionChip("Edit Venues", account.canEditVenues) {
-                    auth.setStaffPermissions(account.id, account.canVoid, account.canExport, it, account.canChangeGateway, account.canViewTotals)
-                }
-                PermissionChip("Change Gateway", account.canChangeGateway) {
-                    auth.setStaffPermissions(account.id, account.canVoid, account.canExport, account.canEditVenues, it, account.canViewTotals)
-                }
-                PermissionChip("View Financial Totals", account.canViewTotals) {
-                    auth.setStaffPermissions(account.id, account.canVoid, account.canExport, account.canEditVenues, account.canChangeGateway, it)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    PermissionChip("Gateway", account.canChangeGateway, Modifier.weight(1f)) {
+                        auth.setStaffPermissions(account.id, account.canVoid, account.canExport, account.canEditVenues, it, account.canViewTotals)
+                    }
+                    PermissionChip("Totals", account.canViewTotals, Modifier.weight(1f)) {
+                        auth.setStaffPermissions(account.id, account.canVoid, account.canExport, account.canEditVenues, account.canChangeGateway, it)
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             } else if (!account.isAdmin) {
                 PermissionSummary(account)
+            } else {
+                Card(colors = CardDefaults.cardColors(containerColor = NaomiSurfaceVariant), modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    Column(modifier = Modifier.fillMaxSize().padding(10.dp), verticalArrangement = Arrangement.Center) {
+                        Text("ADMINISTRATOR", color = NaomiOrange, fontWeight = FontWeight.Black, fontSize = 9.sp)
+                        Text("Full terminal privileges are active for this account.", color = NaomiTextSecondary, fontSize = 8.sp)
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun PermissionChip(label: String, selected: Boolean, onChange: (Boolean) -> Unit) {
-    FilterChip(selected = selected, onClick = { onChange(!selected) }, label = { Text(label, fontSize = 9.sp) })
+private fun PermissionChip(
+    label: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onChange: (Boolean) -> Unit
+) {
+    FilterChip(
+        selected = selected,
+        onClick = { onChange(!selected) },
+        label = { Text(label, fontSize = 7.sp) },
+        modifier = modifier.height(34.dp)
+    )
 }
 
 @Composable
 private fun PermissionSummary(account: StaffAccount) {
     Card(colors = CardDefaults.cardColors(containerColor = NaomiSurfaceVariant), modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text("Effective permissions", color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+        Column(modifier = Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text("Effective permissions", color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 9.sp)
             Text(
                 listOfNotNull(
                     "Create receipts",
@@ -187,16 +268,20 @@ private fun PermissionSummary(account: StaffAccount) {
                     if (account.canManageVenues) "Edit venues" else null,
                     if (account.canConfigureGateway) "Gateway" else null,
                     if (account.canViewFinancialTotals) "Financial totals" else null
-                ).joinToString(" • "),
+                ).joinToString(" · "),
                 color = NaomiTextSecondary,
-                fontSize = 9.sp
+                fontSize = 7.sp
             )
         }
     }
 }
 
 @Composable
-private fun ChangeCredentialDialog(title: String, onDismiss: () -> Unit, onSave: (String, String) -> Unit) {
+private fun ChangeCredentialDialog(
+    title: String,
+    onDismiss: () -> Unit,
+    onSave: (String, String) -> Unit
+) {
     var first by remember { mutableStateOf("") }
     var second by remember { mutableStateOf("") }
     AlertDialog(
@@ -210,9 +295,12 @@ private fun ChangeCredentialDialog(title: String, onDismiss: () -> Unit, onSave:
                 Text("6–12 digit PIN or password of at least 8 characters.", color = NaomiTextSecondary, fontSize = 9.sp)
             }
         },
-        confirmButton = { Button(onClick = { onSave(first, second) }, enabled = first.length >= 6 && second.isNotBlank()) { Text("Save") } },
+        confirmButton = {
+            Button(onClick = { onSave(first, second) }, enabled = first.length >= 6 && second.isNotBlank()) { Text("Save") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 
-private fun formatStaffTime(value: Long): String = SimpleDateFormat("dd MMM HH:mm", Locale.UK).format(Date(value))
+private fun formatStaffTime(value: Long): String =
+    SimpleDateFormat("dd MMM HH:mm", Locale.UK).format(Date(value))

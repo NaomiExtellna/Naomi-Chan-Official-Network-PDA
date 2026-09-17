@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -7,20 +8,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Badge
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -28,6 +23,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.StaffAccount
@@ -75,21 +72,47 @@ fun OperationsScreen(
     var mode by remember { mutableStateOf(OpsMode.SHIFT) }
 
     Column(modifier = Modifier.fillMaxSize().background(NaomiDarkBg)) {
-        Card(colors = CardDefaults.cardColors(containerColor = NaomiSurface), shape = RoundedCornerShape(0.dp), modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column {
-                        Text("STAFF OPERATIONS", color = NaomiOrange, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        Text(user.displayName, color = NaomiTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
+        Card(
+            colors = CardDefaults.cardColors(containerColor = NaomiSurface),
+            shape = RoundedCornerShape(0.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("STAFF OPERATIONS", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                        Text(user.displayName, color = NaomiTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     RoleBadge(user)
                 }
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    item { OpsChip(mode == OpsMode.SHIFT, "Shift", Icons.Default.Schedule) { mode = OpsMode.SHIFT } }
-                    item { OpsChip(mode == OpsMode.VENUES, "Venues", Icons.Default.LocationOn) { mode = OpsMode.VENUES } }
-                    item { OpsChip(mode == OpsMode.STAFF, "Staff", Icons.Default.Badge) { mode = OpsMode.STAFF } }
-                    if (user.isAdmin) item { OpsChip(mode == OpsMode.AUDIT, "Audit", Icons.Default.History) { mode = OpsMode.AUDIT } }
-                    item { OpsChip(mode == OpsMode.SYSTEM, "System", Icons.Default.Memory) { mode = OpsMode.SYSTEM } }
+
+                val modes = if (user.isAdmin) {
+                    listOf(OpsMode.SHIFT, OpsMode.VENUES, OpsMode.STAFF, OpsMode.AUDIT, OpsMode.SYSTEM)
+                } else {
+                    listOf(OpsMode.SHIFT, OpsMode.VENUES, OpsMode.STAFF, OpsMode.SYSTEM)
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    modes.forEach { item ->
+                        OpsChip(
+                            selected = mode == item,
+                            label = when (item) {
+                                OpsMode.SHIFT -> "Shift"
+                                OpsMode.VENUES -> "Venues"
+                                OpsMode.STAFF -> "Staff"
+                                OpsMode.AUDIT -> "Audit"
+                                OpsMode.SYSTEM -> "System"
+                            },
+                            onClick = { mode = item },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
         }
@@ -115,27 +138,47 @@ fun OperationsScreen(
 }
 
 @Composable
-private fun OpsChip(selected: Boolean, label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+private fun OpsChip(
+    selected: Boolean,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     FilterChip(
         selected = selected,
         onClick = onClick,
-        label = { Text(label, fontSize = 10.sp) },
-        leadingIcon = { Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp)) },
+        label = { Text(label, fontSize = 7.sp, fontWeight = if (selected) FontWeight.Black else FontWeight.Bold) },
         colors = FilterChipDefaults.filterChipColors(
             selectedContainerColor = NaomiRed,
-            selectedLabelColor = Color.White,
-            selectedLeadingIconColor = Color.White
-        )
+            selectedLabelColor = Color.White
+        ),
+        modifier = modifier.height(34.dp)
     )
 }
 
 @Composable
 private fun RoleBadge(user: StaffAccount) {
-    Surface(color = if (user.isAdmin) NaomiOrange.copy(alpha = 0.18f) else NaomiSurfaceVariant, shape = RoundedCornerShape(7.dp)) {
-        Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(if (user.isAdmin) Icons.Default.AdminPanelSettings else Icons.Default.Badge, contentDescription = null, tint = if (user.isAdmin) NaomiOrange else NaomiTextSecondary, modifier = Modifier.size(15.dp))
+    Surface(
+        color = if (user.isAdmin) NaomiOrange.copy(alpha = 0.14f) else NaomiSurfaceVariant,
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                if (user.isAdmin) Icons.Default.AdminPanelSettings else Icons.Default.Badge,
+                contentDescription = null,
+                tint = if (user.isAdmin) NaomiOrange else NaomiTextSecondary,
+                modifier = Modifier.size(14.dp)
+            )
             Spacer(modifier = Modifier.width(4.dp))
-            Text(if (user.isAdmin) "ADMIN" else "STAFF", color = if (user.isAdmin) NaomiOrange else NaomiTextSecondary, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            Text(
+                if (user.isAdmin) "ADMIN" else "STAFF",
+                color = if (user.isAdmin) NaomiOrange else NaomiTextSecondary,
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Black
+            )
         }
     }
 }
@@ -155,84 +198,158 @@ private fun ShiftPanel(
     val activeReceipts = shiftReceipts.filterNot { it.isVoided || it.receiptStatus.equals("ARCHIVED", true) }
     val voidedReceipts = shiftReceipts.filter { it.isVoided }
     val gross = activeReceipts.sumOf { it.grandTotal }
+    val paymentTotals = PaymentMethod.values().mapNotNull { method ->
+        val total = activeReceipts.filter { it.paymentMethod == method }.sumOf { it.grandTotal }
+        if (total > 0.0 || activeReceipts.any { it.paymentMethod == method }) method.label to total else null
+    }
 
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
-        CardBlock(
-            title = if (activeShift == null) "No Open Shift" else "Shift Open",
-            subtitle = if (activeShift == null) "A shift is required before any new ticket/receipt can be finalised." else "Opened ${formatDateTime(activeShift.openedAt)} • Operator: ${user.displayName}"
+        Card(
+            colors = CardDefaults.cardColors(containerColor = NaomiSurface),
+            border = BorderStroke(1.dp, NaomiBorder),
+            shape = RoundedCornerShape(13.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            androidx.compose.material3.OutlinedTextField(
-                value = note,
-                onValueChange = { note = it },
-                label = { Text(if (activeShift == null) "Opening note (optional)" else "Closing note (optional)") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Button(
-                onClick = { if (activeShift == null) onOpenShift(note) else onCloseShift(note); note = "" },
-                colors = ButtonDefaults.buttonColors(containerColor = if (activeShift == null) NaomiRed else NaomiOrange),
-                modifier = Modifier.fillMaxWidth()
-            ) { Text(if (activeShift == null) "Open Shift" else "Close Shift", fontWeight = FontWeight.Black) }
-        }
-
-        CardBlock(
-            title = if (summaryShift?.isOpen == true) "Current Shift Summary" else "Last Shift Summary",
-            subtitle = summaryShift?.let { "${formatDateTime(it.openedAt)} → ${it.closedAt?.let(::formatDateTime) ?: "OPEN"} • ${it.staffDisplayName}" } ?: "No shift history yet."
-        ) {
-            SummaryLine("Receipts", activeReceipts.size.toString())
-            SummaryLine("Voided", voidedReceipts.size.toString())
-            if (user.canViewFinancialTotals) {
-                SummaryLine("Recorded gross", ReceiptData.formatCurrency(gross), emphasize = true)
-                PaymentMethod.values().forEach { method ->
-                    val total = activeReceipts.filter { it.paymentMethod == method }.sumOf { it.grandTotal }
-                    if (total > 0.0 || activeReceipts.any { it.paymentMethod == method }) SummaryLine(method.label, ReceiptData.formatCurrency(total))
+            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            if (activeShift == null) "NO OPEN SHIFT" else "SHIFT OPEN",
+                            color = if (activeShift == null) NaomiOrange else com.example.ui.theme.NaomiSuccess,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                        Text(
+                            activeShift?.let { "Since ${formatDateTime(it.openedAt)}" } ?: "Open a shift before finalising sales",
+                            color = NaomiTextSecondary,
+                            fontSize = 8.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
-                Text("Recorded values do not independently prove external payment settlement.", color = NaomiTextSecondary, fontSize = 9.sp)
-            } else {
-                Text("Financial totals are hidden for this account.", color = NaomiTextSecondary, fontSize = 9.sp)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = note,
+                        onValueChange = { note = it },
+                        label = { Text(if (activeShift == null) "Opening note" else "Closing note", fontSize = 9.sp) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f).height(52.dp)
+                    )
+                    Button(
+                        onClick = {
+                            if (activeShift == null) onOpenShift(note) else onCloseShift(note)
+                            note = ""
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = if (activeShift == null) NaomiRed else NaomiOrange),
+                        modifier = Modifier.height(44.dp)
+                    ) {
+                        Text(if (activeShift == null) "OPEN" else "CLOSE", fontWeight = FontWeight.Black, fontSize = 9.sp)
+                    }
+                }
             }
         }
 
-        if (shiftHistory.isNotEmpty()) {
-            CardBlock("Recent Shifts", "Most recent shift records for ${user.displayName}.") {
-                shiftHistory.take(5).forEach { shift -> SummaryLine(formatDateTime(shift.openedAt), shift.closedAt?.let { "Closed ${formatDateTime(it)}" } ?: "OPEN") }
+        Card(
+            colors = CardDefaults.cardColors(containerColor = NaomiSurface),
+            border = BorderStroke(1.dp, NaomiBorder),
+            shape = RoundedCornerShape(13.dp),
+            modifier = Modifier.fillMaxWidth().weight(1f)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    if (summaryShift?.isOpen == true) "CURRENT SHIFT SUMMARY" else "LAST SHIFT SUMMARY",
+                    color = NaomiOrange,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Text(
+                    summaryShift?.let { "${formatDateTime(it.openedAt)} → ${it.closedAt?.let(::formatDateTime) ?: "OPEN"}" } ?: "No shift history yet",
+                    color = NaomiTextSecondary,
+                    fontSize = 8.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ShiftMetric("Receipts", activeReceipts.size.toString(), Modifier.weight(1f))
+                    ShiftMetric("Voided", voidedReceipts.size.toString(), Modifier.weight(1f))
+                    ShiftMetric("Role", if (user.isAdmin) "Admin" else "Staff", Modifier.weight(1f))
+                }
+
+                if (user.canViewFinancialTotals) {
+                    ShiftMetric("Recorded gross", ReceiptData.formatCurrency(gross), Modifier.fillMaxWidth(), emphasize = true)
+                    paymentTotals.take(3).forEach { (label, total) ->
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(label, color = NaomiTextSecondary, fontSize = 8.sp)
+                            Text(ReceiptData.formatCurrency(total), color = NaomiTextPrimary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    if (paymentTotals.size > 3) {
+                        Text("+ ${paymentTotals.size - 3} additional payment method(s)", color = NaomiTextSecondary, fontSize = 7.sp)
+                    }
+                } else {
+                    Text("Financial totals hidden for this account.", color = NaomiTextSecondary, fontSize = 8.sp)
+                }
+
+                if (shiftHistory.isNotEmpty()) {
+                    Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(9.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(8.dp),
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text("RECENT SHIFTS", color = NaomiTextSecondary, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                            shiftHistory.take(2).forEach { shift ->
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(formatDateTime(shift.openedAt), color = NaomiTextPrimary, fontSize = 7.sp)
+                                    Text(shift.closedAt?.let { "Closed ${formatDateTime(it)}" } ?: "OPEN", color = NaomiTextSecondary, fontSize = 7.sp)
+                                }
+                            }
+                        }
+                    }
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun ShiftMetric(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    emphasize: Boolean = false
+) {
+    Surface(
+        modifier = modifier,
+        color = if (emphasize) NaomiOrange.copy(alpha = 0.08f) else NaomiSurfaceVariant,
+        shape = RoundedCornerShape(9.dp),
+        border = if (emphasize) BorderStroke(1.dp, NaomiOrange.copy(alpha = 0.30f)) else null
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+            Text(label.uppercase(), color = NaomiTextSecondary, fontSize = 6.sp, fontWeight = FontWeight.Bold)
+            Text(value, color = if (emphasize) NaomiOrange else NaomiTextPrimary, fontSize = if (emphasize) 12.sp else 9.sp, fontWeight = FontWeight.Black, maxLines = 1)
         }
     }
 }
 
 @Composable
 private fun PermissionDenied(title: String, text: String) {
-    Column(modifier = Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, color = NaomiTextPrimary, fontSize = 19.sp, fontWeight = FontWeight.Black)
-        Text(text, color = NaomiTextSecondary)
-    }
-}
-
-@Composable
-private fun CardBlock(title: String, subtitle: String, content: @Composable () -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, NaomiBorder),
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
+    Column(
+        modifier = Modifier.fillMaxSize().padding(18.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            Text(title, color = NaomiTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Black)
-            Text(subtitle, color = NaomiTextSecondary, fontSize = 10.sp)
-            content()
-        }
+        Text(title, color = NaomiTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Black)
+        Text(text, color = NaomiTextSecondary, fontSize = 10.sp)
     }
 }
 
-@Composable
-private fun SummaryLine(label: String, value: String, emphasize: Boolean = false) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = NaomiTextSecondary, fontSize = 11.sp)
-        Text(value, color = if (emphasize) NaomiOrange else NaomiTextPrimary, fontSize = if (emphasize) 15.sp else 11.sp, fontWeight = if (emphasize) FontWeight.Black else FontWeight.Bold)
-    }
-}
-
-private fun formatDateTime(timestamp: Long): String = SimpleDateFormat("dd MMM yyyy HH:mm", Locale.UK).format(Date(timestamp))
+private fun formatDateTime(timestamp: Long): String =
+    SimpleDateFormat("dd MMM HH:mm", Locale.UK).format(Date(timestamp))
