@@ -1,1 +1,0 @@
-Temporary attract ad staging marker. Real campaign assets are committed in the following commit.
