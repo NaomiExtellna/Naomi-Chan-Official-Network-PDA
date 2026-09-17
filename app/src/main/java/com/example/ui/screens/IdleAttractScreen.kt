@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -59,9 +60,6 @@ fun IdleAttractScreen(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
 
-    // The SUNMI V2 runs Android 7.1.x, so use the legacy immersive flags rather than
-    // relying on modern edge-to-edge APIs. The previous system UI state is restored as
-    // soon as attract mode is dismissed.
     DisposableEffect(activity) {
         val window = activity?.window
         val decorView = window?.decorView
@@ -82,15 +80,9 @@ fun IdleAttractScreen(onDismiss: () -> Unit) {
         window?.navigationBarColor = AndroidColor.TRANSPARENT
 
         onDispose {
-            if (decorView != null) {
-                decorView.systemUiVisibility = previousSystemUi
-            }
-            if (previousStatusBarColor != null) {
-                window?.statusBarColor = previousStatusBarColor
-            }
-            if (previousNavigationBarColor != null) {
-                window?.navigationBarColor = previousNavigationBarColor
-            }
+            if (decorView != null) decorView.systemUiVisibility = previousSystemUi
+            if (previousStatusBarColor != null) window?.statusBarColor = previousStatusBarColor
+            if (previousNavigationBarColor != null) window?.navigationBarColor = previousNavigationBarColor
         }
     }
 
@@ -102,10 +94,11 @@ fun IdleAttractScreen(onDismiss: () -> Unit) {
             R.drawable.promo_ad_04
         )
         val optional = (5..6).mapNotNull { index ->
-            val name = "promo_ad_${index.toString().padStart(2, '0')}"
-            context.resources
-                .getIdentifier(name, "drawable", context.packageName)
-                .takeIf { it != 0 }
+            context.resources.getIdentifier(
+                "promo_ad_${index.toString().padStart(2, '0')}",
+                "drawable",
+                context.packageName
+            ).takeIf { it != 0 }
         }
         bundled + optional
     }
@@ -145,52 +138,72 @@ fun IdleAttractScreen(onDismiss: () -> Unit) {
             )
     ) {
         if (adResourceIds.isNotEmpty()) {
+            // Decorative edge-to-edge backdrop. Cropping is intentional here only; it is
+            // dimmed so the readable campaign artwork below remains the focal point.
             Image(
                 painter = painterResource(adResourceIds[adIndex]),
-                contentDescription = "Naomi-Chan promotion",
+                contentDescription = null,
                 contentScale = ContentScale.Crop,
+                alpha = 0.28f,
                 modifier = Modifier.fillMaxSize()
             )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.Black.copy(alpha = 0.42f),
+                                Color.Black.copy(alpha = 0.18f),
+                                Color.Black.copy(alpha = 0.48f)
+                            )
+                        )
+                    )
+            )
+
+            // The actual advert is never stretched or cropped. ContentScale.Fit preserves
+            // the PNG's original poster ratio and uses the dimmed backdrop as letterboxing.
+            val posterShape = RoundedCornerShape(24.dp)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = 12.dp, end = 12.dp, top = 82.dp, bottom = 132.dp)
+                    .clip(posterShape)
+                    .background(Color(0x8F10161D))
+                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.24f)), posterShape)
+                    .padding(5.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(adResourceIds[adIndex]),
+                    contentDescription = "Naomi-Chan promotion",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         } else {
             PlaceholderPromotion()
         }
-
-        // Preserve artwork impact while ensuring the glass controls remain readable over
-        // both bright and dark campaign images.
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        0.0f to Color.Black.copy(alpha = 0.32f),
-                        0.24f to Color.Transparent,
-                        0.58f to Color.Transparent,
-                        1.0f to Color.Black.copy(alpha = 0.60f)
-                    )
-                )
-        )
 
         GlassHeader(
             time = time,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp)
         )
 
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(9.dp)
+            verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             if (adResourceIds.size > 1) {
-                AdPositionGlassDots(
-                    count = adResourceIds.size,
-                    selected = adIndex
-                )
+                AdPositionGlassDots(adResourceIds.size, adIndex)
             }
             ContactlessGlassPrompt()
         }
@@ -198,93 +211,50 @@ fun IdleAttractScreen(onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun GlassHeader(
-    time: String,
-    modifier: Modifier = Modifier
-) {
-    val shape = RoundedCornerShape(22.dp)
-    Box(
+private fun GlassHeader(time: String, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(20.dp)
+    Row(
         modifier = modifier
             .clip(shape)
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Color(0xD91A2028),
-                        Color(0xA611171E)
-                    )
-                )
-            )
+            .background(Color(0xC5161C23))
             .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.20f)), shape)
-            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .padding(horizontal = 11.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(9.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.img_naomi_logo),
-                    contentDescription = "Naomi-Chan logo",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(11.dp))
-                        .border(
-                            BorderStroke(1.dp, Color.White.copy(alpha = 0.24f)),
-                            RoundedCornerShape(11.dp)
-                        )
-                )
-                Column {
-                    Text(
-                        text = "Naomi-Chan™",
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                    Text(
-                        text = "Official Network POS",
-                        color = Color.White.copy(alpha = 0.72f),
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+            Image(
+                painter = painterResource(R.drawable.img_naomi_logo),
+                contentDescription = "Naomi-Chan logo",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(10.dp))
+            )
+            Column {
+                Text("Naomi-Chan™", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                Text("Official Network POS", color = Color.White.copy(alpha = 0.68f), fontSize = 8.sp)
             }
-
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = time,
-                    color = Color.White,
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.Black
-                )
-                Text(
-                    text = "ATTRACT MODE",
-                    color = Color.White.copy(alpha = 0.60f),
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.8.sp
-                )
-            }
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(time, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
+            Text("ATTRACT MODE", color = Color.White.copy(alpha = 0.56f), fontSize = 7.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
 
 @Composable
-private fun AdPositionGlassDots(
-    count: Int,
-    selected: Int
-) {
+private fun AdPositionGlassDots(count: Int, selected: Int) {
     val shape = RoundedCornerShape(99.dp)
     Row(
         modifier = Modifier
             .clip(shape)
-            .background(Color(0x8A10161D))
+            .background(Color(0xA010161D))
             .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)), shape)
-            .padding(horizontal = 9.dp, vertical = 6.dp),
+            .padding(horizontal = 9.dp, vertical = 5.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -293,11 +263,7 @@ private fun AdPositionGlassDots(
                 modifier = Modifier
                     .size(if (index == selected) 8.dp else 6.dp)
                     .background(
-                        if (index == selected) {
-                            Color.White
-                        } else {
-                            Color.White.copy(alpha = 0.35f)
-                        },
+                        if (index == selected) Color.White else Color.White.copy(alpha = 0.34f),
                         CircleShape
                     )
             )
@@ -307,77 +273,52 @@ private fun AdPositionGlassDots(
 
 @Composable
 private fun ContactlessGlassPrompt() {
-    val shape = RoundedCornerShape(28.dp)
-    Box(
+    val shape = RoundedCornerShape(24.dp)
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Color(0xE11B222B),
-                        Color(0xC710161D)
-                    )
-                )
-            )
-            .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.24f)), shape)
-            .padding(horizontal = 18.dp, vertical = 14.dp)
+            .background(Color(0xD9161C23))
+            .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.22f)), shape)
+            .padding(horizontal = 15.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(5.dp)
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .background(Color.White.copy(alpha = 0.10f), CircleShape)
+                .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)), CircleShape),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(62.dp)
-                    .background(Color.White.copy(alpha = 0.10f), CircleShape)
-                    .border(
-                        BorderStroke(1.dp, Color.White.copy(alpha = 0.20f)),
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Contactless,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(44.dp)
-                )
-            }
-
-            Text(
-                text = "READY WHEN YOU ARE",
-                color = Color.White.copy(alpha = 0.76f),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 1.0.sp
+            Icon(
+                imageVector = Icons.Default.Contactless,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(38.dp)
             )
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(7.dp)
-            ) {
+        }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                "READY WHEN YOU ARE",
+                color = Color.White.copy(alpha = 0.70f),
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 0.8.sp
+            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 Icon(
                     imageVector = Icons.Default.TouchApp,
                     contentDescription = null,
                     tint = Color(0xFFFF9A6F),
-                    modifier = Modifier.size(19.dp)
+                    modifier = Modifier.size(17.dp)
                 )
-                Text(
-                    text = "Tap anywhere to start",
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Black
-                )
+                Text("Tap anywhere to start", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Black)
             }
-
             Text(
-                text = "Display mode only · Payment begins from Sell",
-                color = Color.White.copy(alpha = 0.58f),
-                fontSize = 8.sp,
-                fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center
+                "Display only · Payment begins from Sell",
+                color = Color.White.copy(alpha = 0.50f),
+                fontSize = 7.sp
             )
         }
     }
@@ -390,47 +331,24 @@ private fun PlaceholderPromotion() {
             .fillMaxSize()
             .background(
                 Brush.linearGradient(
-                    listOf(
-                        Color(0xFFC84532),
-                        Color(0xFFE7834F),
-                        Color(0xFF6F2A34)
-                    )
+                    listOf(Color(0xFFC84532), Color(0xFFE7834F), Color(0xFF6F2A34))
                 )
-            )
-            .padding(22.dp),
+            ),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(9.dp)) {
             Image(
                 painter = painterResource(R.drawable.img_naomi_logo),
                 contentDescription = null,
-                modifier = Modifier
-                    .size(90.dp)
-                    .clip(RoundedCornerShape(24.dp)),
+                modifier = Modifier.size(88.dp).clip(RoundedCornerShape(22.dp)),
                 contentScale = ContentScale.Crop
             )
+            Text("Naomi-Chan™", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black)
             Text(
-                text = "Naomi-Chan™",
-                color = Color.White,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                text = "BLACKPOOL DJ · ELECTRONIC PRODUCER",
+                "BLACKPOOL DJ · ELECTRONIC PRODUCER",
                 color = Color.White.copy(alpha = 0.86f),
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 0.8.sp,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                text = "Live events · VRChat · Private bookings",
-                color = Color.White.copy(alpha = 0.82f),
-                fontSize = 12.sp,
                 textAlign = TextAlign.Center
             )
         }
