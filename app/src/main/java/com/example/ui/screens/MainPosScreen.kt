@@ -85,7 +85,8 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
 
     val snackbarHostState = remember { SnackbarHostState() }
     var showChannelDialog by remember { mutableStateOf(false) }
-    var activeTab by remember { mutableStateOf(MainTab.DASHBOARD) }
+    // POS-first behaviour: selling is the default workspace after sign-in.
+    var activeTab by remember { mutableStateOf(MainTab.RECEIPT) }
     var receiptStep by remember { mutableIntStateOf(0) }
     var businessCardDraft by remember { mutableStateOf(BusinessCardDraft()) }
 
@@ -94,10 +95,10 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
     }
     val navItems = remember {
         listOf(
-            MainNavItem(MainTab.DASHBOARD, Icons.Default.Home, "Home"),
-            MainNavItem(MainTab.RECEIPT, Icons.Default.ReceiptLong, "Receipt"),
+            MainNavItem(MainTab.RECEIPT, Icons.Default.ReceiptLong, "Sell"),
             MainNavItem(MainTab.SCAN, Icons.Default.QrCodeScanner, "Scan"),
-            MainNavItem(MainTab.HISTORY, Icons.Default.CloudSync, "Ledger"),
+            MainNavItem(MainTab.HISTORY, Icons.Default.CloudSync, "Activity"),
+            MainNavItem(MainTab.DASHBOARD, Icons.Default.Home, "Home"),
             MainNavItem(MainTab.MORE, Icons.Default.MoreHoriz, "More")
         )
     }
@@ -135,7 +136,7 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                 containerColor = NaomiSurface,
                 tonalElevation = 0.dp,
                 modifier = Modifier
-                    .height(68.dp)
+                    .height(64.dp)
                     .navigationBarsPadding()
                     .testTag("main_navigation_bar")
             ) {
@@ -149,13 +150,13 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                             Icon(
                                 imageVector = item.icon,
                                 contentDescription = item.label,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         },
                         label = {
                             Text(
                                 text = item.label,
-                                fontSize = 9.sp,
+                                fontSize = 10.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                 maxLines = 1
                             )
