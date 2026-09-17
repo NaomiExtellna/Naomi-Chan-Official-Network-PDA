@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -198,7 +199,7 @@ private fun CustomerStep(viewModel: PosViewModel, receipt: ReceiptData) {
             onValueChange = viewModel::updateClientContact,
             label = { Text("Phone / contact") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth().height(55.dp)
+            modifier = Modifier.fillMaxWidth().height(49.dp)
         )
         Surface(
             color = NaomiSurfaceVariant,
