@@ -1,14 +1,11 @@
 package com.example
 
 import android.Manifest
-import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -50,6 +47,7 @@ class MainActivity : ComponentActivity() {
         private const val AUTO_LOCK_AFTER_MS = 5 * 60 * 1000L
         private const val MIN_SPLASH_DURATION_MS = 1_200L
         private const val PERMISSION_REQUEST_DELAY_MS = 350L
+        private const val BLUETOOTH_PERMISSION_REQUEST_CODE = 7301
     }
 
     private var posViewModelInitialized = false
@@ -67,22 +65,15 @@ class MainActivity : ComponentActivity() {
 
     private var backgroundedAt: Long = 0L
 
-    private val bluetoothPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) {
-        // Do not initialize the POS/printer stack from a permission callback.
-        // Hardware discovery happens only once the POS UI is opened.
-    }
-
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(newBase)
-        DiagnosticLog.installCrashHandler(newBase)
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
 
+        // Install diagnostics only after Activity creation. Keeping attachBaseContext untouched
+        // avoids doing custom work in the fragile pre-onCreate path on SUNMI OS / Android 7.1.1.
+        DiagnosticLog.installCrashHandler(this)
+
+        // Deliberately do not call enableEdgeToEdge() here. The SUNMI V2 runs API 25 and
+        // its customised SystemUI is more reliable with the classic window-inset path.
         setContent {
             NaomiChanTheme(darkTheme = true) {
                 var splashComplete by remember { mutableStateOf(false) }
@@ -240,6 +231,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestBluetoothPermissionsIfNeeded() {
+        // Android 7.1.1 (API 25) uses the manifest-granted BLUETOOTH and
+        // BLUETOOTH_ADMIN permissions and must never enter the Android 12 flow.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
 
         runCatching {
@@ -251,10 +244,25 @@ class MainActivity : ComponentActivity() {
                 ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED
             }
             if (missingPermissions.isNotEmpty()) {
-                bluetoothPermissionLauncher.launch(missingPermissions.toTypedArray())
+                requestPermissions(
+                    missingPermissions.toTypedArray(),
+                    BLUETOOTH_PERMISSION_REQUEST_CODE
+                )
             }
         }.onFailure { error ->
             DiagnosticLog.error(this, "MainActivity/bluetoothPermission", error)
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == BLUETOOTH_PERMISSION_REQUEST_CODE && posViewModelInitialized) {
+            runCatching { posViewModel.printerManager.refreshDiscoveredDevices() }
+                .onFailure { DiagnosticLog.error(this, "MainActivity/bluetoothRefresh", it) }
         }
     }
 
