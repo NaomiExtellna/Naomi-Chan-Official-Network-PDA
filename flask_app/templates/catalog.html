@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}Catalogue • Naomi-Chan™ DJ Company{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div>
+    <div class="eyebrow">Sales & Access Control</div>
+    <h1>Event catalogue</h1>
+    <p class="lead">Manage global merchandise and services alongside event-specific tickets, admission and VIP upgrades. The SUNMI scanner resolves these barcodes directly from this catalogue.</p>
+  </div>
+  <button class="btn btn-primary" id="new-item">+ New item</button>
+</section>
+
+<section class="metric-grid">
+  <div class="metric"><div class="metric-label">Active items</div><div class="metric-value" id="metric-active">—</div><div class="metric-meta">Available to web + PDA</div></div>
+  <div class="metric"><div class="metric-label">Barcode mapped</div><div class="metric-value" id="metric-barcode">—</div><div class="metric-meta">Scanner-ready items</div></div>
+  <div class="metric"><div class="metric-label">Event-specific</div><div class="metric-value" id="metric-event">—</div><div class="metric-meta">Restricted to one event</div></div>
+  <div class="metric"><div class="metric-label">Global</div><div class="metric-value" id="metric-global">—</div><div class="metric-meta">Reusable across events</div></div>
+</section>
+
+<div class="catalog-layout">
+  <section class="card">
+    <div class="card-header">
+      <div><div class="card-kicker">Catalogue</div><div class="card-title">Tickets, VIP, merch & event services</div></div>
+      <div class="toolbar"><button class="btn btn-secondary" id="refresh-items">Refresh</button></div>
+    </div>
+    <div class="card-body">
+      <div class="search-row">
+        <input id="search" class="input" type="text" placeholder="Search item, barcode, category or event…">
+        <select id="event-filter"><option value="">All events</option></select>
+      </div>
+      <div class="filter-row" style="margin-bottom:12px">
+        <button class="filter-chip active" data-type="ALL">All</button>
+        <button class="filter-chip" data-type="ADMISSION">Admission</button>
+        <button class="filter-chip" data-type="TICKET">Tickets</button>
+        <button class="filter-chip" data-type="VIP">VIP</button>
+        <button class="filter-chip" data-type="MERCH">Merch</button>
+        <button class="filter-chip" data-type="EVENT_ADDON">DJ add-ons</button>
+        <button class="filter-chip" data-type="SERVICE">Services</button>
+      </div>
+      <div id="catalog-list"><div class="empty-state">Loading catalogue…</div></div>
+    </div>
+  </section>
+
+  <aside class="card editor-panel">
+    <div class="card-header">
+      <div><div class="card-kicker">Catalogue editor</div><div class="card-title" id="item-editor-title">Create item</div></div>
+      <button class="btn btn-ghost" id="reset-item">Clear</button>
+    </div>
+    <div class="card-body">
+      <form id="item-form" class="form-grid">
+        <input id="item-id" type="hidden">
+        <div class="form-group full"><label>Name</label><input id="item-name" type="text" required placeholder="VIP balcony upgrade"></div>
+        <div class="form-group"><label>Price (£)</label><input id="item-price" type="number" min="0" step="0.01" required></div>
+        <div class="form-group"><label>Type</label><select id="item-type"><option>SERVICE</option><option>EVENT_ADDON</option><option>ADMISSION</option><option>TICKET</option><option>VIP</option><option>MERCH</option><option>VOUCHER</option></select></div>
+        <div class="form-group full"><label>Category</label><input id="item-category" type="text" value="Event Services"></div>
+        <div class="form-group full"><label>Barcode / QR payload</label><input id="item-barcode" type="text" placeholder="NCHN-EVENT-VIP-001"></div>
+        <div class="form-group full"><label>Event scope</label><select id="item-event"><option value="">Global — all events</option></select></div>
+        <div class="form-group full"><label>Description</label><textarea id="item-description" placeholder="What staff and customers are buying or receiving…"></textarea></div>
+        <div class="form-group full switch-row"><div><label>Active</label><div class="help">Inactive items remain in history but cannot be sold/scanned.</div></div><input id="item-active" type="checkbox" checked></div>
+        <div class="form-group full"><button class="btn btn-primary btn-block" type="submit">Save catalogue item</button></div>
+        <div class="form-group full"><button class="btn btn-danger btn-block hidden" id="archive-item" type="button">Archive item</button></div>
+      </form>
+      <p class="help">For tickets and VIP passes, assign the item to a specific event. Merchandise and general DJ services can stay global. Barcode values must be unique.</p>
+    </div>
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+let items = [];
+let events = [];
+let typeFilter = 'ALL';
+
+function resetItemEditor() {
+  document.getElementById('item-form').reset();
+  document.getElementById('item-id').value = '';
+  document.getElementById('item-category').value = 'Event Services';
+  document.getElementById('item-type').value = 'SERVICE';
+  document.getElementById('item-active').checked = true;
+  document.getElementById('item-event').value = '';
+  document.getElementById('item-editor-title').textContent = 'Create item';
+  document.getElementById('archive-item').classList.add('hidden');
+}
+
+function eventName(id) {
+  if (!id) return 'Global';
+  return events.find(e => e.id === id)?.name || id;
+}
+
+function editItem(id) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  document.getElementById('item-id').value = item.id;
+  document.getElementById('item-name').value = item.name;
+  document.getElementById('item-price').value = Number(item.price).toFixed(2);
+  document.getElementById('item-type').value = item.item_type;
+  document.getElementById('item-category').value = item.category || '';
+  document.getElementById('item-barcode').value = item.barcode || '';
+  document.getElementById('item-event').value = item.event_id || '';
+  document.getElementById('item-description').value = item.description || '';
+  document.getElementById('item-active').checked = Boolean(item.active);
+  document.getElementById('item-editor-title').textContent = `Edit ${item.name}`;
+  document.getElementById('archive-item').classList.remove('hidden');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function itemCard(item) {
+  const scope = item.event_id ? eventName(item.event_id) : 'All events';
+  return `<article class="product-card">
+    <div class="product-meta">
+      <span class="badge type">${NC.escape(item.item_type.replaceAll('_',' '))}</span>
+      ${item.barcode ? `<span class="badge barcode">${NC.escape(item.barcode)}</span>` : '<span class="badge inactive">No barcode</span>'}
+      ${item.active ? '<span class="badge success">Active</span>' : '<span class="badge inactive">Archived</span>'}
+    </div>
+    <div class="product-name">${NC.escape(item.name)}</div>
+    <div class="product-desc">${NC.escape(item.description || 'No description')}</div>
+    <div class="product-footer">
+      <div><div class="product-price">${NC.money(item.price)}</div><div class="product-category">${NC.escape(item.category)} • ${NC.escape(scope)}</div></div>
+      <button class="btn btn-secondary" onclick="editItem('${NC.escape(item.id)}')">Edit</button>
+    </div>
+  </article>`;
+}
+
+function renderItems() {
+  const query = document.getElementById('search').value.trim().toLowerCase();
+  const eventId = document.getElementById('event-filter').value;
+  const visible = items.filter(item => {
+    if (typeFilter !== 'ALL' && item.item_type !== typeFilter) return false;
+    if (eventId && item.event_id && item.event_id !== eventId) return false;
+    const haystack = `${item.name} ${item.barcode} ${item.category} ${item.description} ${eventName(item.event_id)}`.toLowerCase();
+    return !query || haystack.includes(query);
+  });
+  document.getElementById('catalog-list').innerHTML = visible.length ? `<div class="catalog-grid">${visible.map(itemCard).join('')}</div>` : '<div class="empty-state">No catalogue items match these filters.</div>';
+  document.getElementById('metric-active').textContent = items.filter(i => i.active).length;
+  document.getElementById('metric-barcode').textContent = items.filter(i => i.active && i.barcode).length;
+  document.getElementById('metric-event').textContent = items.filter(i => i.event_id).length;
+  document.getElementById('metric-global').textContent = items.filter(i => !i.event_id).length;
+}
+
+async function loadData() {
+  try {
+    [events, items] = await Promise.all([
+      NC.json('/api/events?include_closed=1'),
+      NC.json('/api/catalog?include_inactive=1')
+    ]);
+    const options = events.map(ev => `<option value="${NC.escape(ev.id)}">${NC.escape(ev.name)} — ${NC.escape(ev.status)}</option>`).join('');
+    document.getElementById('event-filter').innerHTML = '<option value="">All events</option>' + options;
+    document.getElementById('item-event').innerHTML = '<option value="">Global — all events</option>' + options;
+    renderItems();
+  } catch (error) { NC.toast(error.message, 'error'); }
+}
+
+document.getElementById('item-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const id = document.getElementById('item-id').value.trim();
+  const payload = {
+    name: document.getElementById('item-name').value,
+    price: Number(document.getElementById('item-price').value),
+    item_type: document.getElementById('item-type').value,
+    category: document.getElementById('item-category').value,
+    barcode: document.getElementById('item-barcode').value,
+    event_id: document.getElementById('item-event').value,
+    description: document.getElementById('item-description').value,
+    active: document.getElementById('item-active').checked
+  };
+  try {
+    await NC.json(id ? `/api/catalog/${encodeURIComponent(id)}` : '/api/catalog', {method:id ? 'PUT' : 'POST', body:JSON.stringify(payload)});
+    NC.toast(id ? 'Catalogue item updated' : 'Catalogue item created');
+    resetItemEditor();
+    await loadData();
+  } catch (error) { NC.toast(error.message, 'error'); }
+});
+
+document.getElementById('archive-item').addEventListener('click', async () => {
+  const id = document.getElementById('item-id').value;
+  if (!id) return;
+  try {
+    await NC.json(`/api/catalog/${encodeURIComponent(id)}`, {method:'DELETE'});
+    NC.toast('Catalogue item archived');
+    resetItemEditor();
+    await loadData();
+  } catch (error) { NC.toast(error.message, 'error'); }
+});
+
+document.querySelectorAll('[data-type]').forEach(button => button.addEventListener('click', () => {
+  document.querySelectorAll('[data-type]').forEach(b => b.classList.remove('active'));
+  button.classList.add('active');
+  typeFilter = button.dataset.type;
+  renderItems();
+}));
+document.getElementById('search').addEventListener('input', renderItems);
+document.getElementById('event-filter').addEventListener('change', renderItems);
+document.getElementById('refresh-items').addEventListener('click', loadData);
+document.getElementById('new-item').addEventListener('click', resetItemEditor);
+document.getElementById('reset-item').addEventListener('click', resetItemEditor);
+loadData();
+</script>
+{% endblock %}
