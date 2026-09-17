@@ -118,8 +118,8 @@ fun EventDashboardScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(NaomiDarkBg)
-            .padding(horizontal = 12.dp, vertical = 9.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -127,8 +127,8 @@ fun EventDashboardScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("HOME", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                Text("Hi ${user.displayName}", color = NaomiTextPrimary, fontSize = 19.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("WORKSTATION", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                Text("Hi ${user.displayName}", color = NaomiTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text("$dateText · $clockText", color = NaomiTextSecondary, fontSize = 9.sp)
             }
             ShiftBadge(active = authState.activeShift != null)
@@ -137,20 +137,20 @@ fun EventDashboardScreen(
         Button(
             onClick = { posViewModel.resetNewReceipt(); onNewReceipt() },
             colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-            shape = RoundedCornerShape(13.dp),
-            modifier = Modifier.fillMaxWidth().height(48.dp)
+            shape = RoundedCornerShape(4.dp),
+            modifier = Modifier.fillMaxWidth().height(38.dp)
         ) {
             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(19.dp))
             Spacer(modifier = Modifier.size(7.dp))
-            Text("START NEW SALE", fontWeight = FontWeight.Black, fontSize = 12.sp)
+            Text("NEW SALE", fontWeight = FontWeight.Black, fontSize = 12.sp)
         }
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             OutlinedButton(
                 onClick = onScan,
                 border = BorderStroke(1.dp, NaomiBorder),
-                shape = RoundedCornerShape(11.dp),
-                modifier = Modifier.weight(1f).height(40.dp)
+                shape = RoundedCornerShape(4.dp),
+                modifier = Modifier.weight(1f).height(34.dp)
             ) {
                 Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.size(4.dp))
@@ -159,8 +159,8 @@ fun EventDashboardScreen(
             OutlinedButton(
                 onClick = onBlackpool,
                 border = BorderStroke(1.dp, NaomiBorder),
-                shape = RoundedCornerShape(11.dp),
-                modifier = Modifier.weight(1f).height(40.dp)
+                shape = RoundedCornerShape(4.dp),
+                modifier = Modifier.weight(1f).height(34.dp)
             ) {
                 Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.size(4.dp))
@@ -169,8 +169,8 @@ fun EventDashboardScreen(
             OutlinedButton(
                 onClick = onOps,
                 border = BorderStroke(1.dp, NaomiBorder),
-                shape = RoundedCornerShape(11.dp),
-                modifier = Modifier.weight(1f).height(40.dp)
+                shape = RoundedCornerShape(4.dp),
+                modifier = Modifier.weight(1f).height(34.dp)
             ) {
                 Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.size(4.dp))
@@ -210,10 +210,10 @@ private fun DashboardSaleCard(receipt: ReceiptData, modifier: Modifier = Modifie
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, NaomiBorder),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(4.dp),
         modifier = modifier
     ) {
-        Column(modifier = Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text("CURRENT SALE", color = NaomiTextSecondary, fontSize = 8.sp, fontWeight = FontWeight.Black)
             val empty = receipt.items.isEmpty() && receipt.clientName.isBlank()
             Text(
@@ -246,11 +246,11 @@ private fun DashboardShiftCard(
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, if (shiftOpen) NaomiSuccess.copy(alpha = 0.32f) else NaomiOrange.copy(alpha = 0.35f)),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(4.dp),
         modifier = modifier
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(10.dp),
+            modifier = Modifier.fillMaxSize().padding(8.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
@@ -272,11 +272,11 @@ private fun TramMiniBoard(departures: List<TramDeparture>, modifier: Modifier = 
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, NaomiBorder),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(4.dp),
         modifier = modifier
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(10.dp),
+            modifier = Modifier.fillMaxSize().padding(8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -298,7 +298,7 @@ private fun TramMiniBoard(departures: List<TramDeparture>, modifier: Modifier = 
                 }
             } else {
                 departures.forEach { departure ->
-                    Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(3.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
                         Row(
                             modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -322,7 +322,7 @@ private fun ShiftBadge(active: Boolean) {
     Surface(
         color = if (active) NaomiSuccess.copy(alpha = 0.12f) else NaomiOrange.copy(alpha = 0.12f),
         border = BorderStroke(1.dp, if (active) NaomiSuccess.copy(alpha = 0.35f) else NaomiOrange.copy(alpha = 0.35f)),
-        shape = RoundedCornerShape(14.dp)
+        shape = RoundedCornerShape(4.dp)
     ) {
         Text(
             if (active) "SHIFT OPEN" else "NO SHIFT",
@@ -339,10 +339,10 @@ private fun HealthTile(label: String, value: String, healthy: Boolean, modifier:
     Surface(
         modifier = modifier,
         color = NaomiSurface,
-        shape = RoundedCornerShape(11.dp),
+        shape = RoundedCornerShape(4.dp),
         border = BorderStroke(1.dp, NaomiBorder)
     ) {
-        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(label.uppercase(), color = NaomiTextSecondary, fontSize = 7.sp, fontWeight = FontWeight.Bold)
             Text(
                 value,
