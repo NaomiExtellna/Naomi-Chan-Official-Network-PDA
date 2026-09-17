@@ -2,24 +2,25 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Naomi-Chan™ brand accents — retained, but tuned for a more restrained
-// professional operations-terminal presentation.
+// Naomi-Chan™ brand accents. The POS shell now uses a light retail palette
+// with restrained brand colour reserved for primary actions and status emphasis.
 val NaomiRed = Color(0xFFC84532)
-val NaomiOrange = Color(0xFFE7834F)
+val NaomiOrange = Color(0xFFD96A37)
 val NaomiDeepRed = Color(0xFF8F2F24)
 
-// Professional graphite application surfaces.
-val NaomiDarkBg = Color(0xFF0D0F13)
-val NaomiSurface = Color(0xFF171A20)
-val NaomiSurfaceVariant = Color(0xFF20242C)
-val NaomiBorder = Color(0xFF303640)
-val NaomiTextPrimary = Color(0xFFF5F7FA)
-val NaomiTextSecondary = Color(0xFFB6BDC8)
-val NaomiTextTertiary = Color(0xFF7E8794)
+// SumUp-inspired retail surfaces: bright, calm and easy to scan on a handheld.
+// Existing names are retained so every legacy screen inherits the new palette.
+val NaomiDarkBg = Color(0xFFF5F6F8)
+val NaomiSurface = Color(0xFFFFFFFF)
+val NaomiSurfaceVariant = Color(0xFFF0F2F4)
+val NaomiBorder = Color(0xFFE0E4E8)
+val NaomiTextPrimary = Color(0xFF171A1F)
+val NaomiTextSecondary = Color(0xFF5F6670)
+val NaomiTextTertiary = Color(0xFF858D98)
 
 // Status and operational indicators.
-val NaomiSuccess = Color(0xFF3CB878)
-val NaomiWarning = Color(0xFFE9A23B)
-val NaomiError = Color(0xFFE65B52)
+val NaomiSuccess = Color(0xFF1F8A5B)
+val NaomiWarning = Color(0xFFC77A17)
+val NaomiError = Color(0xFFC9473D)
 val NaomiPaperWhite = Color(0xFFFFFDF8)
 val NaomiPaperInk = Color(0xFF151515)
