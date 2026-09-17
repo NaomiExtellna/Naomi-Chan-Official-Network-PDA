@@ -1,21 +1,16 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
+# Project-specific R8/ProGuard rules.
 #
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# The release build is minified for the low-RAM SUNMI V2. Most AndroidX, Room,
+# CameraX and ML Kit dependencies ship their own consumer rules, so keep this
+# file deliberately narrow and preserve only the vendor printer IPC surface.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# SUNMI printer SDK classes cross a vendor service/AIDL boundary. Keep the
+# public SDK surface intact so release shrinking cannot rename or strip classes
+# the SUNMI OS printer service expects to resolve.
+-keep class com.sunmi.peripheral.printer.** { *; }
+-keep interface com.sunmi.peripheral.printer.** { *; }
+-dontwarn com.sunmi.peripheral.printer.**
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
-
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Preserve runtime annotations/signatures used by Android frameworks and
+# libraries that perform reflection while still allowing ordinary code shrink.
+-keepattributes RuntimeVisibleAnnotations,RuntimeInvisibleAnnotations,AnnotationDefault,Signature
