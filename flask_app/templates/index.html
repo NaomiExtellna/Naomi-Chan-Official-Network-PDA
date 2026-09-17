@@ -5,9 +5,10 @@
   <div>
     <div class="eyebrow">Event Sales Terminal</div>
     <h1>Naomi-Chan™ DJ Company POS</h1>
-    <p class="lead">Create event orders, sell admission and VIP upgrades, add merch or DJ services, and send transactions to the wireless SUNMI workflow.</p>
+    <p class="lead">Create event orders, sell admission and VIP upgrades, add merch or DJ services, and send transactions directly to a registered SUNMI/PDA terminal.</p>
   </div>
   <div class="toolbar">
+    <a href="{{ url_for('devices_page') }}" class="btn btn-secondary">Connected devices</a>
     <a href="{{ url_for('events_page') }}" class="btn btn-secondary">Manage events</a>
     <a href="{{ url_for('catalog_page') }}" class="btn btn-primary">Manage catalogue</a>
   </div>
@@ -15,20 +16,25 @@
 
 <section class="metric-grid">
   <div class="metric"><div class="metric-label">Live events</div><div class="metric-value" id="metric-events">—</div><div class="metric-meta">Open for event sales</div></div>
+  <div class="metric"><div class="metric-label">Online PDAs</div><div class="metric-value" id="metric-devices">—</div><div class="metric-meta">Registered in last 2 minutes</div></div>
   <div class="metric"><div class="metric-label">Pending orders</div><div class="metric-value" id="metric-pending">—</div><div class="metric-meta">Waiting for PDA / print</div></div>
   <div class="metric"><div class="metric-label">Catalogue</div><div class="metric-value" id="metric-catalog">—</div><div class="metric-meta">Active sellable items</div></div>
-  <div class="metric"><div class="metric-label">Scanner mapped</div><div class="metric-value" id="metric-barcodes">—</div><div class="metric-meta">Barcode-ready items</div></div>
 </section>
 
 <div class="terminal-grid">
   <div class="stack">
     <section class="card">
       <div class="card-header">
-        <div><div class="card-kicker">Transaction context</div><div class="card-title">Event & customer</div></div>
+        <div><div class="card-kicker">Transaction context</div><div class="card-title">Event, destination & customer</div></div>
       </div>
       <div class="card-body">
         <div class="form-grid">
           <div class="form-group full"><label>Event</label><select id="event-select"><option value="">General / no event</option></select></div>
+          <div class="form-group full">
+            <label>Send to PDA</label>
+            <select id="device-select"><option value="">Any available PDA / shared queue</option></select>
+            <div class="help" id="device-help">Waiting for a registered PDA heartbeat…</div>
+          </div>
           <div class="form-group"><label>Customer / organiser</label><input id="client-name" type="text" value="Event Guest" placeholder="Guest, organiser or table"></div>
           <div class="form-group"><label>Contact</label><input id="client-contact" type="text" placeholder="Optional phone / contact"></div>
           <div class="form-group full"><label>Venue</label><input id="venue-name" type="text" placeholder="Venue or event location"></div>
@@ -54,8 +60,8 @@
       </div>
       <div class="card-body table-wrap">
         <table>
-          <thead><tr><th>Order</th><th>Event / venue</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead>
-          <tbody id="orders-body"><tr><td colspan="5" class="empty-state">Loading orders…</td></tr></tbody>
+          <thead><tr><th>Order</th><th>Event / venue</th><th>Destination</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead>
+          <tbody id="orders-body"><tr><td colspan="6" class="empty-state">Loading orders…</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -77,8 +83,8 @@
         <div class="total-row"><span>VAT 20%</span><strong id="tax">£0.00</strong></div>
         <div class="total-row grand"><span>Total</span><strong id="grand-total">£0.00</strong></div>
       </div>
-      <button class="btn btn-primary btn-block" id="submit-order" disabled style="margin-top:13px">Send order to event network</button>
-      <p class="help" style="margin-top:10px">Prices are revalidated by the server. Event-specific items cannot be sold under the wrong event.</p>
+      <button class="btn btn-primary btn-block" id="submit-order" disabled style="margin-top:13px">Send order to PDA</button>
+      <p class="help" style="margin-top:10px">Prices are revalidated by the server. If a PDA is selected, only that registered device will receive the targeted order.</p>
     </div>
   </aside>
 </div>
@@ -87,11 +93,17 @@
 <script>
 let events = [];
 let catalogue = [];
+let devices = [];
 let cart = new Map();
 
 function selectedEvent() {
   const id = document.getElementById('event-select').value;
   return events.find(event => event.id === id) || null;
+}
+
+function selectedDevice() {
+  const id = document.getElementById('device-select').value;
+  return devices.find(device => device.id === id) || null;
 }
 
 function addItem(id) {
@@ -142,17 +154,31 @@ function renderCatalogue() {
   </article>`).join('')}</div>` : '<div class="empty-state">No active catalogue items are available for this event.</div>';
 }
 
+function renderDevices() {
+  const selector = document.getElementById('device-select');
+  const online = devices.filter(device => device.online);
+  selector.innerHTML = '<option value="">Any available PDA / shared queue</option>' + devices.map(device => `<option value="${NC.escape(device.id)}">${NC.escape(device.device_name)} — ${device.online ? 'ONLINE' : 'OFFLINE'} — ${NC.escape(device.id)}</option>`).join('');
+  if (online.length === 1) selector.value = online[0].id;
+  document.getElementById('device-help').textContent = online.length
+    ? `${online.length} PDA(s) online. Targeting a device keeps its queue private.`
+    : 'No PDA is online yet. Save the gateway URL on the device and run a sync/connection check.';
+}
+
 async function loadOperations() {
   try {
-    const [status, eventRows, itemRows] = await Promise.all([
-      NC.json('/api/status'), NC.json('/api/events?include_closed=0'), NC.json('/api/catalog?include_inactive=0')
+    const [status, eventRows, itemRows, deviceRows] = await Promise.all([
+      NC.json('/api/status'),
+      NC.json('/api/events?include_closed=0'),
+      NC.json('/api/catalog?include_inactive=0'),
+      NC.json('/api/devices')
     ]);
     events = eventRows;
     catalogue = itemRows;
+    devices = deviceRows;
     document.getElementById('metric-events').textContent = status.live_events ?? 0;
+    document.getElementById('metric-devices').textContent = status.connected_devices ?? 0;
     document.getElementById('metric-pending').textContent = status.pending_orders ?? 0;
     document.getElementById('metric-catalog').textContent = status.catalog_items ?? 0;
-    document.getElementById('metric-barcodes').textContent = status.barcode_items ?? 0;
     const liveFirst = events.slice().sort((a,b) => (a.status === 'LIVE' ? -1 : 0) - (b.status === 'LIVE' ? -1 : 0));
     document.getElementById('event-select').innerHTML = '<option value="">General / no event</option>' + liveFirst.map(ev => `<option value="${NC.escape(ev.id)}">${NC.escape(ev.name)} — ${NC.escape(ev.status)}</option>`).join('');
     const firstLive = liveFirst.find(ev => ev.status === 'LIVE');
@@ -160,6 +186,7 @@ async function loadOperations() {
       document.getElementById('event-select').value = firstLive.id;
       document.getElementById('venue-name').value = firstLive.venue_name || '';
     }
+    renderDevices();
     renderCatalogue();
     await loadOrders();
   } catch (error) { NC.toast(error.message, 'error'); }
@@ -169,13 +196,15 @@ async function loadOrders() {
   try {
     const orders = await NC.json('/api/orders?limit=25');
     const eventMap = new Map(events.map(ev => [ev.id, ev.name]));
+    const deviceMap = new Map(devices.map(device => [device.id, device.device_name]));
     document.getElementById('orders-body').innerHTML = orders.length ? orders.map(order => `<tr>
       <td class="code">${NC.escape(order.id)}</td>
       <td>${NC.escape(eventMap.get(order.event_id) || order.venue_name || 'General')}</td>
+      <td>${NC.escape(deviceMap.get(order.target_device_id) || (order.target_device_id ? order.target_device_id : 'Shared queue'))}</td>
       <td>${NC.escape(order.client_name)}</td>
       <td>${NC.money(order.grand_total)}</td>
       <td><span class="status ${order.status === 'PRINTED' ? 'printed' : 'pending'}">${NC.escape(order.status)}</span></td>
-    </tr>`).join('') : '<tr><td colspan="5" class="empty-state">No wireless orders yet.</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="6" class="empty-state">No wireless orders yet.</td></tr>';
   } catch (error) { NC.toast(error.message, 'error'); }
 }
 
@@ -186,15 +215,27 @@ document.getElementById('event-select').addEventListener('change', () => {
   renderCart();
   renderCatalogue();
 });
+document.getElementById('device-select').addEventListener('change', () => {
+  const device = selectedDevice();
+  document.getElementById('device-help').textContent = device
+    ? `${device.device_name} • ${device.online ? 'ONLINE' : 'OFFLINE'} • ${device.remote_addr || 'IP unknown'}`
+    : 'Shared queue: any registered PDA may collect this order.';
+});
 document.getElementById('catalog-search').addEventListener('input', renderCatalogue);
 document.getElementById('clear-cart').addEventListener('click', () => { cart.clear(); renderCart(); });
-document.getElementById('refresh-orders').addEventListener('click', loadOrders);
+document.getElementById('refresh-orders').addEventListener('click', async () => {
+  devices = await NC.json('/api/devices');
+  renderDevices();
+  await loadOrders();
+});
 
 document.getElementById('submit-order').addEventListener('click', async () => {
   const button = document.getElementById('submit-order');
   const event = selectedEvent();
+  const device = selectedDevice();
   const payload = {
     event_id: event?.id || '',
+    target_device_id: device?.id || '',
     client_name: document.getElementById('client-name').value,
     client_contact: document.getElementById('client-contact').value,
     venue_name: document.getElementById('venue-name').value || event?.venue_name || 'Naomi-Chan Event',
@@ -206,14 +247,15 @@ document.getElementById('submit-order').addEventListener('click', async () => {
   button.textContent = 'Sending…';
   try {
     const result = await NC.json('/api/orders', {method:'POST', body:JSON.stringify(payload)});
-    NC.toast(`Order ${result.order_id} sent to the event network`);
+    NC.toast(`Order ${result.order_id} sent ${device ? `to ${device.device_name}` : 'to the shared PDA queue'}`);
     cart.clear();
     renderCart();
     await loadOrders();
     const status = await NC.json('/api/status');
     document.getElementById('metric-pending').textContent = status.pending_orders ?? 0;
+    document.getElementById('metric-devices').textContent = status.connected_devices ?? 0;
   } catch (error) { NC.toast(error.message, 'error'); }
-  finally { button.textContent = 'Send order to event network'; button.disabled = cart.size === 0; }
+  finally { button.textContent = 'Send order to PDA'; button.disabled = cart.size === 0; }
 });
 
 loadOperations();
