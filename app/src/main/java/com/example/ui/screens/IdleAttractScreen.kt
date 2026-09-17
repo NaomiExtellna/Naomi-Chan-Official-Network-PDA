@@ -131,39 +131,28 @@ fun IdleAttractScreen(onDismiss: () -> Unit) {
             )
     ) {
         if (adResourceIds.isNotEmpty()) {
-            val painter = painterResource(adResourceIds[adIndex])
-
-            // Fill the tall terminal display with the current campaign artwork so there
-            // are no black letterbox blocks. This layer is only an edge-fill backdrop.
+            // One poster only, edge-to-edge. Crop fills the entire SUNMI display without
+            // stretching the artwork or leaving black letterbox areas.
             Image(
-                painter = painter,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                alpha = 0.58f,
-                modifier = Modifier.fillMaxSize()
-            )
-
-            // The readable poster itself stays fully visible and keeps its original ratio.
-            // There is no frame or reserved header/footer space around it.
-            Image(
-                painter = painter,
+                painter = painterResource(adResourceIds[adIndex]),
                 contentDescription = "Naomi-Chan promotion ${adIndex + 1} of ${adResourceIds.size}",
-                contentScale = ContentScale.Fit,
+                contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
         } else {
             PlaceholderPromotion()
         }
 
-        // Soft edge scrims keep the clock and reader legible without creating black panels.
+        // Lightweight scrims only where overlay text sits. The poster itself still fills
+        // the complete screen underneath them.
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .height(92.dp)
+                .height(96.dp)
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(Color.Black.copy(alpha = 0.72f), Color.Transparent)
+                        colors = listOf(Color.Black.copy(alpha = 0.62f), Color.Transparent)
                     )
                 )
         )
@@ -171,10 +160,10 @@ fun IdleAttractScreen(onDismiss: () -> Unit) {
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(192.dp)
+                .height(188.dp)
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.78f))
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.68f))
                     )
                 )
         )
@@ -217,7 +206,7 @@ private fun PlainHeader(time: String, modifier: Modifier = Modifier) {
             )
             Text(
                 text = "Official Network POS",
-                color = Color.White.copy(alpha = 0.78f),
+                color = Color.White.copy(alpha = 0.82f),
                 fontSize = 8.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -231,7 +220,7 @@ private fun PlainHeader(time: String, modifier: Modifier = Modifier) {
             )
             Text(
                 text = "ATTRACT MODE",
-                color = Color.White.copy(alpha = 0.70f),
+                color = Color.White.copy(alpha = 0.76f),
                 fontSize = 7.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.6.sp
@@ -324,7 +313,7 @@ private fun NfcReaderPad() {
         )
         Text(
             text = "Display only · Payment begins from Sell",
-            color = Color.White.copy(alpha = 0.56f),
+            color = Color.White.copy(alpha = 0.58f),
             fontSize = 7.sp,
             textAlign = TextAlign.Center
         )
