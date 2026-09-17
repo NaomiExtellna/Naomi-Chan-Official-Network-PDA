@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val AUTO_LOCK_AFTER_MS = 5 * 60 * 1000L
-        private const val MIN_SPLASH_DURATION_MS = 1_200L
+        private const val MIN_SPLASH_DURATION_MS = 350L
         private const val PERMISSION_REQUEST_DELAY_MS = 350L
         private const val BLUETOOTH_PERMISSION_REQUEST_CODE = 7301
     }
@@ -72,40 +72,45 @@ class MainActivity : ComponentActivity() {
         // avoids doing custom work in the fragile pre-onCreate path on SUNMI OS / Android 7.1.1.
         DiagnosticLog.installCrashHandler(this)
 
+        // Start local authentication initialization immediately instead of waiting for the
+        // cosmetic splash to finish. This allows Room startup and the minimum splash window
+        // to overlap rather than running sequentially.
+        val authVmAttempt = runCatching { authViewModel }
+        val authVm = authVmAttempt.getOrNull()
+        val authVmError = authVmAttempt.exceptionOrNull()
+
         // Deliberately do not call enableEdgeToEdge() here. The SUNMI V2 runs API 25 and
         // its customised SystemUI is more reliable with the classic window-inset path.
         setContent {
             NaomiChanTheme(darkTheme = true) {
-                var splashComplete by remember { mutableStateOf(false) }
+                var minimumSplashElapsed by remember { mutableStateOf(false) }
+                val authState = authVm?.state?.collectAsState()?.value
 
                 LaunchedEffect(Unit) {
                     delay(MIN_SPLASH_DURATION_MS)
-                    splashComplete = true
+                    minimumSplashElapsed = true
                 }
 
-                if (!splashComplete) {
+                val authenticationReady = authVmError != null || authState?.isLoading == false
+                if (!minimumSplashElapsed || !authenticationReady) {
                     NaomiSplashLoadingScreen()
                 } else {
-                    AppAfterSplash()
+                    AppAfterSplash(authVm = authVm, authVmError = authVmError)
                 }
             }
         }
     }
 
     @Composable
-    private fun AppAfterSplash() {
-        val authVmResult = remember { runCatching { authViewModel } }
-        val authVm = authVmResult.getOrNull()
-
+    private fun AppAfterSplash(authVm: AuthViewModel?, authVmError: Throwable?) {
         if (authVm == null) {
-            val error = authVmResult.exceptionOrNull()
-            LaunchedEffect(error) {
-                if (error != null) {
-                    DiagnosticLog.error(this@MainActivity, "MainActivity/AuthViewModel", error)
+            LaunchedEffect(authVmError) {
+                if (authVmError != null) {
+                    DiagnosticLog.error(this@MainActivity, "MainActivity/AuthViewModel", authVmError)
                 }
             }
             StartupFailureScreen(
-                message = error?.let { "${it.javaClass.simpleName}: ${it.message ?: "Unknown startup error"}" }
+                message = authVmError?.let { "${it.javaClass.simpleName}: ${it.message ?: "Unknown startup error"}" }
                     ?: "Authentication/database startup failed.",
                 onRetry = { recreate() }
             )

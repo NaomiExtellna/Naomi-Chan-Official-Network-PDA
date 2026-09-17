@@ -148,7 +148,8 @@ class StaffRepository(private val staffDao: StaffDao) {
     }
 
     suspend fun authenticate(username: String, credential: String): AuthResult = withContext(Dispatchers.IO) {
-        val account = staffDao.findByUsername(username.trim())
+        val normalizedUsername = username.trim().lowercase(Locale.ROOT)
+        val account = staffDao.findByUsername(normalizedUsername)
             ?: return@withContext AuthResult.Error("Incorrect username or PIN/password.")
         val now = System.currentTimeMillis()
 
@@ -164,7 +165,10 @@ class StaffRepository(private val staffDao: StaffDao) {
 
         val salt = decode(account.salt) ?: return@withContext AuthResult.Error("Account credentials are invalid. Contact the administrator.")
         val candidate = hashSecret(credential, salt)
-        val matches = MessageDigest.isEqual(candidate.toByteArray(Charsets.UTF_8), account.credentialHash.toByteArray(Charsets.UTF_8))
+        val matches = MessageDigest.isEqual(
+            candidate.toByteArray(Charsets.UTF_8),
+            account.credentialHash.toByteArray(Charsets.UTF_8)
+        )
         if (!matches) {
             val attempts = (account.failedAttempts + 1).coerceAtMost(MAX_FAILED_ATTEMPTS)
             val newLock = if (attempts >= MAX_FAILED_ATTEMPTS) now + LOCKOUT_MS else null
@@ -177,8 +181,15 @@ class StaffRepository(private val staffDao: StaffDao) {
         }
 
         staffDao.markLoginSuccess(account.id, now)
-        val refreshed = staffDao.findById(account.id) ?: account.copy(lastLoginAt = now, failedAttempts = 0, lockedUntil = null)
-        AuthResult.Success(refreshed.toModel())
+
+        // Avoid a second SELECT after a successful credential check. We know exactly
+        // which fields markLoginSuccess changed, so return the refreshed model directly.
+        val authenticated = account.copy(
+            lastLoginAt = now,
+            failedAttempts = 0,
+            lockedUntil = null
+        )
+        AuthResult.Success(authenticated.toModel())
     }
 
     suspend fun recoverNaomiAdmin(recoveryCode: String, newCredential: String): AuthResult = withContext(Dispatchers.IO) {
