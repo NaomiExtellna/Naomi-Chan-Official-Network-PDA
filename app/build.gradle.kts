@@ -99,6 +99,14 @@ dependencies {
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.okhttp)
 
+  // Live barcode/QR scanner. The bundled ML Kit model works immediately on the
+  // SUNMI V2 without requiring a Play Services model download.
+  implementation(libs.androidx.camera.camera2)
+  implementation(libs.androidx.camera.lifecycle)
+  implementation(libs.androidx.camera.view)
+  implementation(libs.androidx.camera.core)
+  implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
   // Backport newer Java library APIs used by modern dependencies to Android 7.1.1.
   coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
