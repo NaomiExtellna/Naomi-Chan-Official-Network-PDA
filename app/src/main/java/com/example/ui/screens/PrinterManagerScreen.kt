@@ -32,7 +32,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.model.PrinterChannel
 import com.example.printer.DiscoveredPrinter
 import com.example.ui.PosViewModel
@@ -57,13 +58,23 @@ import com.example.ui.theme.NaomiSurface
 import com.example.ui.theme.NaomiSurfaceVariant
 import com.example.ui.theme.NaomiTextPrimary
 import com.example.ui.theme.NaomiTextSecondary
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun PrinterManagerScreen(viewModel: PosViewModel) {
-    val selectedChannel by viewModel.selectedChannel.collectAsState()
-    val printerStatus by viewModel.printerStatus.collectAsState()
-    val bluetoothDevices by viewModel.printerManager.bluetoothDevices.collectAsState()
-    val usbDevices by viewModel.printerManager.usbDevices.collectAsState()
+    val selectedChannel by viewModel.selectedChannel.collectAsStateWithLifecycle()
+    val printerStatus by viewModel.printerStatus.collectAsStateWithLifecycle()
+    val bluetoothDevices by viewModel.printerManager.bluetoothDevices.collectAsStateWithLifecycle()
+    val usbDevices by viewModel.printerManager.usbDevices.collectAsStateWithLifecycle()
+
+    // Bluetooth/USB enumeration is deliberately deferred until this screen exists.
+    // Run it off the main thread so the SUNMI's UI is not blocked by hardware scans.
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            viewModel.printerManager.refreshDiscoveredDevices()
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
