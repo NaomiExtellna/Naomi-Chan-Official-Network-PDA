@@ -1,11 +1,16 @@
 package com.example.network
 
+import android.content.Context
+import com.example.data.AppDatabase
+import com.example.data.TramDepartureCacheEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONArray
+import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -126,7 +131,8 @@ object BlackpoolTramStops {
     val COMPLETE_DIRECTORY = ALL_STOPS + NORTH_STATION_BRANCH
 }
 
-class BlackpoolTramClient {
+class BlackpoolTramClient(context: Context) {
+    private val cacheDao = AppDatabase.getDatabase(context.applicationContext).tramCacheDao()
     private data class CachedDepartures(val departures: List<TramDeparture>, val savedAt: Long)
 
     companion object {
@@ -134,8 +140,10 @@ class BlackpoolTramClient {
 
         // Calls from Home and the dedicated tram board share the same fresh cache. The UI may
         // ask once per minute, but the radio will normally only wake for this stop every ~2 min.
-        private const val FRESH_CACHE_AGE_MS = 90_000L
-        private const val MAX_CACHE_AGE_MS = 6 * 60 * 60 * 1000L
+        private const val FRESH_MEMORY_CACHE_AGE_MS = 90_000L
+        private const val DATABASE_REFRESH_AGE_MS = 5 * 60 * 1000L
+        private const val MAX_DATABASE_CACHE_AGE_MS = 24 * 60 * 60 * 1000L
+        private const val CACHE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000L
 
         // A single OkHttp pool is shared by every tram screen. Reusing sockets avoids repeated
         // DNS/TLS/TCP setup and keeps network-active time shorter on the battery-powered PDA.
@@ -157,17 +165,35 @@ class BlackpoolTramClient {
         )
     }
 
-    suspend fun fetchDepartures(stop: BlackpoolTramStop): List<TramDeparture> = withContext(Dispatchers.IO) {
+    suspend fun fetchDepartures(
+        stop: BlackpoolTramStop,
+        forceRefresh: Boolean = false
+    ): List<TramDeparture> = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
-        val cached = memoryCache[stop.name]
+        val memory = memoryCache[stop.name]
 
-        // Fast path: if another screen has just fetched this stop, do not wake the network again.
-        if (cached != null && now - cached.savedAt <= FRESH_CACHE_AGE_MS) {
-            return@withContext cached.departures
+        // Same-session fast path. A recent live response can be reused without touching Room
+        // or waking the radio again.
+        if (!forceRefresh && memory != null && now - memory.savedAt <= FRESH_MEMORY_CACHE_AGE_MS) {
+            return@withContext memory.departures
         }
 
-        // Fetch both directions together so the radio/network tail is shorter than two fully
-        // sequential requests while keeping all blocking work on Dispatchers.IO.
+        // Persistent local-first path. After a restart, or when switching screens, the last
+        // saved departures are read from Room first. A normal UI refresh will not hit HTTP
+        // again until this database snapshot is older than five minutes.
+        val persisted = runCatching { cacheDao.getByStop(stop.name) }.getOrNull()
+        val persistedDepartures = persisted?.let { decodeDepartures(it.payloadJson) }.orEmpty()
+        if (
+            !forceRefresh &&
+            persisted != null &&
+            persistedDepartures.isNotEmpty() &&
+            now - persisted.fetchedAt <= DATABASE_REFRESH_AGE_MS
+        ) {
+            return@withContext markCached(persistedDepartures, "DB CACHE")
+        }
+
+        // Only stale/missing data reaches the network. Both directions are fetched together
+        // to keep the device's radio active for the shortest practical period.
         val fresh = coroutineScope {
             val southbound = async { fetchPlatform(stop, stop.southboundStopId, "Southbound") }
             val northbound = async { fetchPlatform(stop, stop.northboundStopId, "Northbound") }
@@ -175,20 +201,86 @@ class BlackpoolTramClient {
         }
 
         if (fresh.isNotEmpty()) {
-            memoryCache[stop.name] = CachedDepartures(fresh, System.currentTimeMillis())
+            val savedAt = System.currentTimeMillis()
+            memoryCache[stop.name] = CachedDepartures(fresh, savedAt)
+            runCatching {
+                cacheDao.upsert(
+                    TramDepartureCacheEntity(
+                        stopName = stop.name,
+                        payloadJson = encodeDepartures(fresh),
+                        fetchedAt = savedAt
+                    )
+                )
+                cacheDao.deleteOlderThan(savedAt - CACHE_RETENTION_MS)
+            }
             return@withContext fresh
         }
 
-        if (cached != null && now - cached.savedAt <= MAX_CACHE_AGE_MS) {
-            return@withContext cached.departures.map { departure ->
-                departure.copy(
-                    isLive = false,
-                    directionLabel = "${departure.directionLabel} • CACHED"
+        // Network unavailable/throttled: keep the terminal useful from the persisted Room
+        // snapshot for up to 24 hours and make the stale source explicit in the UI.
+        if (
+            persisted != null &&
+            persistedDepartures.isNotEmpty() &&
+            now - persisted.fetchedAt <= MAX_DATABASE_CACHE_AGE_MS
+        ) {
+            return@withContext markCached(persistedDepartures, "OFFLINE")
+        }
+
+        // Last fallback for an in-memory result that may not yet have reached Room.
+        if (memory != null && now - memory.savedAt <= MAX_DATABASE_CACHE_AGE_MS) {
+            return@withContext markCached(memory.departures, "MEM CACHE")
+        }
+
+        emptyList()
+    }
+
+    private fun markCached(
+        departures: List<TramDeparture>,
+        label: String
+    ): List<TramDeparture> = departures.map { departure ->
+        val baseDirection = departure.directionLabel.substringBefore(" • ")
+        departure.copy(
+            isLive = false,
+            directionLabel = "$baseDirection • $label"
+        )
+    }
+
+    private fun encodeDepartures(departures: List<TramDeparture>): String {
+        val array = JSONArray()
+        departures.forEach { departure ->
+            array.put(
+                JSONObject().apply {
+                    put("stopName", departure.stopName)
+                    put("destination", departure.destination)
+                    put("departureTime", departure.departureTime)
+                    put("isLive", departure.isLive)
+                    put("directionLabel", departure.directionLabel.substringBefore(" • "))
+                }
+            )
+        }
+        return array.toString()
+    }
+
+    private fun decodeDepartures(payload: String): List<TramDeparture> = runCatching {
+        val array = JSONArray(payload)
+        buildList {
+            for (index in 0 until array.length()) {
+                val item = array.optJSONObject(index) ?: continue
+                val destination = item.optString("destination").trim()
+                val departureTime = item.optString("departureTime").trim()
+                if (destination.isBlank() || departureTime.isBlank()) continue
+                add(
+                    TramDeparture(
+                        stopName = item.optString("stopName").trim(),
+                        destination = destination,
+                        departureTime = departureTime,
+                        isLive = item.optBoolean("isLive", false),
+                        directionLabel = item.optString("directionLabel", "Tram").trim()
+                    )
                 )
             }
         }
-        emptyList()
-    }
+    }.getOrDefault(emptyList())
 
     private fun fetchPlatform(
         stop: BlackpoolTramStop,
