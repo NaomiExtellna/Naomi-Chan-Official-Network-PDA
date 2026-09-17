@@ -1,6 +1,8 @@
 package com.example.network
 
+import android.os.Build
 import android.util.Log
+import com.example.BuildConfig
 import com.example.model.PaymentMethod
 import com.example.model.ReceiptData
 import com.example.model.ReceiptItem
@@ -17,7 +19,7 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 class WirelessFlaskClient(
-    private var baseUrl: String = "http://10.0.2.2:5000"
+    private var baseUrl: String = GatewaySettings.getBaseUrl()
 ) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(4, TimeUnit.SECONDS)
@@ -44,10 +46,12 @@ class WirelessFlaskClient(
         }
 
         baseUrl = parsed.toString().trimEnd('/')
+        GatewaySettings.setBaseUrl(baseUrl)
         return true
     }
 
     fun getBaseUrl(): String = baseUrl
+    fun getDeviceId(): String = GatewaySettings.getDeviceId()
 
     suspend fun checkServerStatus(): Boolean = withContext(Dispatchers.IO) {
         try {
@@ -56,10 +60,55 @@ class WirelessFlaskClient(
                 .get()
                 .build()
             client.newCall(request).execute().use { response ->
-                response.isSuccessful
+                if (!response.isSuccessful) return@withContext false
             }
+
+            // A successful health check also announces this PDA to the gateway.
+            // This keeps device discovery automatic after a URL change/restart.
+            sendDeviceHeartbeatInternal()
+            true
         } catch (e: Exception) {
             Log.w("WirelessFlaskClient", "Server status check failed on $baseUrl: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun syncDevicePresence(
+        operatorName: String = "",
+        shiftId: String = "",
+        printerConnected: Boolean = false,
+        unsyncedReceipts: Int = 0
+    ): Boolean = withContext(Dispatchers.IO) {
+        sendDeviceHeartbeatInternal(operatorName, shiftId, printerConnected, unsyncedReceipts)
+    }
+
+    private fun sendDeviceHeartbeatInternal(
+        operatorName: String = "",
+        shiftId: String = "",
+        printerConnected: Boolean = false,
+        unsyncedReceipts: Int = 0
+    ): Boolean {
+        return try {
+            val payload = JSONObject().apply {
+                put("device_id", GatewaySettings.getDeviceId())
+                put("device_name", GatewaySettings.getDeviceName())
+                put("manufacturer", Build.MANUFACTURER.orEmpty())
+                put("model", Build.MODEL.orEmpty())
+                put("android_version", Build.VERSION.RELEASE.orEmpty())
+                put("sdk", Build.VERSION.SDK_INT)
+                put("app_version", BuildConfig.VERSION_NAME)
+                put("operator_name", operatorName.trim())
+                put("shift_id", shiftId.trim())
+                put("printer_connected", printerConnected)
+                put("unsynced_receipts", unsyncedReceipts.coerceAtLeast(0))
+            }
+            val request = Request.Builder()
+                .url("$baseUrl/api/devices/heartbeat")
+                .post(payload.toString().toRequestBody(jsonMediaType))
+                .build()
+            client.newCall(request).execute().use { response -> response.isSuccessful }
+        } catch (e: Exception) {
+            Log.w("WirelessFlaskClient", "PDA heartbeat failed on $baseUrl: ${e.message}")
             false
         }
     }
@@ -67,7 +116,7 @@ class WirelessFlaskClient(
     suspend fun fetchPendingOrders(): List<WirelessOrder> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder()
-                .url("$baseUrl/api/orders/pending")
+                .url("$baseUrl/api/orders/pending?device_id=${GatewaySettings.getDeviceId()}")
                 .get()
                 .build()
 
