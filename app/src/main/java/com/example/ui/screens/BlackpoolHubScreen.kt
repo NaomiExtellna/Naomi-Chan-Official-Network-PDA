@@ -42,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -399,13 +400,15 @@ private fun TramStopCardCompact(number: Int?, stop: TramStopInfo, modifier: Modi
 @Composable
 private fun TramBoard() {
     val lifecycleOwner = LocalLifecycleOwner.current
-    val client = remember { BlackpoolTramClient() }
+    val context = LocalContext.current
+    val client = remember(context.applicationContext) { BlackpoolTramClient(context.applicationContext) }
     val featured = remember { BlackpoolTramStops.FEATURED }
     var stopIndex by remember { mutableIntStateOf(0) }
     var departures by remember { mutableStateOf<List<TramDeparture>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var errorText by remember { mutableStateOf<String?>(null) }
     var refreshKey by remember { mutableIntStateOf(0) }
+    var lastHandledRefreshKey by remember { mutableIntStateOf(0) }
     var clockText by remember { mutableStateOf("--:--") }
     var page by remember { mutableIntStateOf(0) }
     val selectedStop = featured[stopIndex.coerceIn(0, featured.lastIndex)]
@@ -425,11 +428,17 @@ private fun TramBoard() {
 
     LaunchedEffect(lifecycleOwner, selectedStop, refreshKey) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            var forceNetwork = refreshKey != lastHandledRefreshKey
+            if (forceNetwork) lastHandledRefreshKey = refreshKey
             while (true) {
                 loading = true
-                val latest = client.fetchDepartures(selectedStop)
+                val latest = client.fetchDepartures(
+                    stop = selectedStop,
+                    forceRefresh = forceNetwork
+                )
+                forceNetwork = false
                 departures = latest
-                errorText = if (latest.isEmpty()) "No live departures returned." else null
+                errorText = if (latest.isEmpty()) "No cached or live departures available." else null
                 page = 0
                 loading = false
                 delay(TRAM_AUTO_REFRESH_MS)
@@ -461,14 +470,22 @@ private fun TramBoard() {
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Icon(Icons.Default.Schedule, contentDescription = null, tint = NaomiOrange, modifier = Modifier.size(24.dp))
-                    Text("2 min live refresh", color = NaomiTextSecondary, fontSize = 7.sp)
+                    Text("Room cache · HTTP max 5m", color = NaomiTextSecondary, fontSize = 7.sp)
                 }
             }
         }
 
         SelectorBar(
             label = selectedStop.name,
-            detail = if (loading) "Refreshing…" else "Live stop ${stopIndex + 1}/${featured.size}",
+            detail = if (loading) {
+                "Checking local cache…"
+            } else {
+                val cached = departures.any { departure ->
+                    departure.directionLabel.contains("CACHE", ignoreCase = true) ||
+                        departure.directionLabel.contains("OFFLINE", ignoreCase = true)
+                }
+                if (cached) "Cached stop ${stopIndex + 1}/${featured.size}" else "Live stop ${stopIndex + 1}/${featured.size}"
+            },
             canPrevious = stopIndex > 0,
             canNext = stopIndex < featured.lastIndex,
             onPrevious = { stopIndex--; page = 0 },
@@ -486,7 +503,7 @@ private fun TramBoard() {
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                "Base daytime service: from every 15 min · live times below take priority",
+                "Local database first · network only when cache is stale · refresh forces live",
                 color = NaomiTextSecondary,
                 fontSize = 8.sp,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
