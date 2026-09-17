@@ -11,7 +11,10 @@ interface StaffDao {
     @Query("SELECT COUNT(*) FROM staff_accounts")
     suspend fun countStaff(): Int
 
-    @Query("SELECT * FROM staff_accounts WHERE lower(username) = lower(:username) LIMIT 1")
+    // Usernames are normalized to lowercase before storage and lookup. Keeping this
+    // comparison direct allows SQLite to use the unique username index instead of
+    // applying lower() to every row during each sign-in attempt.
+    @Query("SELECT * FROM staff_accounts WHERE username = :username LIMIT 1")
     suspend fun findByUsername(username: String): StaffAccountEntity?
 
     @Query("SELECT * FROM staff_accounts WHERE id = :staffId LIMIT 1")
