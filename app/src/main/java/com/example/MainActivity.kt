@@ -44,14 +44,12 @@ import kotlinx.coroutines.delay
 class MainActivity : ComponentActivity() {
 
     companion object {
-        private const val AUTO_LOCK_AFTER_MS = 5 * 60 * 1000L
         private const val MIN_SPLASH_DURATION_MS = 350L
         private const val PERMISSION_REQUEST_DELAY_MS = 350L
         private const val BLUETOOTH_PERMISSION_REQUEST_CODE = 7301
     }
 
     private var posViewModelInitialized = false
-    private var authViewModelInitialized = false
 
     private val posViewModel: PosViewModel by lazy(LazyThreadSafetyMode.NONE) {
         posViewModelInitialized = true
@@ -59,11 +57,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private val authViewModel: AuthViewModel by lazy(LazyThreadSafetyMode.NONE) {
-        authViewModelInitialized = true
         ViewModelProvider(this)[AuthViewModel::class.java]
     }
-
-    private var backgroundedAt: Long = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -216,23 +211,6 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.padding(top = 16.dp)
             )
         }
-    }
-
-    override fun onStart() {
-        super.onStart()
-        if (
-            authViewModelInitialized &&
-            backgroundedAt > 0L &&
-            System.currentTimeMillis() - backgroundedAt >= AUTO_LOCK_AFTER_MS
-        ) {
-            authViewModel.logout()
-        }
-        backgroundedAt = 0L
-    }
-
-    override fun onStop() {
-        backgroundedAt = System.currentTimeMillis()
-        super.onStop()
     }
 
     private fun requestBluetoothPermissionsIfNeeded() {

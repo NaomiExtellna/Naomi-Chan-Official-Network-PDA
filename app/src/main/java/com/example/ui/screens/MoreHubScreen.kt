@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.Contactless
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
@@ -52,6 +53,7 @@ fun MoreHubScreen(
     onBlackpool: () -> Unit,
     onPrinters: () -> Unit,
     onOperations: () -> Unit,
+    onPreviewAttractMode: () -> Unit,
     onLockTerminal: () -> Unit,
     onSignOut: () -> Unit
 ) {
@@ -108,6 +110,15 @@ fun MoreHubScreen(
                 title = "Staff operations",
                 subtitle = "Shifts, maintenance and privileged actions.",
                 onClick = onOperations
+            )
+        }
+
+        MenuSection(title = "DISPLAY") {
+            MenuRow(
+                icon = Icons.Default.Contactless,
+                title = "Preview idle display",
+                subtitle = "Preview the contactless-style screen and promotional ad rotation.",
+                onClick = onPreviewAttractMode
             )
         }
 
