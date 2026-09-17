@@ -85,8 +85,8 @@ fun BusinessCardScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(NaomiDarkBg)
-            .padding(horizontal = 12.dp, vertical = 9.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -95,7 +95,7 @@ fun BusinessCardScreen(
         ) {
             Column {
                 Text("BUSINESS CARD", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                Text("58mm Contact Card", color = NaomiTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                Text("58mm Contact Card", color = NaomiTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Black)
             }
             Text(selectedChannel.displayName, color = NaomiTextSecondary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
         }
@@ -126,7 +126,7 @@ fun BusinessCardScreen(
 
                 BusinessCardMode.CONTACT -> Column(
                     modifier = Modifier.fillMaxSize().padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     PanelTitle("Contact", "Details and QR destination.")
                     BusinessField("Email", draft.email) { onDraftChange(draft.copy(email = it)) }
@@ -148,14 +148,14 @@ fun BusinessCardScreen(
             )
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             OutlinedButton(
                 onClick = {
                     onDraftChange(BusinessCardDraft())
                     printStatus = null
                 },
                 modifier = Modifier.weight(1f).height(44.dp),
-                shape = RoundedCornerShape(11.dp)
+                shape = RoundedCornerShape(4.dp)
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.size(5.dp))
@@ -195,7 +195,7 @@ fun BusinessCardScreen(
                 enabled = draft.businessName.isNotBlank() && draft.displayName.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
                 modifier = Modifier.weight(1.25f).height(44.dp),
-                shape = RoundedCornerShape(11.dp)
+                shape = RoundedCornerShape(4.dp)
             ) {
                 Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.size(5.dp))
@@ -228,7 +228,7 @@ private fun PanelTitle(title: String, subtitle: String) {
 private fun BusinessCardPreview(draft: BusinessCardDraft, modifier: Modifier = Modifier) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(11.dp),
+        shape = RoundedCornerShape(4.dp),
         border = BorderStroke(1.dp, NaomiBorder),
         modifier = modifier
     ) {
