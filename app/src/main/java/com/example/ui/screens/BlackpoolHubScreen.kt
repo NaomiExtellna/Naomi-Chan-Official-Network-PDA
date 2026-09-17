@@ -48,6 +48,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.model.BlackpoolBar
 import com.example.model.BlackpoolVenues
 import com.example.network.BlackpoolTramClient
@@ -74,6 +77,8 @@ private enum class BlackpoolHubMode { VENUES, TRAMS, ALL_STOPS }
 private const val VENUES_PER_PAGE = 2
 private const val STOPS_PER_PAGE = 4
 private const val DEPARTURES_PER_PAGE = 4
+private const val TRAM_CLOCK_TICK_MS = 60_000L
+private const val TRAM_AUTO_REFRESH_MS = 120_000L
 
 private data class PagedTramStop(val number: Int?, val stop: TramStopInfo)
 
@@ -393,6 +398,7 @@ private fun TramStopCardCompact(number: Int?, stop: TramStopInfo, modifier: Modi
 
 @Composable
 private fun TramBoard() {
+    val lifecycleOwner = LocalLifecycleOwner.current
     val client = remember { BlackpoolTramClient() }
     val featured = remember { BlackpoolTramStops.FEATURED }
     var stopIndex by remember { mutableIntStateOf(0) }
@@ -400,29 +406,34 @@ private fun TramBoard() {
     var loading by remember { mutableStateOf(true) }
     var errorText by remember { mutableStateOf<String?>(null) }
     var refreshKey by remember { mutableIntStateOf(0) }
-    var clockText by remember { mutableStateOf("--:--:--") }
+    var clockText by remember { mutableStateOf("--:--") }
     var page by remember { mutableIntStateOf(0) }
     val selectedStop = featured[stopIndex.coerceIn(0, featured.lastIndex)]
 
-    LaunchedEffect(Unit) {
-        val clockFormat = SimpleDateFormat("HH:mm:ss", Locale.UK).apply {
-            timeZone = TimeZone.getTimeZone("Europe/London")
-        }
-        while (true) {
-            clockText = clockFormat.format(Date())
-            delay(1_000)
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            val clockFormat = SimpleDateFormat("HH:mm", Locale.UK).apply {
+                timeZone = TimeZone.getTimeZone("Europe/London")
+            }
+            while (true) {
+                val now = System.currentTimeMillis()
+                clockText = clockFormat.format(Date(now))
+                delay((TRAM_CLOCK_TICK_MS - (now % TRAM_CLOCK_TICK_MS)).coerceAtLeast(1_000L))
+            }
         }
     }
 
-    LaunchedEffect(selectedStop, refreshKey) {
-        while (true) {
-            loading = true
-            val latest = client.fetchDepartures(selectedStop)
-            departures = latest
-            errorText = if (latest.isEmpty()) "No live departures returned." else null
-            page = 0
-            loading = false
-            delay(60_000)
+    LaunchedEffect(lifecycleOwner, selectedStop, refreshKey) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                loading = true
+                val latest = client.fetchDepartures(selectedStop)
+                departures = latest
+                errorText = if (latest.isEmpty()) "No live departures returned." else null
+                page = 0
+                loading = false
+                delay(TRAM_AUTO_REFRESH_MS)
+            }
         }
     }
 
@@ -450,7 +461,7 @@ private fun TramBoard() {
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Icon(Icons.Default.Schedule, contentDescription = null, tint = NaomiOrange, modifier = Modifier.size(24.dp))
-                    Text("60s live refresh", color = NaomiTextSecondary, fontSize = 7.sp)
+                    Text("2 min live refresh", color = NaomiTextSecondary, fontSize = 7.sp)
                 }
             }
         }
