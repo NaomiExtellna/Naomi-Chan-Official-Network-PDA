@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#090b0f">
+  <title>{% block title %}Naomi-Chan™ Event Operations{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/pos.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('index') }}">
+      <div class="brand-mark">NC</div>
+      <div class="brand-copy">
+        <div class="brand-title">Naomi-Chan™ DJ Company</div>
+        <div class="brand-subtitle">Event Operations • Wireless POS Network</div>
+      </div>
+    </a>
+
+    <nav class="topnav" aria-label="Operations navigation">
+      <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Terminal</a>
+      <a class="nav-link {% if request.endpoint == 'events_page' %}active{% endif %}" href="{{ url_for('events_page') }}">Events</a>
+      <a class="nav-link {% if request.endpoint == 'catalog_page' %}active{% endif %}" href="{{ url_for('catalog_page') }}">Catalogue</a>
+      <span class="gateway-pill"><span class="gateway-dot"></span>Gateway live</span>
+    </nav>
+  </header>
+
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script>
+window.NC = window.NC || {};
+NC.money = value => new Intl.NumberFormat('en-GB', {style:'currency', currency:'GBP'}).format(Number(value || 0));
+NC.escape = value => String(value ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+NC.toast = (message, type='success') => {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = `toast ${type} show`;
+  clearTimeout(NC.toastTimer);
+  NC.toastTimer = setTimeout(() => toast.className = 'toast', 3200);
+};
+NC.json = async (url, options={}) => {
+  const response = await fetch(url, {headers:{'Content-Type':'application/json', ...(options.headers || {})}, ...options});
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+  return data;
+};
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
