@@ -254,18 +254,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == BLUETOOTH_PERMISSION_REQUEST_CODE && posViewModelInitialized) {
-            runCatching { posViewModel.printerManager.refreshDiscoveredDevices() }
-                .onFailure { DiagnosticLog.error(this, "MainActivity/bluetoothRefresh", it) }
-        }
-    }
-
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
         if (posViewModelInitialized) {
