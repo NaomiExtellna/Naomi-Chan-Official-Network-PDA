@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Naomi-Chan™ Blackpool Wireless POS Gateway.
+"""Naomi-Chan™ DJ Company event operations and wireless POS gateway.
 
-The Flask gateway is the source of truth for the web/PDA catalogue.  Prices,
-barcodes and item availability are validated server-side before wireless orders
-are accepted.
+The Flask gateway is the source of truth for events, catalogue items, barcode
+mapping, web orders and receipt verification. Prices and event-specific items
+are validated server-side before a wireless order is accepted.
 """
 
 import json
@@ -21,7 +21,8 @@ app.config["MAX_CONTENT_LENGTH"] = 128 * 1024
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "orders.db")
 PAYMENT_METHODS = {"CARD", "CASH", "QR", "FREE", "WIRE"}
-ITEM_TYPES = {"SERVICE", "ADMISSION", "MERCH", "TICKET", "VOUCHER"}
+ITEM_TYPES = {"SERVICE", "EVENT_ADDON", "ADMISSION", "TICKET", "VIP", "MERCH", "VOUCHER"}
+EVENT_STATUSES = {"DRAFT", "LIVE", "CLOSED"}
 
 BLACKPOOL_BARS = [
     {"name": "The Flying Handbag", "address": "Queen St, FY1 2NL", "area": "Queen St & Gay Village", "contact": "01253 624519"},
@@ -41,15 +42,14 @@ BLACKPOOL_BARS = [
 ]
 
 DEFAULT_CATALOG = [
-    {"id": "item_shoutout", "name": "Live Track Shoutout", "price": 2.00, "category": "Microphone & DJ", "description": "Live dedication & shoutout over the club sound system", "barcode": "NCHN-SHOUTOUT", "item_type": "SERVICE"},
-    {"id": "item_song_req", "name": "Guest Song Request", "price": 3.00, "category": "Microphone & DJ", "description": "Dedicated song played in next set rotation", "barcode": "NCHN-REQUEST", "item_type": "SERVICE"},
-    {"id": "item_shot_voucher", "name": "Bar Shot / Drink Voucher", "price": 3.50, "category": "Bar & Drinks", "description": "Blackpool nightlife celebration voucher", "barcode": "NCHN-VOUCHER", "item_type": "VOUCHER"},
-    {"id": "item_bar_admission", "name": "Standard Bar Admission", "price": 5.00, "category": "Admission & Door", "description": "Evening entry pass for a Naomi-Chan showcase", "barcode": "NCHN-ADMISSION", "item_type": "ADMISSION"},
-    {"id": "item_lanyard", "name": "Naomi-Chan™ DJ Lanyard & Sticker", "price": 6.00, "category": "Merchandise", "description": "Official commemorative lanyard & vinyl sticker", "barcode": "NCHN-LANYARD", "item_type": "MERCH"},
-    {"id": "item_vip_queue", "name": "VIP Fast-Track Wristband", "price": 8.00, "category": "VIP & Passes", "description": "Priority queue skip & event wristband", "barcode": "NCHN-VIP-FAST", "item_type": "TICKET"},
-    {"id": "item_booth_token", "name": "VIP Booth Entry Token", "price": 10.00, "category": "VIP & Passes", "description": "Dedicated booth access token", "barcode": "NCHN-BOOTH", "item_type": "TICKET"},
-    {"id": "item_stage_pass", "name": "DJ Stage Pass & Meet", "price": 12.00, "category": "VIP & Passes", "description": "Behind-the-decks access & meet pass", "barcode": "NCHN-STAGE", "item_type": "TICKET"},
-    {"id": "item_all_night_vip", "name": "All-Night All-Access VIP Pass", "price": 15.00, "category": "VIP & Passes", "description": "Full night pass with priority access", "barcode": "NCHN-ALLNIGHT", "item_type": "TICKET"},
+    {"id": "item_shoutout", "name": "Live Track Shoutout", "price": 2.00, "category": "DJ Add-ons", "description": "Live dedication and shoutout during the event", "barcode": "NCHN-SHOUTOUT", "item_type": "EVENT_ADDON"},
+    {"id": "item_song_req", "name": "Guest Song Request", "price": 3.00, "category": "DJ Add-ons", "description": "Priority guest song request for the current event", "barcode": "NCHN-REQUEST", "item_type": "EVENT_ADDON"},
+    {"id": "item_bar_admission", "name": "Standard Event Admission", "price": 5.00, "category": "Admission & Door", "description": "Standard admission to a Naomi-Chan DJ Company event", "barcode": "NCHN-ADMISSION", "item_type": "ADMISSION"},
+    {"id": "item_lanyard", "name": "Naomi-Chan™ DJ Lanyard & Sticker", "price": 6.00, "category": "Merchandise", "description": "Official event lanyard and vinyl sticker", "barcode": "NCHN-LANYARD", "item_type": "MERCH"},
+    {"id": "item_vip_queue", "name": "VIP Fast-Track Wristband", "price": 8.00, "category": "VIP & Passes", "description": "Priority entry and event wristband upgrade", "barcode": "NCHN-VIP-FAST", "item_type": "VIP"},
+    {"id": "item_booth_token", "name": "VIP Booth Entry Token", "price": 10.00, "category": "VIP & Passes", "description": "Dedicated VIP booth access token", "barcode": "NCHN-BOOTH", "item_type": "VIP"},
+    {"id": "item_stage_pass", "name": "DJ Stage Pass & Meet", "price": 12.00, "category": "VIP & Passes", "description": "Behind-the-decks access and meet pass", "barcode": "NCHN-STAGE", "item_type": "VIP"},
+    {"id": "item_all_night_vip", "name": "All-Night All-Access VIP Pass", "price": 15.00, "category": "VIP & Passes", "description": "Full-event access with priority entry and VIP areas", "barcode": "NCHN-ALLNIGHT", "item_type": "VIP"},
 ]
 
 
@@ -81,9 +81,28 @@ def json_object() -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
+def ensure_column(conn: sqlite3.Connection, table: str, column: str, declaration: str) -> None:
+    columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in columns:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {declaration}")
+
+
 def init_db() -> None:
     with get_db() as conn:
         conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS events (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                venue_name TEXT NOT NULL DEFAULT '',
+                starts_at TEXT NOT NULL DEFAULT '',
+                ends_at TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'DRAFT',
+                notes TEXT NOT NULL DEFAULT '',
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )"""
+        )
         conn.execute(
             """CREATE TABLE IF NOT EXISTS orders (
                 id TEXT PRIMARY KEY,
@@ -122,15 +141,72 @@ def init_db() -> None:
                 updated_at INTEGER NOT NULL
             )"""
         )
+        ensure_column(conn, "orders", "event_id", "TEXT")
+        ensure_column(conn, "catalog_items", "event_id", "TEXT")
+
         stamp = now_ms()
         for item in DEFAULT_CATALOG:
             conn.execute(
                 """INSERT OR IGNORE INTO catalog_items
-                   (id, name, price, category, description, barcode, item_type, active, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)""",
+                   (id, name, price, category, description, barcode, item_type, active, created_at, updated_at, event_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, NULL)""",
                 (item["id"], item["name"], item["price"], item["category"], item["description"], item["barcode"], item["item_type"], stamp, stamp),
             )
         conn.commit()
+
+
+def event_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "venue_name": row["venue_name"],
+        "starts_at": row["starts_at"],
+        "ends_at": row["ends_at"],
+        "status": row["status"],
+        "notes": row["notes"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def get_events(include_closed: bool = False) -> list[dict[str, Any]]:
+    sql = "SELECT * FROM events"
+    if not include_closed:
+        sql += " WHERE status <> 'CLOSED'"
+    sql += " ORDER BY CASE status WHEN 'LIVE' THEN 0 WHEN 'DRAFT' THEN 1 ELSE 2 END, starts_at, name COLLATE NOCASE"
+    with get_db() as conn:
+        return [event_to_dict(row) for row in conn.execute(sql).fetchall()]
+
+
+def find_event(event_id: str) -> dict[str, Any] | None:
+    if not event_id:
+        return None
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM events WHERE id=? LIMIT 1", (event_id,)).fetchone()
+    return event_to_dict(row) if row else None
+
+
+def validate_event_payload(data: dict[str, Any], existing_id: str | None = None) -> tuple[dict[str, Any] | None, str | None]:
+    name = clean_text(data.get("name"), max_length=140)
+    venue_name = clean_text(data.get("venue_name"), "", 200)
+    starts_at = clean_text(data.get("starts_at"), "", 40)
+    ends_at = clean_text(data.get("ends_at"), "", 40)
+    status = clean_text(data.get("status"), "DRAFT", 16).upper()
+    notes = clean_text(data.get("notes"), "", 500)
+    event_id = clean_text(data.get("id"), existing_id or ("EVT-" + uuid.uuid4().hex[:8].upper()), 64)
+    if not name:
+        return None, "Event name is required"
+    if status not in EVENT_STATUSES:
+        return None, "Unsupported event status"
+    return {
+        "id": existing_id or event_id,
+        "name": name,
+        "venue_name": venue_name,
+        "starts_at": starts_at,
+        "ends_at": ends_at,
+        "status": status,
+        "notes": notes,
+    }, None
 
 
 def catalog_to_dict(row: sqlite3.Row) -> dict[str, Any]:
@@ -144,18 +220,26 @@ def catalog_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         "barcode": row["barcode"] or "",
         "item_type": row["item_type"],
         "active": bool(row["active"]),
+        "event_id": row["event_id"] or "",
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
     }
 
 
-def get_catalog(include_inactive: bool = False) -> list[dict[str, Any]]:
-    sql = "SELECT * FROM catalog_items"
+def get_catalog(include_inactive: bool = False, event_id: str = "") -> list[dict[str, Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
     if not include_inactive:
-        sql += " WHERE active = 1"
+        clauses.append("active = 1")
+    if event_id:
+        clauses.append("(event_id IS NULL OR event_id = '' OR event_id = ?)")
+        params.append(event_id)
+    sql = "SELECT * FROM catalog_items"
+    if clauses:
+        sql += " WHERE " + " AND ".join(clauses)
     sql += " ORDER BY category COLLATE NOCASE, name COLLATE NOCASE"
     with get_db() as conn:
-        return [catalog_to_dict(row) for row in conn.execute(sql).fetchall()]
+        return [catalog_to_dict(row) for row in conn.execute(sql, params).fetchall()]
 
 
 def find_catalog_item(*, item_id: str = "", name: str = "", barcode: str = "", active_only: bool = True) -> dict[str, Any] | None:
@@ -181,25 +265,13 @@ def find_catalog_item(*, item_id: str = "", name: str = "", barcode: str = "", a
     return catalog_to_dict(row) if row else None
 
 
-def order_to_dict(row: sqlite3.Row) -> dict[str, Any]:
-    try:
-        items = json.loads(row["items_json"])
-    except (TypeError, json.JSONDecodeError):
-        items = []
-    return {
-        "id": row["id"], "client_name": row["client_name"], "client_contact": row["client_contact"],
-        "venue_name": row["venue_name"], "items": items, "subtotal": row["subtotal"],
-        "tax_percent": row["tax_percent"], "tax_amount": row["tax_amount"], "grand_total": row["grand_total"],
-        "payment_method": row["payment_method"], "notes": row["notes"], "status": row["status"], "created_at": row["created_at"],
-    }
-
-
 def validate_catalog_payload(data: dict[str, Any], existing_id: str | None = None) -> tuple[dict[str, Any] | None, str | None]:
     name = clean_text(data.get("name"), max_length=120)
-    category = clean_text(data.get("category"), "General", 80)
+    category = clean_text(data.get("category"), "Event Services", 80)
     description = clean_text(data.get("description", data.get("desc")), "", 400)
     barcode = clean_text(data.get("barcode"), "", 128)
     item_type = clean_text(data.get("item_type"), "SERVICE", 24).upper()
+    event_id = clean_text(data.get("event_id"), "", 64)
     item_id = clean_text(data.get("id"), existing_id or ("item_" + uuid.uuid4().hex[:10]), 64)
     try:
         price = round(float(data.get("price", 0)), 2)
@@ -211,6 +283,8 @@ def validate_catalog_payload(data: dict[str, Any], existing_id: str | None = Non
         return None, "Price must be between £0.00 and £100,000.00"
     if item_type not in ITEM_TYPES:
         return None, "Unsupported item type"
+    if event_id and find_event(event_id) is None:
+        return None, "Selected event does not exist"
     return {
         "id": existing_id or item_id,
         "name": name,
@@ -219,8 +293,32 @@ def validate_catalog_payload(data: dict[str, Any], existing_id: str | None = Non
         "description": description,
         "barcode": barcode or None,
         "item_type": item_type,
+        "event_id": event_id or None,
         "active": 1 if bool(data.get("active", True)) else 0,
     }, None
+
+
+def order_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    try:
+        items = json.loads(row["items_json"])
+    except (TypeError, json.JSONDecodeError):
+        items = []
+    return {
+        "id": row["id"],
+        "event_id": row["event_id"] or "",
+        "client_name": row["client_name"],
+        "client_contact": row["client_contact"],
+        "venue_name": row["venue_name"],
+        "items": items,
+        "subtotal": row["subtotal"],
+        "tax_percent": row["tax_percent"],
+        "tax_amount": row["tax_amount"],
+        "grand_total": row["grand_total"],
+        "payment_method": row["payment_method"],
+        "notes": row["notes"],
+        "status": row["status"],
+        "created_at": row["created_at"],
+    }
 
 
 init_db()
@@ -250,22 +348,29 @@ def catalog_page():
     return render_template("catalog.html")
 
 
+@app.route("/events")
+def events_page():
+    return render_template("events.html")
+
+
 @app.route("/api/status", methods=["GET"])
 def api_status():
     with get_db() as conn:
-        pending_count = conn.execute("SELECT COUNT(*) FROM orders WHERE status = 'PENDING'").fetchone()[0]
+        pending_count = conn.execute("SELECT COUNT(*) FROM orders WHERE status='PENDING'").fetchone()[0]
         total_count = conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0]
-        catalog_count = conn.execute("SELECT COUNT(*) FROM catalog_items WHERE active = 1").fetchone()[0]
-        barcode_count = conn.execute("SELECT COUNT(*) FROM catalog_items WHERE active = 1 AND barcode IS NOT NULL AND barcode <> ''").fetchone()[0]
+        catalog_count = conn.execute("SELECT COUNT(*) FROM catalog_items WHERE active=1").fetchone()[0]
+        barcode_count = conn.execute("SELECT COUNT(*) FROM catalog_items WHERE active=1 AND barcode IS NOT NULL AND barcode<>''").fetchone()[0]
+        live_events = conn.execute("SELECT COUNT(*) FROM events WHERE status='LIVE'").fetchone()[0]
     return jsonify({
         "status": "ONLINE",
-        "service": "Naomi-Chan™ Wireless POS Gateway",
+        "service": "Naomi-Chan™ DJ Company Event Operations",
         "currency": "GBP (£)",
         "default_vat": "20% UK VAT",
         "pending_orders": pending_count,
         "total_orders": total_count,
         "catalog_items": catalog_count,
         "barcode_items": barcode_count,
+        "live_events": live_events,
         "server_time": int(time.time()),
     })
 
@@ -275,15 +380,77 @@ def api_bars():
     return jsonify(BLACKPOOL_BARS)
 
 
+@app.route("/api/events", methods=["GET"])
+def api_events():
+    include_closed = request.args.get("include_closed", "0").lower() in {"1", "true", "yes"}
+    return jsonify(get_events(include_closed=include_closed))
+
+
+@app.route("/api/events", methods=["POST"])
+def api_create_event():
+    data = json_object()
+    if data is None:
+        return jsonify({"error": "Expected a JSON object"}), 400
+    event, error = validate_event_payload(data)
+    if error:
+        return jsonify({"error": error}), 400
+    assert event is not None
+    stamp = now_ms()
+    try:
+        with get_db() as conn:
+            conn.execute(
+                """INSERT INTO events (id, name, venue_name, starts_at, ends_at, status, notes, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (event["id"], event["name"], event["venue_name"], event["starts_at"], event["ends_at"], event["status"], event["notes"], stamp, stamp),
+            )
+            conn.commit()
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "Event ID already exists"}), 409
+    return jsonify(find_event(event["id"])), 201
+
+
+@app.route("/api/events/<event_id>", methods=["PUT"])
+def api_update_event(event_id: str):
+    safe_id = clean_text(event_id, max_length=64)
+    data = json_object()
+    if data is None:
+        return jsonify({"error": "Expected a JSON object"}), 400
+    event, error = validate_event_payload(data, existing_id=safe_id)
+    if error:
+        return jsonify({"error": error}), 400
+    assert event is not None
+    with get_db() as conn:
+        cursor = conn.execute(
+            """UPDATE events SET name=?, venue_name=?, starts_at=?, ends_at=?, status=?, notes=?, updated_at=? WHERE id=?""",
+            (event["name"], event["venue_name"], event["starts_at"], event["ends_at"], event["status"], event["notes"], now_ms(), safe_id),
+        )
+        conn.commit()
+    if cursor.rowcount == 0:
+        return jsonify({"error": "Event not found"}), 404
+    return jsonify(find_event(safe_id))
+
+
+@app.route("/api/events/<event_id>", methods=["DELETE"])
+def api_close_event(event_id: str):
+    safe_id = clean_text(event_id, max_length=64)
+    with get_db() as conn:
+        cursor = conn.execute("UPDATE events SET status='CLOSED', updated_at=? WHERE id=?", (now_ms(), safe_id))
+        conn.commit()
+    if cursor.rowcount == 0:
+        return jsonify({"error": "Event not found"}), 404
+    return jsonify({"success": True, "id": safe_id, "status": "CLOSED"})
+
+
 @app.route("/api/items", methods=["GET"])
 def api_items():
-    return jsonify(get_catalog())
+    return jsonify(get_catalog(event_id=clean_text(request.args.get("event_id"), "", 64)))
 
 
 @app.route("/api/catalog", methods=["GET"])
 def api_catalog():
-    include_inactive = request.args.get("include_inactive", "0") in {"1", "true", "yes"}
-    return jsonify(get_catalog(include_inactive=include_inactive))
+    include_inactive = request.args.get("include_inactive", "0").lower() in {"1", "true", "yes"}
+    event_id = clean_text(request.args.get("event_id"), "", 64)
+    return jsonify(get_catalog(include_inactive=include_inactive, event_id=event_id))
 
 
 @app.route("/api/catalog/barcode/<path:barcode>", methods=["GET"])
@@ -309,9 +476,9 @@ def api_create_catalog_item():
         with get_db() as conn:
             conn.execute(
                 """INSERT INTO catalog_items
-                   (id, name, price, category, description, barcode, item_type, active, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (item["id"], item["name"], item["price"], item["category"], item["description"], item["barcode"], item["item_type"], item["active"], stamp, stamp),
+                   (id, name, price, category, description, barcode, item_type, active, created_at, updated_at, event_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (item["id"], item["name"], item["price"], item["category"], item["description"], item["barcode"], item["item_type"], item["active"], stamp, stamp, item["event_id"]),
             )
             conn.commit()
     except sqlite3.IntegrityError as exc:
@@ -333,9 +500,9 @@ def api_update_catalog_item(item_id: str):
         with get_db() as conn:
             cursor = conn.execute(
                 """UPDATE catalog_items
-                   SET name=?, price=?, category=?, description=?, barcode=?, item_type=?, active=?, updated_at=?
+                   SET name=?, price=?, category=?, description=?, barcode=?, item_type=?, active=?, updated_at=?, event_id=?
                    WHERE id=?""",
-                (item["name"], item["price"], item["category"], item["description"], item["barcode"], item["item_type"], item["active"], now_ms(), safe_id),
+                (item["name"], item["price"], item["category"], item["description"], item["barcode"], item["item_type"], item["active"], now_ms(), item["event_id"], safe_id),
             )
             conn.commit()
             if cursor.rowcount == 0:
@@ -383,6 +550,13 @@ def api_create_order():
     if len(raw_items) > 50:
         return jsonify({"error": "Too many line items"}), 400
 
+    event_id = clean_text(data.get("event_id"), "", 64)
+    event = find_event(event_id) if event_id else None
+    if event_id and event is None:
+        return jsonify({"error": "Selected event was not found"}), 400
+    if event and event["status"] == "CLOSED":
+        return jsonify({"error": "Selected event is closed"}), 400
+
     sanitized_items: list[dict[str, Any]] = []
     subtotal = 0.0
     for raw_item in raw_items:
@@ -393,13 +567,22 @@ def api_create_order():
         catalog_item = find_catalog_item(item_id=item_id, name=name)
         if catalog_item is None:
             return jsonify({"error": f"Unknown or inactive catalog item: {name or item_id or 'unnamed item'}"}), 400
+        if catalog_item["event_id"] and catalog_item["event_id"] != event_id:
+            return jsonify({"error": f"{catalog_item['name']} belongs to a different event"}), 400
         try:
             quantity = min(max(int(raw_item.get("quantity", 1)), 1), 99)
         except (TypeError, ValueError):
             return jsonify({"error": f"Invalid quantity for {catalog_item['name']}"}), 400
         unit_price = float(catalog_item["price"])
         subtotal += quantity * unit_price
-        sanitized_items.append({"id": catalog_item["id"], "name": catalog_item["name"], "quantity": quantity, "unitPrice": unit_price})
+        sanitized_items.append({
+            "id": catalog_item["id"],
+            "name": catalog_item["name"],
+            "quantity": quantity,
+            "unitPrice": unit_price,
+            "itemType": catalog_item["item_type"],
+            "barcode": catalog_item["barcode"],
+        })
 
     subtotal = round(subtotal, 2)
     tax_percent = 20.0
@@ -410,20 +593,27 @@ def api_create_order():
         return jsonify({"error": "Unsupported payment method"}), 400
 
     order_id = "WPOS-" + uuid.uuid4().hex[:8].upper()
-    client_name = clean_text(data.get("client_name"), "Blackpool Guest", 120)
+    client_name = clean_text(data.get("client_name"), "Event Guest", 120)
     client_contact = clean_text(data.get("client_contact"), "", 120)
-    venue_name = clean_text(data.get("venue_name"), "The Flying Handbag, Queen St", 200)
-    notes = clean_text(data.get("notes"), "Wireless order placed via web terminal", 500)
+    venue_name = clean_text(data.get("venue_name"), event["venue_name"] if event else "Naomi-Chan Event", 200)
+    notes = clean_text(data.get("notes"), "Wireless event order", 500)
     stamp = now_ms()
     with get_db() as conn:
         conn.execute(
             """INSERT INTO orders
-               (id, client_name, client_contact, venue_name, items_json, subtotal, tax_percent, tax_amount, grand_total, payment_method, notes, status, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)""",
-            (order_id, client_name, client_contact, venue_name, json.dumps(sanitized_items, separators=(",", ":")), subtotal, tax_percent, tax_amount, grand_total, payment_method, notes, stamp),
+               (id, event_id, client_name, client_contact, venue_name, items_json, subtotal, tax_percent, tax_amount, grand_total, payment_method, notes, status, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)""",
+            (order_id, event_id or None, client_name, client_contact, venue_name, json.dumps(sanitized_items, separators=(",", ":")), subtotal, tax_percent, tax_amount, grand_total, payment_method, notes, stamp),
         )
         conn.commit()
-    return jsonify({"success": True, "message": f"Wireless order {order_id} created", "order_id": order_id, "grand_total": grand_total, "status": "PENDING"}), 201
+    return jsonify({
+        "success": True,
+        "message": f"Event order {order_id} created",
+        "order_id": order_id,
+        "event_id": event_id,
+        "grand_total": grand_total,
+        "status": "PENDING",
+    }), 201
 
 
 @app.route("/api/orders/<order_id>/printed", methods=["POST"])
