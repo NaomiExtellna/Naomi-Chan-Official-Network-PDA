@@ -1,28 +1,9 @@
 package com.example.ui.theme
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-
-private val DarkColorScheme = darkColorScheme(
-    primary = NaomiRed,
-    onPrimary = Color.White,
-    primaryContainer = NaomiDeepRed,
-    onPrimaryContainer = Color(0xFFFFE4DF),
-    secondary = NaomiOrange,
-    onSecondary = Color.White,
-    background = Color(0xFF0D0F13),
-    onBackground = Color(0xFFF5F7FA),
-    surface = Color(0xFF171A20),
-    onSurface = Color(0xFFF5F7FA),
-    surfaceVariant = Color(0xFF20242C),
-    onSurfaceVariant = Color(0xFFB6BDC8),
-    outline = Color(0xFF303640),
-    error = NaomiError,
-    onError = Color.White
-)
 
 private val LightColorScheme = lightColorScheme(
     primary = NaomiRed,
@@ -48,11 +29,13 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun NaomiChanTheme(
-    darkTheme: Boolean = false,
+    @Suppress("UNUSED_PARAMETER") darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
+    // The SUNMI app intentionally uses one stable retail-light scheme. Keeping a
+    // single palette avoids mixed dark/light legacy surfaces on Android 7.1.
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
+        colorScheme = LightColorScheme,
         typography = Typography,
         content = content
     )
