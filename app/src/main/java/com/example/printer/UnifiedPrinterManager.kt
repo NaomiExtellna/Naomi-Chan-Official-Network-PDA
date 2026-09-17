@@ -129,13 +129,15 @@ class UnifiedPrinterManager(private val context: Context) {
     }
 
     init {
+        // The built-in SUNMI printer is the primary path. Bluetooth/USB enumeration
+        // is deferred until the Printer Manager is actually opened so startup does
+        // not wake extra hardware or enumerate devices unnecessarily.
         bindSunmiService()
-        refreshDiscoveredDevices()
     }
 
     fun bindSunmiService() {
         if (sunmiPrinterService != null) {
-            refreshSunmiStatus()
+            refreshSunmiStatus(includeIdentity = false)
             return
         }
 
@@ -158,7 +160,7 @@ class UnifiedPrinterManager(private val context: Context) {
         }
     }
 
-    fun refreshSunmiStatus() {
+    fun refreshSunmiStatus(includeIdentity: Boolean = true) {
         val service = sunmiPrinterService
         if (service == null) {
             _status.value = _status.value.copy(
@@ -170,23 +172,34 @@ class UnifiedPrinterManager(private val context: Context) {
 
         try {
             val statusCode = service.updatePrinterState()
-            val serial = service.getPrinterSerialNo()?.takeIf { it.isNotBlank() } ?: "Unknown"
-            val model = service.getPrinterModal()?.takeIf { it.isNotBlank() } ?: "SUNMI V2"
-            val paperWidth = runCatching {
-                if (service.getPrinterPaper() == 1) 58 else 80
-            }.getOrDefault(58)
+            val current = _status.value
+            val serial = if (includeIdentity) {
+                service.getPrinterSerialNo()?.takeIf { it.isNotBlank() } ?: current.serialNumber
+            } else {
+                current.serialNumber
+            }
+            val deviceName = if (includeIdentity) {
+                val model = service.getPrinterModal()?.takeIf { it.isNotBlank() } ?: "SUNMI V2"
+                "$model Built-in Thermal"
+            } else {
+                current.deviceName
+            }
+            val paperWidth = if (includeIdentity) {
+                runCatching { if (service.getPrinterPaper() == 1) 58 else 80 }
+                    .getOrDefault(current.paperWidthMm)
+            } else {
+                current.paperWidthMm
+            }
 
-            _status.value = _status.value.copy(
+            _status.value = current.copy(
                 channel = PrinterChannel.SUNMI_BUILTIN,
-                isConnected = statusCode !in setOf(
-                    STATUS_COMMUNICATION_ERROR,
-                    STATUS_NO_PRINTER,
-                    STATUS_FIRMWARE_FAILED
-                ),
+                isConnected = statusCode != STATUS_COMMUNICATION_ERROR &&
+                    statusCode != STATUS_NO_PRINTER &&
+                    statusCode != STATUS_FIRMWARE_FAILED,
                 hasPaper = statusCode != STATUS_OUT_OF_PAPER,
                 isCoverOpen = statusCode == STATUS_COVER_OPEN,
                 isOverheated = statusCode == STATUS_OVERHEATED,
-                deviceName = "$model Built-in Thermal",
+                deviceName = deviceName,
                 serialNumber = serial,
                 paperWidthMm = paperWidth,
                 statusCode = statusCode,
@@ -248,7 +261,7 @@ class UnifiedPrinterManager(private val context: Context) {
                 emptyList()
             }
             _bluetoothDevices.value = devices
-            if (selectedBluetoothAddress !in devices.map { it.deviceKey }) {
+            if (devices.none { it.deviceKey == selectedBluetoothAddress }) {
                 selectedBluetoothAddress = devices.singleOrNull()?.deviceKey
             }
         } catch (e: Exception) {
@@ -277,7 +290,7 @@ class UnifiedPrinterManager(private val context: Context) {
             }.orEmpty()
 
             _usbDevices.value = devices
-            if (selectedUsbDeviceKey !in devices.map { it.deviceKey }) {
+            if (devices.none { it.deviceKey == selectedUsbDeviceKey }) {
                 selectedUsbDeviceKey = devices.singleOrNull()?.deviceKey
             }
         } catch (e: Exception) {
@@ -325,7 +338,9 @@ class UnifiedPrinterManager(private val context: Context) {
                 PrinterChannel.SUNMI_BUILTIN
             )
 
-        refreshSunmiStatus()
+        // Printing only needs the live state code. Serial/model/paper-width are
+        // static metadata and are already populated when the service connects.
+        refreshSunmiStatus(includeIdentity = false)
         val before = _status.value
         if (!before.isConnected) {
             return PrintResult.Error(before.lastError ?: "SUNMI V2 printer is unavailable", PrinterChannel.SUNMI_BUILTIN)
@@ -339,7 +354,7 @@ class UnifiedPrinterManager(private val context: Context) {
         }
 
         val result = SunmiNativePrinter.print(service, receipt, logoBitmap)
-        refreshSunmiStatus()
+        refreshSunmiStatus(includeIdentity = false)
         val after = _status.value
 
         return when {
@@ -354,7 +369,7 @@ class UnifiedPrinterManager(private val context: Context) {
         val service = sunmiPrinterService ?: return
         try {
             service.lineWrap(lines.coerceIn(1, 20), null)
-            refreshSunmiStatus()
+            refreshSunmiStatus(includeIdentity = false)
         } catch (e: RemoteException) {
             Log.e(TAG, "SUNMI paper feed failed", e)
             _status.value = _status.value.copy(
@@ -365,8 +380,8 @@ class UnifiedPrinterManager(private val context: Context) {
 
     // Kept for existing ViewModel calls. These no longer simulate physical hardware state;
     // they simply refresh the real SUNMI V2 printer status.
-    fun togglePaperRoll() = refreshSunmiStatus()
-    fun reloadPaper() = refreshSunmiStatus()
+    fun togglePaperRoll() = refreshSunmiStatus(includeIdentity = false)
+    fun reloadPaper() = refreshSunmiStatus(includeIdentity = false)
 
     @SuppressLint("MissingPermission")
     private fun printViaBluetooth(data: ByteArray): PrintResult {
