@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Print
@@ -38,7 +40,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,7 +51,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.model.ReceiptData
+import com.example.model.WirelessOrder
 import com.example.ui.PosViewModel
 import com.example.ui.theme.NaomiBorder
 import com.example.ui.theme.NaomiDarkBg
@@ -75,9 +78,13 @@ fun SyncLedgerScreen(
     canVoid: Boolean = true,
     onEditCorrection: () -> Unit = {}
 ) {
-    val receipts by viewModel.allReceipts.collectAsState()
-    val unsyncedCount by viewModel.unsyncedCount.collectAsState()
-    val isSyncing by viewModel.isSyncing.collectAsState()
+    val receipts by viewModel.allReceipts.collectAsStateWithLifecycle()
+    val unsyncedCount by viewModel.unsyncedCount.collectAsStateWithLifecycle()
+    val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
+    val isWirelessSyncing by viewModel.isWirelessSyncing.collectAsStateWithLifecycle()
+    val gatewayOnline by viewModel.isWirelessOnline.collectAsStateWithLifecycle()
+    val gatewayUrl by viewModel.wirelessServerUrl.collectAsStateWithLifecycle()
+    val pendingOrders by viewModel.pendingWirelessOrders.collectAsStateWithLifecycle()
 
     var query by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf(LedgerFilter.ALL) }
@@ -86,21 +93,35 @@ fun SyncLedgerScreen(
 
     val todayKey = remember { SimpleDateFormat("yyyyMMdd", Locale.UK).format(Date()) }
     val dayFormat = remember { SimpleDateFormat("yyyyMMdd", Locale.UK) }
-    val visibleReceipts = receipts.filter { receipt ->
-        val matchesQuery = query.isBlank() || listOf(
-            receipt.id, receipt.clientName, receipt.venueName, receipt.processedBy, receipt.paymentMethod.label, receipt.voidReason.orEmpty()
-        ).any { it.contains(query.trim(), ignoreCase = true) }
-        val matchesFilter = when (filter) {
-            LedgerFilter.ALL -> true
-            LedgerFilter.TODAY -> dayFormat.format(Date(receipt.createdAt)) == todayKey
-            LedgerFilter.UNSYNCED -> receipt.isBufferedOffline && !receipt.isVoided
-            LedgerFilter.VOIDED -> receipt.isVoided
+    val visibleReceipts = remember(receipts, query, filter, todayKey) {
+        val normalizedQuery = query.trim()
+        receipts.filter { receipt ->
+            val matchesQuery = normalizedQuery.isBlank() || listOf(
+                receipt.id,
+                receipt.clientName,
+                receipt.venueName,
+                receipt.processedBy,
+                receipt.paymentMethod.label,
+                receipt.voidReason.orEmpty()
+            ).any { it.contains(normalizedQuery, ignoreCase = true) }
+            val matchesFilter = when (filter) {
+                LedgerFilter.ALL -> true
+                LedgerFilter.TODAY -> dayFormat.format(Date(receipt.createdAt)) == todayKey
+                LedgerFilter.UNSYNCED -> receipt.isBufferedOffline && !receipt.isVoided
+                LedgerFilter.VOIDED -> receipt.isVoided
+            }
+            matchesQuery && matchesFilter
         }
-        matchesQuery && matchesFilter
     }
 
+    val syncBusy = isSyncing || isWirelessSyncing
+
     Column(
-        modifier = Modifier.fillMaxSize().background(NaomiDarkBg).padding(horizontal = 14.dp, vertical = 10.dp).testTag("sync_ledger_screen")
+        modifier = Modifier
+            .fillMaxSize()
+            .background(NaomiDarkBg)
+            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .testTag("sync_ledger_screen")
     ) {
         Card(
             colors = CardDefaults.cardColors(containerColor = NaomiSurface),
@@ -108,16 +129,77 @@ fun SyncLedgerScreen(
             border = androidx.compose.foundation.BorderStroke(1.dp, NaomiBorder),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Row(modifier = Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("AUDIT LEDGER & GATEWAY SYNC", color = NaomiOrange, fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                    Text(if (unsyncedCount > 0) "$unsyncedCount receipt(s) waiting to sync" else "All active receipts acknowledged", color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    Text("Voided receipts remain in the ledger and are never silently deleted.", color = NaomiTextSecondary, fontSize = 9.5.sp)
+            Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("PDA ↔ WEB GATEWAY SYNC", color = NaomiOrange, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                        Text(
+                            if (gatewayOnline) "Connected to event operations" else "Gateway offline / unreachable",
+                            color = NaomiTextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                        Text(
+                            "$unsyncedCount local receipt(s) • ${pendingOrders.size} incoming web order(s)",
+                            color = NaomiTextSecondary,
+                            fontSize = 9.5.sp
+                        )
+                    }
+                    Icon(
+                        imageVector = if (gatewayOnline) Icons.Default.CloudDone else Icons.Default.CloudOff,
+                        contentDescription = null,
+                        tint = if (gatewayOnline) NaomiSuccess else NaomiOrange,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
-                Button(onClick = { viewModel.syncAllBufferedTransactions() }, enabled = !isSyncing, colors = ButtonDefaults.buttonColors(containerColor = NaomiRed), modifier = Modifier.testTag("sync_all_btn")) {
-                    if (isSyncing) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                    else {
-                        Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(15.dp)); Spacer(modifier = Modifier.width(4.dp)); Text("Sync", fontSize = 10.sp)
+
+                Text(gatewayUrl, color = NaomiTextSecondary, fontSize = 9.sp, maxLines = 1)
+
+                Button(
+                    onClick = {
+                        // Full manual cycle: announce this PDA, pull its targeted queue,
+                        // and retry any locally buffered receipts.
+                        viewModel.checkWirelessConnection()
+                        viewModel.fetchPendingWirelessOrders()
+                        viewModel.syncAllBufferedTransactions()
+                    },
+                    enabled = !syncBusy,
+                    colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
+                    modifier = Modifier.fillMaxWidth().testTag("sync_all_btn")
+                ) {
+                    if (syncBusy) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Synchronising…", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    } else {
+                        Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text("Sync PDA with Flask gateway", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        if (pendingOrders.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Card(
+                colors = CardDefaults.cardColors(containerColor = NaomiSurface),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, NaomiOrange.copy(alpha = 0.55f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("INCOMING WEB ORDERS", color = NaomiOrange, fontWeight = FontWeight.Black, fontSize = 10.sp)
+                    Text(
+                        "Orders sent from the Flask event terminal to this PDA. Printing acknowledges them back to the gateway.",
+                        color = NaomiTextSecondary,
+                        fontSize = 9.5.sp
+                    )
+                    pendingOrders.take(5).forEach { order ->
+                        IncomingOrderRow(order = order, onPrint = { viewModel.loadAndPrintWirelessOrder(order) })
+                    }
+                    if (pendingOrders.size > 5) {
+                        Text("+ ${pendingOrders.size - 5} more queued order(s)", color = NaomiTextSecondary, fontSize = 9.sp)
                     }
                 }
             }
@@ -189,6 +271,42 @@ fun SyncLedgerScreen(
             },
             dismissButton = { TextButton(onClick = { voidTarget = null }) { Text("Cancel", color = NaomiTextSecondary) } }
         )
+    }
+}
+
+@Composable
+private fun IncomingOrderRow(order: WirelessOrder, onPrint: () -> Unit) {
+    Surface(
+        color = NaomiSurfaceVariant,
+        shape = RoundedCornerShape(9.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, NaomiBorder),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(order.id, color = NaomiTextPrimary, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                Text("${order.clientName} • ${order.venueName}", color = NaomiTextSecondary, fontSize = 9.5.sp, maxLines = 1)
+                Text(
+                    "${order.items.sumOf { it.quantity }} item(s) • ${ReceiptData.formatCurrency(order.grandTotal)}",
+                    color = NaomiOrange,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 9.5.sp
+                )
+            }
+            Button(
+                onClick = onPrint,
+                colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
+                modifier = Modifier.height(36.dp)
+            ) {
+                Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Print", fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
