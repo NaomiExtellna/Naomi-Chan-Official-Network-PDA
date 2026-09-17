@@ -29,7 +29,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +41,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.model.PrinterChannel
 import com.example.ui.AuthViewModel
 import com.example.ui.PosViewModel
@@ -75,13 +75,13 @@ private data class MainNavItem(
 
 @Composable
 fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
-    val authState by authViewModel.state.collectAsState()
+    val authState by authViewModel.state.collectAsStateWithLifecycle()
     val currentUser = authState.currentUser
-    val currentReceipt by viewModel.currentReceipt.collectAsState()
-    val selectedChannel by viewModel.selectedChannel.collectAsState()
-    val printerStatus by viewModel.printerStatus.collectAsState()
-    val unsyncedCount by viewModel.unsyncedCount.collectAsState()
-    val isOfflineSimulated by viewModel.isOfflineSimulated.collectAsState()
+    val currentReceipt by viewModel.currentReceipt.collectAsStateWithLifecycle()
+    val selectedChannel by viewModel.selectedChannel.collectAsStateWithLifecycle()
+    val printerStatus by viewModel.printerStatus.collectAsStateWithLifecycle()
+    val unsyncedCount by viewModel.unsyncedCount.collectAsStateWithLifecycle()
+    val isOfflineSimulated by viewModel.isOfflineSimulated.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
     var showChannelDialog by remember { mutableStateOf(false) }
