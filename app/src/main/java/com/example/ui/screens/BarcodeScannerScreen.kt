@@ -47,9 +47,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -64,6 +64,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.model.ReceiptData
+import com.example.model.ReceiptItem
+import com.example.network.CatalogClient
+import com.example.network.CatalogItem
+import com.example.network.CatalogLookupResult
 import com.example.ui.PosViewModel
 import com.example.ui.theme.NaomiBorder
 import com.example.ui.theme.NaomiDarkBg
@@ -77,6 +81,7 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 
 @Composable
@@ -85,7 +90,11 @@ fun BarcodeScannerScreen(
     onOpenLedger: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val receipts by viewModel.allReceipts.collectAsState()
+    val currentReceipt by viewModel.currentReceipt.collectAsState()
+    val gatewayUrl by viewModel.wirelessServerUrl.collectAsState()
+
     var hasCameraPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
@@ -94,7 +103,10 @@ fun BarcodeScannerScreen(
     var lastValue by remember { mutableStateOf("") }
     var lastFormat by remember { mutableStateOf("") }
     var manualValue by remember { mutableStateOf("") }
-    var lastAcceptedAt by remember { mutableLongStateOf(0L) }
+    var heldCameraCode by remember { mutableStateOf<String?>(null) }
+    var catalogueItem by remember { mutableStateOf<CatalogItem?>(null) }
+    var catalogueMessage by remember { mutableStateOf<String?>(null) }
+    var catalogueBusy by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -104,6 +116,64 @@ fun BarcodeScannerScreen(
     val matchedReceipt = remember(lookupId, receipts) {
         lookupId.takeIf { it.isNotBlank() }?.let { id ->
             receipts.firstOrNull { it.id.equals(id, ignoreCase = true) }
+        }
+    }
+
+    val processCode: (String, String) -> Unit = { rawValue, format ->
+        val value = rawValue.trim()
+        if (value.isNotBlank()) {
+            lastValue = value
+            lastFormat = format
+            catalogueItem = null
+            catalogueMessage = null
+
+            val receiptId = extractReceiptId(value)
+            val localReceipt = receipts.firstOrNull { it.id.equals(receiptId, ignoreCase = true) }
+            viewModel.logAction(
+                action = "BARCODE_SCANNED",
+                target = receiptId,
+                details = "format=$format"
+            )
+
+            if (localReceipt == null) {
+                catalogueBusy = true
+                scope.launch {
+                    when (val result = CatalogClient.lookupBarcode(gatewayUrl, value)) {
+                        is CatalogLookupResult.Found -> {
+                            val item = result.item
+                            val existing = viewModel.currentReceipt.value.items.firstOrNull { it.id == item.id }
+                            if (existing != null) {
+                                viewModel.removeLineItem(existing.id)
+                                viewModel.addLineItem(existing.copy(quantity = existing.quantity + 1, unitPrice = item.price))
+                                catalogueMessage = "Quantity increased on the current receipt"
+                            } else {
+                                viewModel.addLineItem(
+                                    ReceiptItem(
+                                        id = item.id,
+                                        name = item.name,
+                                        quantity = 1,
+                                        unitPrice = item.price
+                                    )
+                                )
+                                catalogueMessage = "Added to the current receipt"
+                            }
+                            catalogueItem = item
+                            viewModel.logAction(
+                                action = "CATALOG_ITEM_SCANNED",
+                                target = item.id,
+                                details = "barcode=${item.barcode}; event=${item.eventId.ifBlank { "GLOBAL" }}"
+                            )
+                        }
+                        is CatalogLookupResult.NotFound -> {
+                            catalogueMessage = "No active web catalogue item is mapped to this barcode."
+                        }
+                        is CatalogLookupResult.Error -> {
+                            catalogueMessage = "Gateway lookup failed: ${result.message}"
+                        }
+                    }
+                    catalogueBusy = false
+                }
+            }
         }
     }
 
@@ -122,20 +192,20 @@ fun BarcodeScannerScreen(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "SCAN & VERIFY",
+                    text = "EVENT SCANNER",
                     color = NaomiOrange,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.2.sp
                 )
                 Text(
-                    text = "Barcode terminal",
+                    text = "Scan to sell or verify",
                     color = NaomiTextPrimary,
                     fontSize = 23.sp,
                     fontWeight = FontWeight.Black
                 )
                 Text(
-                    text = "Scan tickets, receipts and QR references.",
+                    text = "Tickets, admission, VIP upgrades, merch, services and receipt QR codes.",
                     color = NaomiTextSecondary,
                     fontSize = 11.sp
                 )
@@ -169,16 +239,11 @@ fun BarcodeScannerScreen(
                         .background(Color.Black)
                 ) {
                     BarcodeCameraPreview { value, format ->
-                        val now = System.currentTimeMillis()
-                        if (value != lastValue || now - lastAcceptedAt > 1_500L) {
-                            lastValue = value
-                            lastFormat = format
-                            lastAcceptedAt = now
-                            viewModel.logAction(
-                                action = "BARCODE_SCANNED",
-                                target = extractReceiptId(value),
-                                details = "format=$format"
-                            )
+                        if (value == null) {
+                            heldCameraCode = null
+                        } else if (heldCameraCode != value) {
+                            heldCameraCode = value
+                            processCode(value, format)
                         }
                     }
 
@@ -201,7 +266,7 @@ fun BarcodeScannerScreen(
                         ) {
                             Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = NaomiOrange, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.size(6.dp))
-                            Text("Align code inside the frame", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Scan once • move code away to re-arm", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -233,6 +298,10 @@ fun BarcodeScannerScreen(
                 rawValue = lastValue,
                 format = lastFormat,
                 receipt = matchedReceipt,
+                catalogueItem = catalogueItem,
+                catalogueMessage = catalogueMessage,
+                catalogueBusy = catalogueBusy,
+                quantity = catalogueItem?.let { item -> currentReceipt.items.firstOrNull { it.id == item.id }?.quantity ?: 0 } ?: 0,
                 onOpenLedger = onOpenLedger
             )
         }
@@ -244,11 +313,11 @@ fun BarcodeScannerScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                Text("MANUAL LOOKUP", color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                Text("MANUAL BARCODE / RECEIPT", color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                 OutlinedTextField(
                     value = manualValue,
                     onValueChange = { manualValue = it },
-                    label = { Text("Receipt / barcode value") },
+                    label = { Text("Scan value or receipt reference") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -263,16 +332,15 @@ fun BarcodeScannerScreen(
                 Button(
                     onClick = {
                         if (manualValue.isNotBlank()) {
-                            lastValue = manualValue.trim()
-                            lastFormat = "MANUAL"
+                            processCode(manualValue, "MANUAL")
                             manualValue = ""
                         }
                     },
-                    enabled = manualValue.isNotBlank(),
+                    enabled = manualValue.isNotBlank() && !catalogueBusy,
                     colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Check reference", fontWeight = FontWeight.Black)
+                    Text("Resolve code", fontWeight = FontWeight.Black)
                 }
             }
         }
@@ -284,9 +352,13 @@ private fun ScanResultCard(
     rawValue: String,
     format: String,
     receipt: ReceiptData?,
+    catalogueItem: CatalogItem?,
+    catalogueMessage: String?,
+    catalogueBusy: Boolean,
+    quantity: Int,
     onOpenLedger: () -> Unit
 ) {
-    val found = receipt != null
+    val found = receipt != null || catalogueItem != null
     Card(
         colors = CardDefaults.cardColors(
             containerColor = if (found) NaomiSuccess.copy(alpha = 0.10f) else NaomiSurface
@@ -306,7 +378,12 @@ private fun ScanResultCard(
                 Spacer(modifier = Modifier.size(8.dp))
                 Column {
                     Text(
-                        text = if (found) "Verified receipt" else "Code captured",
+                        text = when {
+                            receipt != null -> "Verified receipt"
+                            catalogueItem != null -> "Catalogue item added"
+                            catalogueBusy -> "Checking event catalogue…"
+                            else -> "Code captured"
+                        },
                         color = NaomiTextPrimary,
                         fontWeight = FontWeight.Black,
                         fontSize = 15.sp
@@ -335,12 +412,21 @@ private fun ScanResultCard(
                     Spacer(modifier = Modifier.size(6.dp))
                     Text("Open receipt ledger")
                 }
-            } else {
-                Text(
-                    "No local receipt matched this value. It can still be used as an external ticket or stock barcode reference.",
-                    color = NaomiTextSecondary,
-                    fontSize = 10.sp
-                )
+            } else if (catalogueItem != null) {
+                ResultLine("Item", catalogueItem.name)
+                ResultLine("Type", catalogueItem.itemType.replace('_', ' '))
+                ResultLine("Category", catalogueItem.category)
+                ResultLine("Price", ReceiptData.formatCurrency(catalogueItem.price))
+                ResultLine("Receipt quantity", quantity.toString())
+                ResultLine("Event", catalogueItem.eventId.ifBlank { "All events / global" })
+                if (catalogueItem.description.isNotBlank()) {
+                    Text(catalogueItem.description, color = NaomiTextSecondary, fontSize = 10.sp)
+                }
+                if (!catalogueMessage.isNullOrBlank()) {
+                    Text(catalogueMessage, color = NaomiSuccess, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+            } else if (!catalogueMessage.isNullOrBlank()) {
+                Text(catalogueMessage, color = NaomiTextSecondary, fontSize = 10.sp)
             }
         }
     }
@@ -356,7 +442,7 @@ private fun ResultLine(label: String, value: String) {
 
 @OptIn(ExperimentalGetImage::class)
 @Composable
-private fun BarcodeCameraPreview(onBarcode: (String, String) -> Unit) {
+private fun BarcodeCameraPreview(onBarcode: (String?, String) -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val currentOnBarcode by rememberUpdatedState(onBarcode)
@@ -402,6 +488,7 @@ private fun BarcodeCameraPreview(onBarcode: (String, String) -> Unit) {
                 analysis.setAnalyzer(analyzerExecutor) { imageProxy ->
                     val mediaImage = imageProxy.image
                     if (mediaImage == null) {
+                        currentOnBarcode(null, "")
                         imageProxy.close()
                         return@setAnalyzer
                     }
@@ -410,10 +497,13 @@ private fun BarcodeCameraPreview(onBarcode: (String, String) -> Unit) {
                         .addOnSuccessListener { barcodes ->
                             val barcode = barcodes.firstOrNull { !it.rawValue.isNullOrBlank() }
                             val value = barcode?.rawValue
-                            if (!value.isNullOrBlank()) {
+                            if (value.isNullOrBlank()) {
+                                currentOnBarcode(null, "")
+                            } else {
                                 currentOnBarcode(value, barcodeFormatLabel(barcode.format))
                             }
                         }
+                        .addOnFailureListener { currentOnBarcode(null, "") }
                         .addOnCompleteListener { imageProxy.close() }
                 }
 
