@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.os.Build
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -28,13 +30,33 @@ import com.example.R
 
 @Composable
 fun NaomiSplashLoadingScreen() {
-    Box(modifier = Modifier.fillMaxSize()) {
-        Image(
-            painter = painterResource(id = R.drawable.naomi_splash_bg),
-            contentDescription = "Naomi-Chan loading screen",
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
+    val legacySunmi = Build.VERSION.SDK_INT <= Build.VERSION_CODES.N_MR1
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF35120D),
+                        Color(0xFF7B2A1B),
+                        Color(0xFFC73D24)
+                    )
+                )
+            )
+    ) {
+        // The SUNMI V2 runs Android 7.1.1 / API 25. Its resource decoder throws a
+        // ResourceResolutionException when Compose attempts to load the JPEG splash
+        // from drawable-nodpi. Keep the bitmap splash for newer Android devices and
+        // use a fully Compose-rendered background on API 25 and below.
+        if (!legacySunmi) {
+            Image(
+                painter = painterResource(id = R.drawable.naomi_splash_bg),
+                contentDescription = "Naomi-Chan loading screen",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
         Column(
             modifier = Modifier
