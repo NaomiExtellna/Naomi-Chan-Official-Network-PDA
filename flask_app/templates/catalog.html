@@ -69,7 +69,9 @@
 <script>
 let items = [];
 let events = [];
+let eventNames = new Map();
 let typeFilter = 'ALL';
+let renderFrame = 0;
 
 function resetItemEditor() {
   document.getElementById('item-form').reset();
@@ -83,8 +85,15 @@ function resetItemEditor() {
 }
 
 function eventName(id) {
-  if (!id) return 'Global';
-  return events.find(e => e.id === id)?.name || id;
+  return id ? (eventNames.get(id) || id) : 'Global';
+}
+
+function scheduleRenderItems() {
+  if (renderFrame) cancelAnimationFrame(renderFrame);
+  renderFrame = requestAnimationFrame(() => {
+    renderFrame = 0;
+    renderItems();
+  });
 }
 
 function editItem(id) {
@@ -121,20 +130,40 @@ function itemCard(item) {
   </article>`;
 }
 
+function updateMetrics() {
+  let active = 0;
+  let barcode = 0;
+  let eventSpecific = 0;
+  let global = 0;
+  for (const item of items) {
+    if (item.active) {
+      active++;
+      if (item.barcode) barcode++;
+    }
+    if (item.event_id) eventSpecific++; else global++;
+  }
+  document.getElementById('metric-active').textContent = active;
+  document.getElementById('metric-barcode').textContent = barcode;
+  document.getElementById('metric-event').textContent = eventSpecific;
+  document.getElementById('metric-global').textContent = global;
+}
+
 function renderItems() {
   const query = document.getElementById('search').value.trim().toLowerCase();
   const eventId = document.getElementById('event-filter').value;
-  const visible = items.filter(item => {
-    if (typeFilter !== 'ALL' && item.item_type !== typeFilter) return false;
-    if (eventId && item.event_id && item.event_id !== eventId) return false;
-    const haystack = `${item.name} ${item.barcode} ${item.category} ${item.description} ${eventName(item.event_id)}`.toLowerCase();
-    return !query || haystack.includes(query);
-  });
-  document.getElementById('catalog-list').innerHTML = visible.length ? `<div class="catalog-grid">${visible.map(itemCard).join('')}</div>` : '<div class="empty-state">No catalogue items match these filters.</div>';
-  document.getElementById('metric-active').textContent = items.filter(i => i.active).length;
-  document.getElementById('metric-barcode').textContent = items.filter(i => i.active && i.barcode).length;
-  document.getElementById('metric-event').textContent = items.filter(i => i.event_id).length;
-  document.getElementById('metric-global').textContent = items.filter(i => !i.event_id).length;
+  const visible = [];
+  for (const item of items) {
+    if (typeFilter !== 'ALL' && item.item_type !== typeFilter) continue;
+    if (eventId && item.event_id && item.event_id !== eventId) continue;
+    if (query) {
+      const haystack = `${item.name} ${item.barcode} ${item.category} ${item.description} ${eventName(item.event_id)}`.toLowerCase();
+      if (!haystack.includes(query)) continue;
+    }
+    visible.push(item);
+  }
+  document.getElementById('catalog-list').innerHTML = visible.length
+    ? `<div class="catalog-grid">${visible.map(itemCard).join('')}</div>`
+    : '<div class="empty-state">No catalogue items match these filters.</div>';
 }
 
 async function loadData() {
@@ -143,9 +172,11 @@ async function loadData() {
       NC.json('/api/events?include_closed=1'),
       NC.json('/api/catalog?include_inactive=1')
     ]);
+    eventNames = new Map(events.map(ev => [ev.id, ev.name]));
     const options = events.map(ev => `<option value="${NC.escape(ev.id)}">${NC.escape(ev.name)} — ${NC.escape(ev.status)}</option>`).join('');
     document.getElementById('event-filter').innerHTML = '<option value="">All events</option>' + options;
     document.getElementById('item-event').innerHTML = '<option value="">Global — all events</option>' + options;
+    updateMetrics();
     renderItems();
   } catch (error) { NC.toast(error.message, 'error'); }
 }
@@ -188,7 +219,7 @@ document.querySelectorAll('[data-type]').forEach(button => button.addEventListen
   typeFilter = button.dataset.type;
   renderItems();
 }));
-document.getElementById('search').addEventListener('input', renderItems);
+document.getElementById('search').addEventListener('input', scheduleRenderItems);
 document.getElementById('event-filter').addEventListener('change', renderItems);
 document.getElementById('refresh-items').addEventListener('click', loadData);
 document.getElementById('new-item').addEventListener('click', resetItemEditor);
