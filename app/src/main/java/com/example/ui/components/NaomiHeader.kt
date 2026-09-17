@@ -67,58 +67,58 @@ fun NaomiHeader(
             .fillMaxWidth()
             .background(NaomiSurface)
             .statusBarsPadding()
-            .padding(horizontal = 14.dp, vertical = 8.dp)
+            .padding(horizontal = 9.dp, vertical = 5.dp)
             .testTag("naomi_pos_header"),
-        verticalArrangement = Arrangement.spacedBy(7.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                modifier = Modifier.size(34.dp),
+                modifier = Modifier.size(28.dp),
                 color = NaomiSurfaceVariant,
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(4.dp),
                 border = BorderStroke(1.dp, NaomiBorder)
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.img_naomi_logo),
                     contentDescription = "Naomi-Chan logo",
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(34.dp)
+                    modifier = Modifier.size(28.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(9.dp))
+            Spacer(modifier = Modifier.width(7.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "Naomi-Chan™ POS",
                     color = NaomiTextPrimary,
                     fontWeight = FontWeight.Black,
-                    fontSize = 14.sp,
+                    fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "SUNMI V2",
+                    text = "SUNMI V2 · DESKTOP POS",
                     color = NaomiTextSecondary,
-                    fontSize = 10.sp,
+                    fontSize = 8.sp,
                     maxLines = 1
                 )
             }
 
             Surface(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(4.dp))
                     .clickable(onClick = onSelectChannelClick)
                     .testTag("printer_channel_badge"),
                 color = NaomiSurfaceVariant,
                 border = BorderStroke(1.dp, NaomiBorder),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(4.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 7.dp),
+                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     val icon = when (selectedChannel) {
@@ -131,16 +131,16 @@ fun NaomiHeader(
                         PrinterChannel.BLUETOOTH -> "BT"
                         PrinterChannel.USB_OTG -> "USB"
                     }
-                    Icon(icon, contentDescription = null, tint = NaomiOrange, modifier = Modifier.size(15.dp))
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(label, color = NaomiTextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Icon(icon, contentDescription = null, tint = NaomiOrange, modifier = Modifier.size(12.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(label, color = NaomiTextPrimary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             CompactStatus(
@@ -153,15 +153,15 @@ fun NaomiHeader(
             Surface(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(4.dp))
                     .clickable(onClick = onToggleOffline)
                     .testTag("offline_sync_toggle"),
                 color = NaomiSurfaceVariant,
                 border = BorderStroke(1.dp, NaomiBorder),
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(4.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -169,9 +169,9 @@ fun NaomiHeader(
                         imageVector = if (isOfflineSimulated) Icons.Default.CloudOff else Icons.Default.CloudDone,
                         contentDescription = null,
                         tint = if (isOfflineSimulated || unsyncedCount > 0) NaomiOrange else NaomiSuccess,
-                        modifier = Modifier.size(13.dp)
+                        modifier = Modifier.size(12.dp)
                     )
-                    Spacer(modifier = Modifier.width(5.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = when {
                             isOfflineSimulated -> "Offline"
@@ -179,7 +179,7 @@ fun NaomiHeader(
                             else -> "Synced"
                         },
                         color = NaomiTextPrimary,
-                        fontSize = 10.sp,
+                        fontSize = 8.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -200,23 +200,23 @@ private fun CompactStatus(
         modifier = modifier,
         color = NaomiSurfaceVariant,
         border = BorderStroke(1.dp, NaomiBorder),
-        shape = RoundedCornerShape(10.dp)
+        shape = RoundedCornerShape(4.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
             androidx.compose.foundation.layout.Box(
                 modifier = Modifier
-                    .size(7.dp)
+                    .size(6.dp)
                     .background(if (healthy) NaomiSuccess else NaomiError, CircleShape)
             )
-            Spacer(modifier = Modifier.width(5.dp))
+            Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = label,
                 color = NaomiTextPrimary,
-                fontSize = 10.sp,
+                fontSize = 8.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
