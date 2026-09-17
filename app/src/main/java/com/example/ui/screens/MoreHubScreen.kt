@@ -8,11 +8,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Contactless
@@ -30,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -61,189 +61,127 @@ fun MoreHubScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(NaomiDarkBg)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            text = "More",
-            color = NaomiTextPrimary,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Black
-        )
-        Text(
-            text = "Business tools, device settings and staff controls.",
-            color = NaomiTextSecondary,
-            fontSize = 12.sp
-        )
-
-        AccountCard(
-            staffName = staffName,
-            staffRole = staffRole,
-            shiftOpen = shiftOpen
-        )
-
-        MenuSection(title = "BUSINESS") {
-            MenuRow(
-                icon = Icons.Default.LocationOn,
-                title = "Venues & Blackpool",
-                subtitle = "Venue tools, local operations and live information.",
-                onClick = onBlackpool
-            )
-            MenuRow(
-                icon = Icons.Default.CreditCard,
-                title = "Business card",
-                subtitle = "Create and print Naomi-Chan contact cards.",
-                onClick = onBusinessCard
-            )
-        }
-
-        MenuSection(title = "DEVICE & STAFF") {
-            MenuRow(
-                icon = Icons.Default.Print,
-                title = "Printers",
-                subtitle = "SUNMI, Bluetooth and USB printer setup.",
-                onClick = onPrinters
-            )
-            MenuRow(
-                icon = Icons.Default.Badge,
-                title = "Staff operations",
-                subtitle = "Shifts, maintenance and privileged actions.",
-                onClick = onOperations
-            )
-        }
-
-        MenuSection(title = "DISPLAY") {
-            MenuRow(
-                icon = Icons.Default.Contactless,
-                title = "Preview idle display",
-                subtitle = "Preview the contactless-style screen and promotional ad rotation.",
-                onClick = onPreviewAttractMode
-            )
-        }
-
-        MenuSection(title = "SESSION") {
-            MenuRow(
-                icon = Icons.Default.Lock,
-                title = "Lock terminal",
-                subtitle = "Return to the PIN screen and keep the current sale in memory.",
-                iconTint = NaomiOrange,
-                onClick = onLockTerminal
-            )
-            MenuRow(
-                icon = Icons.Default.Logout,
-                title = "Sign out",
-                subtitle = "End this signed-in terminal session.",
-                iconTint = NaomiRed,
-                onClick = onSignOut
-            )
-        }
-    }
-}
-
-@Composable
-private fun AccountCard(staffName: String, staffRole: String, shiftOpen: Boolean) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-        border = BorderStroke(1.dp, NaomiBorder),
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier.fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                color = NaomiSurfaceVariant,
-                shape = RoundedCornerShape(14.dp),
-                border = BorderStroke(1.dp, NaomiBorder)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = null,
-                    tint = NaomiOrange,
-                    modifier = Modifier.padding(12.dp)
-                )
-            }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(staffName, color = NaomiTextPrimary, fontWeight = FontWeight.Black, fontSize = 16.sp)
-                Text(staffRole, color = NaomiTextSecondary, fontSize = 11.sp)
+            Column {
+                Text("MORE", color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                Text("Terminal tools", color = NaomiTextPrimary, fontSize = 21.sp, fontWeight = FontWeight.Black)
             }
             Surface(
                 color = if (shiftOpen) NaomiSuccess.copy(alpha = 0.10f) else NaomiSurfaceVariant,
                 border = BorderStroke(1.dp, if (shiftOpen) NaomiSuccess.copy(alpha = 0.35f) else NaomiBorder),
-                shape = RoundedCornerShape(20.dp)
+                shape = RoundedCornerShape(14.dp)
             ) {
                 Text(
-                    text = if (shiftOpen) "SHIFT OPEN" else "NO SHIFT",
+                    if (shiftOpen) "SHIFT OPEN" else "NO SHIFT",
                     color = if (shiftOpen) NaomiSuccess else NaomiTextSecondary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 9.sp,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Black,
                     modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)
                 )
+            }
+        }
+
+        AccountStrip(staffName, staffRole)
+
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PosToolTile(Icons.Default.LocationOn, "Blackpool", "Venues & trams", onBlackpool, Modifier.weight(1f))
+                PosToolTile(Icons.Default.CreditCard, "Business card", "Create & print", onBusinessCard, Modifier.weight(1f))
+            }
+            Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PosToolTile(Icons.Default.Print, "Printers", "Output devices", onPrinters, Modifier.weight(1f))
+                PosToolTile(Icons.Default.Badge, "Staff ops", "Shifts & admin", onOperations, Modifier.weight(1f))
+            }
+            Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PosToolTile(Icons.Default.Contactless, "Idle display", "Preview attract", onPreviewAttractMode, Modifier.weight(1f))
+                PosToolTile(Icons.Default.Lock, "Lock terminal", "Return to PIN", onLockTerminal, Modifier.weight(1f), NaomiOrange)
+            }
+        }
+
+        Card(
+            colors = CardDefaults.cardColors(containerColor = NaomiSurface),
+            border = BorderStroke(1.dp, NaomiBorder),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clickable(onClick = onSignOut)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Logout, contentDescription = null, tint = NaomiRed, modifier = Modifier.size(19.dp))
+                    Text("Sign out", color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+                Text("END SESSION", color = NaomiRed, fontSize = 8.sp, fontWeight = FontWeight.Black)
             }
         }
     }
 }
 
 @Composable
-private fun MenuSection(
-    title: String,
-    content: @Composable () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = title,
-            color = NaomiTextSecondary,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.8.sp
-        )
-        Card(
-            colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-            border = BorderStroke(1.dp, NaomiBorder),
-            shape = RoundedCornerShape(18.dp),
-            modifier = Modifier.fillMaxWidth()
+private fun AccountStrip(staffName: String, staffRole: String) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = NaomiSurface),
+        border = BorderStroke(1.dp, NaomiBorder),
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column { content() }
+            Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(11.dp)) {
+                Icon(Icons.Default.Person, contentDescription = null, tint = NaomiOrange, modifier = Modifier.padding(9.dp).size(18.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(staffName, color = NaomiTextPrimary, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                Text(staffRole, color = NaomiTextSecondary, fontSize = 9.sp)
+            }
         }
     }
 }
 
 @Composable
-private fun MenuRow(
+private fun PosToolTile(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    iconTint: androidx.compose.ui.graphics.Color = NaomiOrange,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    tint: Color = NaomiOrange
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 64.dp)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Card(
+        colors = CardDefaults.cardColors(containerColor = NaomiSurface),
+        border = BorderStroke(1.dp, NaomiBorder),
+        shape = RoundedCornerShape(16.dp),
+        modifier = modifier.clickable(onClick = onClick)
     ) {
-        Surface(
-            color = NaomiSurfaceVariant,
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, NaomiBorder)
+        Column(
+            modifier = Modifier.fillMaxSize().padding(12.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.padding(10.dp)
-            )
+            Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(11.dp)) {
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.padding(9.dp).size(21.dp))
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, color = NaomiTextPrimary, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                Text(subtitle, color = NaomiTextSecondary, fontSize = 9.sp)
+            }
         }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text(subtitle, color = NaomiTextSecondary, fontSize = 11.sp)
-        }
-        Text("›", color = NaomiTextSecondary, fontSize = 24.sp, fontWeight = FontWeight.Light)
     }
 }
