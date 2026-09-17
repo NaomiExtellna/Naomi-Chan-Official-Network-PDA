@@ -136,6 +136,7 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     private val _customIconBitmap = MutableStateFlow<Bitmap?>(null)
     val customIconBitmap: StateFlow<Bitmap?> = _customIconBitmap.asStateFlow()
 
+    @Volatile
     private var cachedLogoBitmap: Bitmap? = null
     private val customLogoFile = java.io.File(application.filesDir, "custom_receipt_logo.png")
 
@@ -165,24 +166,32 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     val isWirelessSyncing: StateFlow<Boolean> = _isWirelessSyncing.asStateFlow()
 
     init {
-        try {
-            cachedLogoBitmap = MemoryOptimizer.decodeSampledBitmap(application, R.drawable.img_naomi_logo, maxDimension = 320)
-        } catch (e: Exception) {
-            DiagnosticLog.error(application, "PosViewModel/logo", e)
-        }
-
-        if (customLogoFile.exists()) {
+        // Receipt branding is useful at print time but it should not compete with
+        // the first POS frame on the low-power SUNMI V2. Decode it in the IO pool.
+        viewModelScope.launch(Dispatchers.IO) {
             try {
-                val savedBmp = android.graphics.BitmapFactory.decodeFile(customLogoFile.absolutePath)
-                if (savedBmp != null) {
-                    _customIconBitmap.value = savedBmp
-                    _currentReceipt.value = _currentReceipt.value.copy(
-                        iconType = ReceiptIconType.CUSTOM,
-                        customIconUri = customLogoFile.absolutePath
-                    )
-                }
+                cachedLogoBitmap = MemoryOptimizer.decodeSampledBitmap(
+                    application,
+                    R.drawable.img_naomi_logo,
+                    maxDimension = 320
+                )
             } catch (e: Exception) {
-                DiagnosticLog.error(application, "PosViewModel/customLogo", e)
+                DiagnosticLog.error(application, "PosViewModel/logo", e)
+            }
+
+            if (customLogoFile.exists()) {
+                try {
+                    val savedBmp = android.graphics.BitmapFactory.decodeFile(customLogoFile.absolutePath)
+                    if (savedBmp != null) {
+                        _customIconBitmap.value = savedBmp
+                        _currentReceipt.value = _currentReceipt.value.copy(
+                            iconType = ReceiptIconType.CUSTOM,
+                            customIconUri = customLogoFile.absolutePath
+                        )
+                    }
+                } catch (e: Exception) {
+                    DiagnosticLog.error(application, "PosViewModel/customLogo", e)
+                }
             }
         }
 
