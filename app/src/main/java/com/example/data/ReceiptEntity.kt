@@ -2,9 +2,19 @@ package com.example.data
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "receipts")
+@Entity(
+    tableName = "receipts",
+    indices = [
+        Index(value = ["createdAt"], name = "index_receipts_createdAt"),
+        Index(
+            value = ["syncStatus", "receiptStatus", "createdAt"],
+            name = "index_receipts_syncStatus_receiptStatus_createdAt"
+        )
+    ]
+)
 data class ReceiptEntity(
     @PrimaryKey val id: String,
     val clientName: String,
