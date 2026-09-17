@@ -139,9 +139,9 @@ fun SyncLedgerScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(NaomiDarkBg)
-            .padding(horizontal = 12.dp, vertical = 9.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp)
             .testTag("sync_ledger_screen"),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -150,12 +150,12 @@ fun SyncLedgerScreen(
         ) {
             Column {
                 Text("ACTIVITY", color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                Text("Transactions", color = NaomiTextPrimary, fontSize = 21.sp, fontWeight = FontWeight.Black)
+                Text("Transactions", color = NaomiTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Black)
             }
             Surface(
                 color = if (gatewayOnline) NaomiSuccess.copy(alpha = 0.10f) else NaomiOrange.copy(alpha = 0.12f),
                 border = BorderStroke(1.dp, if (gatewayOnline) NaomiSuccess.copy(alpha = 0.30f) else NaomiOrange.copy(alpha = 0.35f)),
-                shape = RoundedCornerShape(13.dp)
+                shape = RoundedCornerShape(5.dp)
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
@@ -304,7 +304,7 @@ fun SyncLedgerScreen(
             containerColor = NaomiSurface,
             title = { Text("Void ${receipt.id}?", color = NaomiTextPrimary, fontWeight = FontWeight.Black) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
                         "This keeps the transaction in Activity and records the staff member, reason and time.",
                         color = NaomiTextSecondary,
@@ -348,7 +348,7 @@ private fun CompactSyncBar(
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, if (emphasized) NaomiOrange.copy(alpha = 0.45f) else NaomiBorder),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(5.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -375,7 +375,7 @@ private fun CompactSyncBar(
                 onClick = onSync,
                 enabled = !busy,
                 colors = ButtonDefaults.buttonColors(containerColor = if (emphasized) NaomiRed else NaomiSurfaceVariant),
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(4.dp),
                 modifier = Modifier.height(36.dp).testTag("sync_all_btn")
             ) {
                 if (busy) {
@@ -395,7 +395,7 @@ private fun IncomingOrderRow(order: WirelessOrder, onPrint: () -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, NaomiOrange.copy(alpha = 0.35f)),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(5.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -416,7 +416,7 @@ private fun IncomingOrderRow(order: WirelessOrder, onPrint: () -> Unit) {
             Button(
                 onClick = onPrint,
                 colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(4.dp),
                 modifier = Modifier.height(40.dp)
             ) {
                 Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(15.dp))
@@ -456,7 +456,7 @@ private fun ReceiptActivityCard(
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(5.dp),
         border = BorderStroke(1.dp, if (receipt.isVoided) NaomiOrange.copy(alpha = 0.55f) else NaomiBorder),
         modifier = Modifier.fillMaxWidth().testTag("receipt_item_${receipt.id}")
     ) {
@@ -533,7 +533,7 @@ private fun ReceiptActivityCard(
 @Composable
 private fun ActivityStatusPill(label: String, receipt: ReceiptData) {
     val color = if (receipt.isVoided || receipt.isBufferedOffline) NaomiOrange else NaomiSuccess
-    Surface(shape = RoundedCornerShape(10.dp), color = color.copy(alpha = 0.12f)) {
+    Surface(shape = RoundedCornerShape(4.dp), color = color.copy(alpha = 0.12f)) {
         Text(
             label,
             color = color,
