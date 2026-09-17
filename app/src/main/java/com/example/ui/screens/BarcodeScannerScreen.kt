@@ -3,6 +3,7 @@ package com.example.ui.screens
 import android.Manifest
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.util.Size
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -49,6 +50,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -357,6 +359,7 @@ private fun ResultLine(label: String, value: String) {
 private fun BarcodeCameraPreview(onBarcode: (String, String) -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val currentOnBarcode by rememberUpdatedState(onBarcode)
     val previewView = remember {
         PreviewView(context).apply {
             scaleType = PreviewView.ScaleType.FILL_CENTER
@@ -392,6 +395,7 @@ private fun BarcodeCameraPreview(onBarcode: (String, String) -> Unit) {
                 val cameraProvider = providerFuture.get()
                 val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
                 val analysis = ImageAnalysis.Builder()
+                    .setTargetResolution(Size(1280, 720))
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
 
@@ -407,7 +411,7 @@ private fun BarcodeCameraPreview(onBarcode: (String, String) -> Unit) {
                             val barcode = barcodes.firstOrNull { !it.rawValue.isNullOrBlank() }
                             val value = barcode?.rawValue
                             if (!value.isNullOrBlank()) {
-                                onBarcode(value, barcodeFormatLabel(barcode.format))
+                                currentOnBarcode(value, barcodeFormatLabel(barcode.format))
                             }
                         }
                         .addOnCompleteListener { imageProxy.close() }
