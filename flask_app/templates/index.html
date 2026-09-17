@@ -1,673 +1,221 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Naomi-Chan™ • Blackpool Wireless POS</title>
-  <style>
-    :root {
-      --bg-dark: #090B0E;
-      --card-bg: #14171F;
-      --card-variant: #1B202A;
-      --border-color: #28303F;
-      --primary: #E11D48;
-      --primary-hover: #F43F5E;
-      --accent: #F97316;
-      --accent-glow: rgba(249, 115, 22, 0.25);
-      --text-main: #F1F5F9;
-      --text-muted: #94A3B8;
-      --success: #10B981;
-      --radius: 12px;
-    }
+{% extends "base.html" %}
+{% block title %}Terminal • Naomi-Chan™ DJ Company{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div>
+    <div class="eyebrow">Event Sales Terminal</div>
+    <h1>Naomi-Chan™ DJ Company POS</h1>
+    <p class="lead">Create event orders, sell admission and VIP upgrades, add merch or DJ services, and send transactions to the wireless SUNMI workflow.</p>
+  </div>
+  <div class="toolbar">
+    <a href="{{ url_for('events_page') }}" class="btn btn-secondary">Manage events</a>
+    <a href="{{ url_for('catalog_page') }}" class="btn btn-primary">Manage catalogue</a>
+  </div>
+</section>
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }
+<section class="metric-grid">
+  <div class="metric"><div class="metric-label">Live events</div><div class="metric-value" id="metric-events">—</div><div class="metric-meta">Open for event sales</div></div>
+  <div class="metric"><div class="metric-label">Pending orders</div><div class="metric-value" id="metric-pending">—</div><div class="metric-meta">Waiting for PDA / print</div></div>
+  <div class="metric"><div class="metric-label">Catalogue</div><div class="metric-value" id="metric-catalog">—</div><div class="metric-meta">Active sellable items</div></div>
+  <div class="metric"><div class="metric-label">Scanner mapped</div><div class="metric-value" id="metric-barcodes">—</div><div class="metric-meta">Barcode-ready items</div></div>
+</section>
 
-    body {
-      background-color: var(--bg-dark);
-      color: var(--text-main);
-      min-height: 100vh;
-      padding-bottom: 60px;
-    }
-
-    .top-header {
-      background: linear-gradient(180deg, #181C26 0%, var(--bg-dark) 100%);
-      border-bottom: 1px solid var(--border-color);
-      padding: 16px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-
-    .brand-title {
-      font-size: 1.15rem;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .brand-title span.badge {
-      background: var(--primary);
-      color: white;
-      font-size: 0.65rem;
-      padding: 2px 7px;
-      border-radius: 4px;
-      font-weight: 900;
-      letter-spacing: 0.05em;
-    }
-
-    .status-pill {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(16, 185, 129, 0.12);
-      border: 1px solid rgba(16, 185, 129, 0.35);
-      color: var(--success);
-      font-size: 0.75rem;
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 20px;
-    }
-
-    .status-dot {
-      width: 7px;
-      height: 7px;
-      background: var(--success);
-      border-radius: 50%;
-      box-shadow: 0 0 8px var(--success);
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.9); }
-    }
-
-    .container {
-      max-width: 1000px;
-      margin: 0 auto;
-      padding: 20px;
-      display: grid;
-      grid-template-columns: 1.4fr 1fr;
-      gap: 20px;
-    }
-
-    @media (max-width: 800px) {
-      .container {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius);
-      padding: 18px;
-      margin-bottom: 20px;
-    }
-
-    .card-title {
-      font-size: 0.85rem;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--accent);
-      font-weight: 800;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .form-group {
-      margin-bottom: 14px;
-    }
-
-    label {
-      display: block;
-      font-size: 0.78rem;
-      color: var(--text-muted);
-      margin-bottom: 5px;
-      font-weight: 600;
-    }
-
-    select, input[type="text"] {
-      width: 100%;
-      background: var(--card-variant);
-      border: 1px solid var(--border-color);
-      color: var(--text-main);
-      padding: 10px 12px;
-      border-radius: 8px;
-      font-size: 0.9rem;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    select:focus, input[type="text"]:focus {
-      border-color: var(--accent);
-    }
-
-    .items-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-      gap: 12px;
-    }
-
-    .item-card {
-      background: var(--card-variant);
-      border: 1px solid var(--border-color);
-      border-radius: 10px;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      transition: all 0.2s;
-    }
-
-    .item-card:hover {
-      border-color: var(--accent);
-      box-shadow: 0 4px 12px var(--accent-glow);
-    }
-
-    .item-category {
-      font-size: 0.65rem;
-      color: var(--accent);
-      font-weight: 800;
-      text-transform: uppercase;
-      margin-bottom: 4px;
-    }
-
-    .item-name {
-      font-size: 0.92rem;
-      font-weight: 700;
-      color: var(--text-main);
-      margin-bottom: 4px;
-    }
-
-    .item-desc {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      margin-bottom: 12px;
-      flex-grow: 1;
-      line-height: 1.3;
-    }
-
-    .item-bottom {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
-      padding-top: 8px;
-    }
-
-    .item-price {
-      font-size: 1.05rem;
-      font-weight: 900;
-      color: #FFF;
-    }
-
-    .btn-add {
-      background: var(--primary);
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-
-    .btn-add:hover {
-      background: var(--primary-hover);
-    }
-
-    /* Cart Column */
-    .cart-summary {
-      position: sticky;
-      top: 85px;
-    }
-
-    .cart-items-list {
-      max-height: 240px;
-      overflow-y: auto;
-      margin-bottom: 14px;
-      padding-right: 4px;
-    }
-
-    .cart-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 0;
-      border-bottom: 1px solid var(--border-color);
-      font-size: 0.85rem;
-    }
-
-    .cart-qty-ctrls {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .qty-btn {
-      background: var(--card-variant);
-      border: 1px solid var(--border-color);
-      color: var(--text-main);
-      width: 24px;
-      height: 24px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: bold;
-    }
-
-    .breakdown-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      margin-bottom: 6px;
-    }
-
-    .total-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: 1.25rem;
-      font-weight: 900;
-      color: white;
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px dashed var(--border-color);
-    }
-
-    .total-row span.price {
-      color: var(--accent);
-    }
-
-    .btn-submit {
-      width: 100%;
-      background: linear-gradient(135deg, var(--primary) 0%, #BE123C 100%);
-      color: white;
-      border: none;
-      padding: 14px;
-      border-radius: 10px;
-      font-size: 1rem;
-      font-weight: 800;
-      cursor: pointer;
-      margin-top: 14px;
-      box-shadow: 0 4px 15px rgba(225, 29, 72, 0.4);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: all 0.2s;
-    }
-
-    .btn-submit:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(225, 29, 72, 0.6);
-    }
-
-    .btn-submit:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      box-shadow: none;
-    }
-
-    /* Live Orders Table */
-    .orders-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.82rem;
-      margin-top: 8px;
-    }
-
-    .orders-table th {
-      text-align: left;
-      padding: 8px;
-      color: var(--text-muted);
-      border-bottom: 1px solid var(--border-color);
-      font-size: 0.72rem;
-      text-transform: uppercase;
-    }
-
-    .orders-table td {
-      padding: 10px 8px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    .badge-pending {
-      background: rgba(249, 115, 22, 0.2);
-      color: var(--accent);
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-size: 0.7rem;
-      font-weight: 800;
-    }
-
-    .badge-printed {
-      background: rgba(16, 185, 129, 0.2);
-      color: var(--success);
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-size: 0.7rem;
-      font-weight: 800;
-    }
-
-    /* Modal Feedback */
-    .toast {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      background: #1E293B;
-      border-left: 4px solid var(--accent);
-      color: white;
-      padding: 14px 20px;
-      border-radius: 8px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-      display: none;
-      z-index: 1000;
-      font-size: 0.9rem;
-      font-weight: 600;
-    }
-  </style>
-</head>
-<body>
-
-  <header class="top-header">
-    <div class="brand-title">
-      NAOMI-CHAN™
-      <span class="badge">BLACKPOOL FY1</span>
-      <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 400;">Wireless POS Gateway</span>
-    </div>
-    <div class="status-pill">
-      <div class="status-dot"></div>
-      <span>WIRELESS SYNC LIVE</span>
-    </div>
-  </header>
-
-  <div class="container">
-    <!-- Left Column: Blackpool Venues & Menu (£2 - £15) -->
-    <div class="main-column">
-      <div class="card">
-        <div class="card-title">
-          <span>📍</span> Blackpool Venue Selection
-        </div>
-        <div class="form-group">
-          <label for="venue-select">Select Blackpool Nightlife Venue:</label>
-          <select id="venue-select" onchange="onVenueChange()">
-            {% for bar in bars %}
-            <option value="{{ bar.name }} • {{ bar.address }}">{{ bar.name }} ({{ bar.area }}) - {{ bar.address }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="client-name">Guest / Organizer Name:</label>
-          <input type="text" id="client-name" placeholder="e.g. VIP Table 4 / Alex M." value="Blackpool Guest">
+<div class="terminal-grid">
+  <div class="stack">
+    <section class="card">
+      <div class="card-header">
+        <div><div class="card-kicker">Transaction context</div><div class="card-title">Event & customer</div></div>
+      </div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="form-group full"><label>Event</label><select id="event-select"><option value="">General / no event</option></select></div>
+          <div class="form-group"><label>Customer / organiser</label><input id="client-name" type="text" value="Event Guest" placeholder="Guest, organiser or table"></div>
+          <div class="form-group"><label>Contact</label><input id="client-contact" type="text" placeholder="Optional phone / contact"></div>
+          <div class="form-group full"><label>Venue</label><input id="venue-name" type="text" placeholder="Venue or event location"></div>
+          <div class="form-group full"><label>Order notes</label><textarea id="order-notes" placeholder="Door notes, wristband colour, VIP table, request details…"></textarea></div>
         </div>
       </div>
+    </section>
 
-      <div class="card">
-        <div class="card-title" style="justify-content: space-between;">
-          <span><span>⚡</span> Blackpool POS Catalog (£2.00 – £15.00)</span>
-          <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600;">Prices in GBP (£)</span>
-        </div>
-        
-        <div class="items-grid">
-          {% for it in items %}
-          <div class="item-card">
-            <div>
-              <div class="item-category">{{ it.category }}</div>
-              <div class="item-name">{{ it.name }}</div>
-              <div class="item-desc">{{ it.desc }}</div>
-            </div>
-            <div class="item-bottom">
-              <div class="item-price">£{{ "%.2f"|format(it.price) }}</div>
-              <button class="btn-add" onclick="addToCart('{{ it.id }}', '{{ it.name }}', {{ it.price }})">+ Add</button>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
+    <section class="card">
+      <div class="card-header">
+        <div><div class="card-kicker">Event catalogue</div><div class="card-title">Sell tickets, upgrades, merch & DJ services</div></div>
+        <div class="toolbar"><input id="catalog-search" class="input" type="text" placeholder="Search catalogue…"></div>
       </div>
-
-      <!-- Live Wireless Orders Table -->
-      <div class="card">
-        <div class="card-title" style="justify-content: space-between;">
-          <span><span>📶</span> Live Wireless Orders to 58mm Thermal POS</span>
-          <button onclick="loadOrders()" style="background: none; border: none; color: var(--accent); font-size: 0.75rem; cursor: pointer; font-weight: 700;">Refresh ⟳</button>
-        </div>
-        <div style="overflow-x: auto;">
-          <table class="orders-table">
-            <thead>
-              <tr>
-                <th>Order ID</th>
-                <th>Client / Venue</th>
-                <th>Total (£)</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="orders-tbody">
-              <tr><td colspan="4" style="color: var(--text-muted); text-align: center;">Loading incoming wireless orders...</td></tr>
-            </tbody>
-          </table>
-        </div>
+      <div class="card-body">
+        <div id="terminal-catalog"><div class="empty-state">Loading catalogue…</div></div>
       </div>
-    </div>
+    </section>
 
-    <!-- Right Column: Cart & Wireless Print Action -->
-    <div class="side-column">
-      <div class="card cart-summary">
-        <div class="card-title">
-          <span>🧾</span> Order & Thermal Receipt Slip
-        </div>
-
-        <div id="cart-empty" style="padding: 24px 0; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
-          No items selected.<br>Tap "+ Add" on any item (£2 - £15) to start.
-        </div>
-
-        <div id="cart-container" style="display: none;">
-          <div class="cart-items-list" id="cart-list"></div>
-
-          <div class="form-group" style="margin-top: 10px;">
-            <label>Payment Method:</label>
-            <select id="payment-method">
-              <option value="CARD">Card / Contactless Terminal</option>
-              <option value="CASH">Cash Payment</option>
-              <option value="QR">QR Instant Pay</option>
-              <option value="FREE">Complimentary / Free Pass</option>
-            </select>
-          </div>
-
-          <div class="breakdown-row">
-            <span>Subtotal:</span>
-            <span id="subtotal-val">£0.00</span>
-          </div>
-          <div class="breakdown-row">
-            <span>UK VAT (20%):</span>
-            <span id="vat-val">£0.00</span>
-          </div>
-
-          <div class="total-row">
-            <span>TOTAL DUE:</span>
-            <span class="price" id="grand-total-val">£0.00</span>
-          </div>
-
-          <button class="btn-submit" id="submit-btn" onclick="submitWirelessOrder()">
-            <span>📶</span> Send Wirelessly to POS Printer
-          </button>
-        </div>
+    <section class="card">
+      <div class="card-header">
+        <div><div class="card-kicker">Wireless queue</div><div class="card-title">Recent event orders</div></div>
+        <button class="btn btn-secondary" id="refresh-orders">Refresh</button>
       </div>
-    </div>
+      <div class="card-body table-wrap">
+        <table>
+          <thead><tr><th>Order</th><th>Event / venue</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead>
+          <tbody id="orders-body"><tr><td colspan="5" class="empty-state">Loading orders…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
   </div>
 
-  <div id="toast" class="toast"></div>
+  <aside class="card cart-panel">
+    <div class="card-header">
+      <div><div class="card-kicker">Current sale</div><div class="card-title">Order summary</div></div>
+      <button class="btn btn-ghost" id="clear-cart">Clear</button>
+    </div>
+    <div class="card-body">
+      <div id="cart-list" class="cart-list"><div class="cart-empty">No items yet. Add an event item from the catalogue.</div></div>
+      <div class="form-group" style="margin-top:13px">
+        <label>Payment method</label>
+        <select id="payment-method"><option value="CARD">Card / POS terminal</option><option value="CASH">Cash</option><option value="QR">QR payment</option><option value="WIRE">Bank transfer</option><option value="FREE">Complimentary / free</option></select>
+      </div>
+      <div class="totals">
+        <div class="total-row"><span>Subtotal</span><strong id="subtotal">£0.00</strong></div>
+        <div class="total-row"><span>VAT 20%</span><strong id="tax">£0.00</strong></div>
+        <div class="total-row grand"><span>Total</span><strong id="grand-total">£0.00</strong></div>
+      </div>
+      <button class="btn btn-primary btn-block" id="submit-order" disabled style="margin-top:13px">Send order to event network</button>
+      <p class="help" style="margin-top:10px">Prices are revalidated by the server. Event-specific items cannot be sold under the wrong event.</p>
+    </div>
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+let events = [];
+let catalogue = [];
+let cart = new Map();
 
-  <script>
-    let cart = {};
+function selectedEvent() {
+  const id = document.getElementById('event-select').value;
+  return events.find(event => event.id === id) || null;
+}
 
-    function addToCart(id, name, price) {
-      if (cart[id]) {
-        cart[id].qty += 1;
-      } else {
-        cart[id] = { name: name, price: price, qty: 1 };
-      }
-      renderCart();
-      showToast(`Added ${name} (£${price.toFixed(2)})`);
+function addItem(id) {
+  const item = catalogue.find(row => row.id === id);
+  if (!item) return;
+  const existing = cart.get(id);
+  cart.set(id, {...item, quantity:(existing?.quantity || 0) + 1});
+  renderCart();
+}
+
+function changeQty(id, delta) {
+  const item = cart.get(id);
+  if (!item) return;
+  const next = item.quantity + delta;
+  if (next <= 0) cart.delete(id); else cart.set(id, {...item, quantity:next});
+  renderCart();
+}
+
+function renderCart() {
+  const rows = [...cart.values()];
+  const list = document.getElementById('cart-list');
+  list.innerHTML = rows.length ? rows.map(item => `<div class="cart-line">
+    <div><div class="cart-name">${NC.escape(item.name)}</div><div class="cart-price">${NC.money(item.price)} each • ${NC.escape(item.item_type.replaceAll('_',' '))}</div></div>
+    <div class="qty"><button onclick="changeQty('${NC.escape(item.id)}',-1)">−</button><span>${item.quantity}</span><button onclick="changeQty('${NC.escape(item.id)}',1)">+</button></div>
+  </div>`).join('') : '<div class="cart-empty">No items yet. Add an event item from the catalogue.</div>';
+  const subtotal = rows.reduce((sum,item) => sum + Number(item.price) * item.quantity, 0);
+  const tax = subtotal * .20;
+  document.getElementById('subtotal').textContent = NC.money(subtotal);
+  document.getElementById('tax').textContent = NC.money(tax);
+  document.getElementById('grand-total').textContent = NC.money(subtotal + tax);
+  document.getElementById('submit-order').disabled = rows.length === 0;
+}
+
+function renderCatalogue() {
+  const query = document.getElementById('catalog-search').value.trim().toLowerCase();
+  const event = selectedEvent();
+  const visible = catalogue.filter(item => {
+    if (!item.active) return false;
+    if (item.event_id && item.event_id !== (event?.id || '')) return false;
+    const text = `${item.name} ${item.category} ${item.description} ${item.barcode} ${item.item_type}`.toLowerCase();
+    return !query || text.includes(query);
+  });
+  document.getElementById('terminal-catalog').innerHTML = visible.length ? `<div class="catalog-grid">${visible.map(item => `<article class="product-card">
+    <div class="product-meta"><span class="badge type">${NC.escape(item.item_type.replaceAll('_',' '))}</span>${item.barcode ? `<span class="badge barcode">${NC.escape(item.barcode)}</span>` : ''}</div>
+    <div class="product-name">${NC.escape(item.name)}</div>
+    <div class="product-desc">${NC.escape(item.description || '')}</div>
+    <div class="product-footer"><div><div class="product-price">${NC.money(item.price)}</div><div class="product-category">${NC.escape(item.category)}${item.event_id ? ' • Event only' : ' • Global'}</div></div><button class="btn btn-primary" onclick="addItem('${NC.escape(item.id)}')">Add</button></div>
+  </article>`).join('')}</div>` : '<div class="empty-state">No active catalogue items are available for this event.</div>';
+}
+
+async function loadOperations() {
+  try {
+    const [status, eventRows, itemRows] = await Promise.all([
+      NC.json('/api/status'), NC.json('/api/events?include_closed=0'), NC.json('/api/catalog?include_inactive=0')
+    ]);
+    events = eventRows;
+    catalogue = itemRows;
+    document.getElementById('metric-events').textContent = status.live_events ?? 0;
+    document.getElementById('metric-pending').textContent = status.pending_orders ?? 0;
+    document.getElementById('metric-catalog').textContent = status.catalog_items ?? 0;
+    document.getElementById('metric-barcodes').textContent = status.barcode_items ?? 0;
+    const liveFirst = events.slice().sort((a,b) => (a.status === 'LIVE' ? -1 : 0) - (b.status === 'LIVE' ? -1 : 0));
+    document.getElementById('event-select').innerHTML = '<option value="">General / no event</option>' + liveFirst.map(ev => `<option value="${NC.escape(ev.id)}">${NC.escape(ev.name)} — ${NC.escape(ev.status)}</option>`).join('');
+    const firstLive = liveFirst.find(ev => ev.status === 'LIVE');
+    if (firstLive) {
+      document.getElementById('event-select').value = firstLive.id;
+      document.getElementById('venue-name').value = firstLive.venue_name || '';
     }
+    renderCatalogue();
+    await loadOrders();
+  } catch (error) { NC.toast(error.message, 'error'); }
+}
 
-    function changeQty(id, delta) {
-      if (!cart[id]) return;
-      cart[id].qty += delta;
-      if (cart[id].qty <= 0) {
-        delete cart[id];
-      }
-      renderCart();
-    }
+async function loadOrders() {
+  try {
+    const orders = await NC.json('/api/orders?limit=25');
+    const eventMap = new Map(events.map(ev => [ev.id, ev.name]));
+    document.getElementById('orders-body').innerHTML = orders.length ? orders.map(order => `<tr>
+      <td class="code">${NC.escape(order.id)}</td>
+      <td>${NC.escape(eventMap.get(order.event_id) || order.venue_name || 'General')}</td>
+      <td>${NC.escape(order.client_name)}</td>
+      <td>${NC.money(order.grand_total)}</td>
+      <td><span class="status ${order.status === 'PRINTED' ? 'printed' : 'pending'}">${NC.escape(order.status)}</span></td>
+    </tr>`).join('') : '<tr><td colspan="5" class="empty-state">No wireless orders yet.</td></tr>';
+  } catch (error) { NC.toast(error.message, 'error'); }
+}
 
-    function renderCart() {
-      const listEl = document.getElementById("cart-list");
-      const emptyEl = document.getElementById("cart-empty");
-      const contEl = document.getElementById("cart-container");
+document.getElementById('event-select').addEventListener('change', () => {
+  const event = selectedEvent();
+  if (event?.venue_name) document.getElementById('venue-name').value = event.venue_name;
+  cart.clear();
+  renderCart();
+  renderCatalogue();
+});
+document.getElementById('catalog-search').addEventListener('input', renderCatalogue);
+document.getElementById('clear-cart').addEventListener('click', () => { cart.clear(); renderCart(); });
+document.getElementById('refresh-orders').addEventListener('click', loadOrders);
 
-      const ids = Object.keys(cart);
-      if (ids.length === 0) {
-        emptyEl.style.display = "block";
-        contEl.style.display = "none";
-        return;
-      }
+document.getElementById('submit-order').addEventListener('click', async () => {
+  const button = document.getElementById('submit-order');
+  const event = selectedEvent();
+  const payload = {
+    event_id: event?.id || '',
+    client_name: document.getElementById('client-name').value,
+    client_contact: document.getElementById('client-contact').value,
+    venue_name: document.getElementById('venue-name').value || event?.venue_name || 'Naomi-Chan Event',
+    payment_method: document.getElementById('payment-method').value,
+    notes: document.getElementById('order-notes').value,
+    items: [...cart.values()].map(item => ({id:item.id, name:item.name, quantity:item.quantity}))
+  };
+  button.disabled = true;
+  button.textContent = 'Sending…';
+  try {
+    const result = await NC.json('/api/orders', {method:'POST', body:JSON.stringify(payload)});
+    NC.toast(`Order ${result.order_id} sent to the event network`);
+    cart.clear();
+    renderCart();
+    await loadOrders();
+    const status = await NC.json('/api/status');
+    document.getElementById('metric-pending').textContent = status.pending_orders ?? 0;
+  } catch (error) { NC.toast(error.message, 'error'); }
+  finally { button.textContent = 'Send order to event network'; button.disabled = cart.size === 0; }
+});
 
-      emptyEl.style.display = "none";
-      contEl.style.display = "block";
-      listEl.innerHTML = "";
-
-      let subtotal = 0;
-      ids.forEach(id => {
-        const item = cart[id];
-        const lineTotal = item.price * item.qty;
-        subtotal += lineTotal;
-
-        const row = document.createElement("div");
-        row.className = "cart-row";
-        row.innerHTML = `
-          <div>
-            <div style="font-weight: 700;">${item.name}</div>
-            <div style="font-size: 0.75rem; color: var(--text-muted);">£${item.price.toFixed(2)} each</div>
-          </div>
-          <div class="cart-qty-ctrls">
-            <button class="qty-btn" onclick="changeQty('${id}', -1)">-</button>
-            <span style="font-weight: 800; min-width: 18px; text-align: center;">${item.qty}</span>
-            <button class="qty-btn" onclick="changeQty('${id}', 1)">+</button>
-            <span style="font-weight: 800; min-width: 55px; text-align: right; color: var(--accent);">£${lineTotal.toFixed(2)}</span>
-          </div>
-        `;
-        listEl.appendChild(row);
-      });
-
-      const vat = subtotal * 0.20;
-      const grandTotal = subtotal + vat;
-
-      document.getElementById("subtotal-val").textContent = "£" + subtotal.toFixed(2);
-      document.getElementById("vat-val").textContent = "£" + vat.toFixed(2);
-      document.getElementById("grand-total-val").textContent = "£" + grandTotal.toFixed(2);
-    }
-
-    async function submitWirelessOrder() {
-      const btn = document.getElementById("submit-btn");
-      btn.disabled = true;
-      btn.textContent = "Transmitting to POS...";
-
-      const venue = document.getElementById("venue-select").value;
-      const client = document.getElementById("client-name").value.trim() || "Blackpool Guest";
-      const paymentMethod = document.getElementById("payment-method").value;
-
-      const items = Object.keys(cart).map(id => ({
-        name: cart[id].name,
-        quantity: cart[id].qty,
-        unit_price: cart[id].price
-      }));
-
-      const payload = {
-        client_name: client,
-        venue_name: venue,
-        payment_method: paymentMethod,
-        items: items,
-        notes: "Placed wirelessly via Blackpool Web Terminal"
-      };
-
-      try {
-        const res = await fetch("/api/orders", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        if (data.success) {
-          showToast(`✓ Order ${data.order_id} sent to POS!`);
-          cart = {};
-          renderCart();
-          loadOrders();
-        } else {
-          showToast("Error sending order");
-        }
-      } catch (err) {
-        showToast("Wireless transmission error: " + err.message);
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = "<span>📶</span> Send Wirelessly to POS Printer";
-      }
-    }
-
-    async function loadOrders() {
-      try {
-        const res = await fetch("/api/orders?limit=6");
-        const orders = await res.json();
-        const tbody = document.getElementById("orders-tbody");
-        if (orders.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="4" style="color: var(--text-muted); text-align: center;">No orders placed yet.</td></tr>`;
-          return;
-        }
-        tbody.innerHTML = orders.map(o => {
-          const badgeClass = o.status === "PRINTED" ? "badge-printed" : "badge-pending";
-          const statusText = o.status === "PRINTED" ? "✓ PRINTED" : "⏳ PENDING";
-          return `
-            <tr>
-              <td style="font-weight: 800; color: var(--accent);">${o.id}</td>
-              <td>
-                <div style="font-weight: 700;">${o.client_name}</div>
-                <div style="font-size: 0.7rem; color: var(--text-muted);">${o.venue_name.split("•")[0]}</div>
-              </td>
-              <td style="font-weight: 800;">£${o.grand_total.toFixed(2)}</td>
-              <td><span class="${badgeClass}">${statusText}</span></td>
-            </tr>
-          `;
-        }).join("");
-      } catch (e) {
-        console.error("Orders load failed", e);
-      }
-    }
-
-    function showToast(msg) {
-      const toast = document.getElementById("toast");
-      toast.textContent = msg;
-      toast.style.display = "block";
-      setTimeout(() => { toast.style.display = "none"; }, 3200);
-    }
-
-    function onVenueChange() {
-      // Refresh context
-    }
-
-    // Auto load orders on start and poll every 5s for live updates
-    loadOrders();
-    setInterval(loadOrders, 5000);
-  </script>
-</body>
-</html>
+loadOperations();
+</script>
+{% endblock %}
