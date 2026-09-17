@@ -28,24 +28,24 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.network.BlackpoolTramClient
 import com.example.network.BlackpoolTramStops
 import com.example.network.TramDeparture
 import com.example.ui.AuthViewModel
 import com.example.ui.PosViewModel
 import com.example.ui.theme.NaomiBorder
+import com.example.ui.theme.NaomiDarkBg
 import com.example.ui.theme.NaomiOrange
 import com.example.ui.theme.NaomiRed
 import com.example.ui.theme.NaomiSuccess
@@ -57,6 +57,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+private const val DASHBOARD_CLOCK_TICK_MS = 60_000L
+private const val TRAM_REFRESH_MS = 60_000L
+
 @Composable
 fun EventDashboardScreen(
     authViewModel: AuthViewModel,
@@ -66,12 +69,13 @@ fun EventDashboardScreen(
     onBlackpool: () -> Unit,
     onOps: () -> Unit
 ) {
-    val authState by authViewModel.state.collectAsState()
-    val receipt by posViewModel.currentReceipt.collectAsState()
-    val printer by posViewModel.printerStatus.collectAsState()
-    val unsynced by posViewModel.unsyncedCount.collectAsState()
-    val gatewayOnline by posViewModel.isWirelessOnline.collectAsState()
+    val authState by authViewModel.state.collectAsStateWithLifecycle()
+    val receipt by posViewModel.currentReceipt.collectAsStateWithLifecycle()
+    val printer by posViewModel.printerStatus.collectAsStateWithLifecycle()
+    val unsynced by posViewModel.unsyncedCount.collectAsStateWithLifecycle()
+    val gatewayOnline by posViewModel.isWirelessOnline.collectAsStateWithLifecycle()
     val user = authState.currentUser ?: return
+
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     var departures by remember { mutableStateOf<List<TramDeparture>>(emptyList()) }
     val tramClient = remember { BlackpoolTramClient() }
@@ -79,24 +83,35 @@ fun EventDashboardScreen(
         BlackpoolTramStops.FEATURED.firstOrNull { it.name == "Tower" }
             ?: BlackpoolTramStops.FEATURED.first()
     }
+    val clockFormatter = remember { SimpleDateFormat("HH:mm", Locale.UK) }
+    val dateFormatter = remember { SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.UK) }
+    val minuteKey = now / DASHBOARD_CLOCK_TICK_MS
+    val clockText = remember(minuteKey) { clockFormatter.format(Date(now)) }
+    val dateText = remember(now / 86_400_000L) { dateFormatter.format(Date(now)) }
 
+    // A seconds clock forced the entire dashboard to recompose every second on the
+    // low-RAM SUNMI V2. The UI only needs minute precision, so align updates to the
+    // next minute boundary instead of running 60 recompositions per minute.
     LaunchedEffect(Unit) {
         while (true) {
-            now = System.currentTimeMillis()
-            delay(1000)
+            val current = System.currentTimeMillis()
+            now = current
+            val untilNextMinute = DASHBOARD_CLOCK_TICK_MS - (current % DASHBOARD_CLOCK_TICK_MS)
+            delay(untilNextMinute.coerceAtLeast(1_000L))
         }
     }
+
     LaunchedEffect(tower.name) {
         while (true) {
             departures = tramClient.fetchDepartures(tower)
-            delay(60_000)
+            delay(TRAM_REFRESH_MS)
         }
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(com.example.ui.theme.NaomiDarkBg)
+            .background(NaomiDarkBg)
             .verticalScroll(rememberScrollState())
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -115,14 +130,14 @@ fun EventDashboardScreen(
                     letterSpacing = 1.2.sp
                 )
                 Text(
-                    text = "${formatClock(now)}  •  ${user.displayName}",
+                    text = "$clockText  •  ${user.displayName}",
                     color = NaomiTextPrimary,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Black,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(formatDate(now), color = NaomiTextSecondary, fontSize = 11.sp)
+                Text(dateText, color = NaomiTextSecondary, fontSize = 11.sp)
             }
             StatusPill(
                 label = if (authState.activeShift != null) "SHIFT OPEN" else "NO SHIFT",
@@ -293,8 +308,6 @@ private fun DashboardLine(label: String, value: String) {
     }
 }
 
-private fun formatClock(value: Long): String = SimpleDateFormat("HH:mm:ss", Locale.UK).format(Date(value))
-private fun formatDate(value: Long): String = SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.UK).format(Date(value))
 private fun formatDuration(ms: Long): String {
     val totalMinutes = ms.coerceAtLeast(0L) / 60_000L
     return "%dh %02dm".format(totalMinutes / 60, totalMinutes % 60)
