@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Events • Naomi-Chan™ DJ Company{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div>
+    <div class="eyebrow">DJ Company Operations</div>
+    <h1>Event control</h1>
+    <p class="lead">Create and manage Naomi-Chan™ events, then attach tickets, admission, VIP upgrades and event-specific products to the correct show.</p>
+  </div>
+  <button class="btn btn-primary" id="new-event">+ New event</button>
+</section>
+
+<section class="metric-grid">
+  <div class="metric"><div class="metric-label">Live events</div><div class="metric-value" id="metric-live">—</div><div class="metric-meta">Currently open for sales</div></div>
+  <div class="metric"><div class="metric-label">Draft events</div><div class="metric-value" id="metric-draft">—</div><div class="metric-meta">Planned / not yet live</div></div>
+  <div class="metric"><div class="metric-label">Upcoming</div><div class="metric-value" id="metric-upcoming">—</div><div class="metric-meta">Non-closed event records</div></div>
+  <div class="metric"><div class="metric-label">Gateway</div><div class="metric-value">Online</div><div class="metric-meta">Web + SUNMI catalogue link</div></div>
+</section>
+
+<div class="catalog-layout">
+  <section class="card">
+    <div class="card-header">
+      <div><div class="card-kicker">Schedule</div><div class="card-title">Company events</div></div>
+      <div class="toolbar">
+        <button class="filter-chip active" data-filter="ALL">All</button>
+        <button class="filter-chip" data-filter="LIVE">Live</button>
+        <button class="filter-chip" data-filter="DRAFT">Draft</button>
+        <button class="filter-chip" data-filter="CLOSED">Closed</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div id="events-list" class="stack"><div class="empty-state">Loading events…</div></div>
+    </div>
+  </section>
+
+  <aside class="card editor-panel">
+    <div class="card-header">
+      <div><div class="card-kicker">Event record</div><div class="card-title" id="editor-title">Create event</div></div>
+      <button class="btn btn-ghost" id="reset-event">Clear</button>
+    </div>
+    <div class="card-body">
+      <form id="event-form" class="form-grid">
+        <input type="hidden" id="event-id">
+        <div class="form-group full"><label>Event name</label><input id="event-name" type="text" placeholder="Naomi-Chan Summer Night Fest" required></div>
+        <div class="form-group full"><label>Venue</label><input id="event-venue" type="text" placeholder="Venue / VRChat world / festival stage"></div>
+        <div class="form-group"><label>Starts</label><input id="event-start" type="text" placeholder="2026-10-10 20:00"></div>
+        <div class="form-group"><label>Ends</label><input id="event-end" type="text" placeholder="2026-10-11 02:00"></div>
+        <div class="form-group full"><label>Status</label><select id="event-status"><option>DRAFT</option><option>LIVE</option><option>CLOSED</option></select></div>
+        <div class="form-group full"><label>Operations notes</label><textarea id="event-notes" placeholder="Door instructions, crew notes, ticket policy, event-specific reminders…"></textarea></div>
+        <div class="form-group full"><button class="btn btn-primary btn-block" type="submit">Save event</button></div>
+      </form>
+      <p class="help">Set an event to <strong>LIVE</strong> when staff should sell or scan its event-specific catalogue items. Closing an event keeps its history but prevents new orders.</p>
+    </div>
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+let events = [];
+let filter = 'ALL';
+
+function resetEditor() {
+  document.getElementById('event-form').reset();
+  document.getElementById('event-id').value = '';
+  document.getElementById('event-status').value = 'DRAFT';
+  document.getElementById('editor-title').textContent = 'Create event';
+}
+
+function editEvent(id) {
+  const ev = events.find(item => item.id === id);
+  if (!ev) return;
+  document.getElementById('event-id').value = ev.id;
+  document.getElementById('event-name').value = ev.name;
+  document.getElementById('event-venue').value = ev.venue_name || '';
+  document.getElementById('event-start').value = ev.starts_at || '';
+  document.getElementById('event-end').value = ev.ends_at || '';
+  document.getElementById('event-status').value = ev.status;
+  document.getElementById('event-notes').value = ev.notes || '';
+  document.getElementById('editor-title').textContent = `Edit ${ev.name}`;
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function eventCard(ev) {
+  const statusClass = ev.status === 'LIVE' ? 'success' : (ev.status === 'CLOSED' ? 'inactive' : 'type');
+  return `<article class="product-card">
+    <div class="product-meta"><span class="badge ${statusClass}">${NC.escape(ev.status)}</span><span class="badge barcode">${NC.escape(ev.id)}</span></div>
+    <div class="product-name">${NC.escape(ev.name)}</div>
+    <div class="product-desc">${NC.escape(ev.venue_name || 'Venue not set')}<br>${NC.escape(ev.starts_at || 'Start time not set')}${ev.ends_at ? ` → ${NC.escape(ev.ends_at)}` : ''}</div>
+    <div class="product-footer"><div><div class="product-category">${NC.escape(ev.notes || 'No operations notes')}</div></div><button class="btn btn-secondary" onclick="editEvent('${NC.escape(ev.id)}')">Manage</button></div>
+  </article>`;
+}
+
+function renderEvents() {
+  const visible = filter === 'ALL' ? events : events.filter(ev => ev.status === filter);
+  document.getElementById('events-list').innerHTML = visible.length ? `<div class="catalog-grid">${visible.map(eventCard).join('')}</div>` : '<div class="empty-state">No events match this filter.</div>';
+  document.getElementById('metric-live').textContent = events.filter(e => e.status === 'LIVE').length;
+  document.getElementById('metric-draft').textContent = events.filter(e => e.status === 'DRAFT').length;
+  document.getElementById('metric-upcoming').textContent = events.filter(e => e.status !== 'CLOSED').length;
+}
+
+async function loadEvents() {
+  try {
+    events = await NC.json('/api/events?include_closed=1');
+    renderEvents();
+  } catch (error) {
+    NC.toast(error.message, 'error');
+  }
+}
+
+document.getElementById('event-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const id = document.getElementById('event-id').value.trim();
+  const payload = {
+    name: document.getElementById('event-name').value,
+    venue_name: document.getElementById('event-venue').value,
+    starts_at: document.getElementById('event-start').value,
+    ends_at: document.getElementById('event-end').value,
+    status: document.getElementById('event-status').value,
+    notes: document.getElementById('event-notes').value
+  };
+  try {
+    await NC.json(id ? `/api/events/${encodeURIComponent(id)}` : '/api/events', {method:id ? 'PUT' : 'POST', body:JSON.stringify(payload)});
+    NC.toast(id ? 'Event updated' : 'Event created');
+    resetEditor();
+    await loadEvents();
+  } catch (error) { NC.toast(error.message, 'error'); }
+});
+
+document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => {
+  document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
+  button.classList.add('active');
+  filter = button.dataset.filter;
+  renderEvents();
+}));
+document.getElementById('new-event').addEventListener('click', resetEditor);
+document.getElementById('reset-event').addEventListener('click', resetEditor);
+loadEvents();
+</script>
+{% endblock %}
