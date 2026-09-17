@@ -30,6 +30,7 @@
     </queries>
 
     <application
+        android:name="com.example.NaomiChanApplication"
         android:allowBackup="false"
         android:hardwareAccelerated="true"
         android:usesCleartextTraffic="true"
