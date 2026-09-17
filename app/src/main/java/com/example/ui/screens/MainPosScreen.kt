@@ -37,6 +37,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -53,6 +55,9 @@ import com.example.ui.theme.NaomiOrange
 import com.example.ui.theme.NaomiSurface
 import com.example.ui.theme.NaomiTextPrimary
 import com.example.ui.theme.NaomiTextSecondary
+import kotlinx.coroutines.delay
+
+private const val IDLE_ATTRACT_DELAY_MS = 45_000L
 
 private enum class MainTab {
     DASHBOARD,
@@ -88,6 +93,8 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
     var activeTab by remember { mutableStateOf(MainTab.RECEIPT) }
     var receiptStep by remember { mutableIntStateOf(0) }
     var businessCardDraft by remember { mutableStateOf(BusinessCardDraft()) }
+    var interactionGeneration by remember { mutableIntStateOf(0) }
+    var showAttractMode by remember { mutableStateOf(false) }
 
     val utilityTabs = remember {
         setOf(MainTab.BUSINESS_CARD, MainTab.BLACKPOOL, MainTab.PRINTERS, MainTab.OPERATIONS)
@@ -102,9 +109,27 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
         )
     }
 
+    val attractModeEligible = !showChannelDialog &&
+        !printerStatus.isPrinting &&
+        activeTab != MainTab.SCAN &&
+        activeTab != MainTab.PREVIEW
+
+    fun dismissAttractMode() {
+        showAttractMode = false
+        interactionGeneration += 1
+    }
+
     fun openReceiptFromVenue() {
         receiptStep = 1
         activeTab = MainTab.RECEIPT
+    }
+
+    LaunchedEffect(interactionGeneration, attractModeEligible) {
+        showAttractMode = false
+        if (attractModeEligible) {
+            delay(IDLE_ATTRACT_DELAY_MS)
+            showAttractMode = true
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -117,135 +142,155 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
         }
     }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        topBar = {
-            NaomiHeader(
-                selectedChannel = selectedChannel,
-                printerStatus = printerStatus,
-                unsyncedCount = unsyncedCount,
-                isOfflineSimulated = isOfflineSimulated,
-                onToggleOffline = { viewModel.toggleOfflineSimulation() },
-                onReloadPaper = { viewModel.reloadPaperRoll() },
-                onSelectChannelClick = { showChannelDialog = true }
-            )
-        },
-        bottomBar = {
-            NavigationBar(
-                containerColor = NaomiSurface,
-                tonalElevation = 0.dp,
-                modifier = Modifier
-                    .height(66.dp)
-                    .navigationBarsPadding()
-                    .testTag("main_navigation_bar")
-            ) {
-                navItems.forEach { item ->
-                    val isSelected = activeTab == item.tab ||
-                        (item.tab == MainTab.MORE && activeTab in utilityTabs)
-                    NavigationBarItem(
-                        selected = isSelected,
-                        onClick = { activeTab = item.tab },
-                        icon = {
-                            Icon(
-                                imageVector = item.icon,
-                                contentDescription = item.label,
-                                modifier = Modifier.size(23.dp)
-                            )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(showAttractMode) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        if (!showAttractMode && event.changes.any { it.pressed && !it.previousPressed }) {
+                            interactionGeneration += 1
+                        }
+                    }
+                }
+            }
+    ) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            topBar = {
+                NaomiHeader(
+                    selectedChannel = selectedChannel,
+                    printerStatus = printerStatus,
+                    unsyncedCount = unsyncedCount,
+                    isOfflineSimulated = isOfflineSimulated,
+                    onToggleOffline = { viewModel.toggleOfflineSimulation() },
+                    onReloadPaper = { viewModel.reloadPaperRoll() },
+                    onSelectChannelClick = { showChannelDialog = true }
+                )
+            },
+            bottomBar = {
+                NavigationBar(
+                    containerColor = NaomiSurface,
+                    tonalElevation = 0.dp,
+                    modifier = Modifier
+                        .height(66.dp)
+                        .navigationBarsPadding()
+                        .testTag("main_navigation_bar")
+                ) {
+                    navItems.forEach { item ->
+                        val isSelected = activeTab == item.tab ||
+                            (item.tab == MainTab.MORE && activeTab in utilityTabs)
+                        NavigationBarItem(
+                            selected = isSelected,
+                            onClick = { activeTab = item.tab },
+                            icon = {
+                                Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = item.label,
+                                    modifier = Modifier.size(23.dp)
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = item.label,
+                                    fontSize = 10.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    maxLines = 1
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = NaomiOrange,
+                                selectedTextColor = NaomiTextPrimary,
+                                unselectedIconColor = NaomiTextSecondary,
+                                unselectedTextColor = NaomiTextSecondary,
+                                indicatorColor = NaomiOrange.copy(alpha = 0.10f)
+                            ),
+                            modifier = Modifier.testTag("nav_tab_${item.tab.name}")
+                        )
+                    }
+                }
+            },
+            snackbarHost = {
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                )
+            },
+            containerColor = NaomiDarkBg
+        ) { innerPadding ->
+            Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+                when (activeTab) {
+                    MainTab.DASHBOARD -> EventDashboardScreen(
+                        authViewModel = authViewModel,
+                        posViewModel = viewModel,
+                        onNewReceipt = {
+                            receiptStep = 0
+                            activeTab = MainTab.RECEIPT
                         },
-                        label = {
-                            Text(
-                                text = item.label,
-                                fontSize = 10.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                maxLines = 1
-                            )
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = NaomiOrange,
-                            selectedTextColor = NaomiTextPrimary,
-                            unselectedIconColor = NaomiTextSecondary,
-                            unselectedTextColor = NaomiTextSecondary,
-                            indicatorColor = NaomiOrange.copy(alpha = 0.10f)
-                        ),
-                        modifier = Modifier.testTag("nav_tab_${item.tab.name}")
+                        onScan = { activeTab = MainTab.SCAN },
+                        onBlackpool = { activeTab = MainTab.BLACKPOOL },
+                        onOps = { activeTab = MainTab.OPERATIONS }
+                    )
+
+                    MainTab.RECEIPT -> ReceiptWizardScreen(
+                        viewModel = viewModel,
+                        receipt = currentReceipt,
+                        step = receiptStep,
+                        onStepChange = { receiptStep = it },
+                        onNavigateToPreview = { activeTab = MainTab.PREVIEW }
+                    )
+
+                    MainTab.SCAN -> BarcodeScannerScreen(
+                        viewModel = viewModel,
+                        onOpenLedger = { activeTab = MainTab.HISTORY }
+                    )
+
+                    MainTab.HISTORY -> SyncLedgerScreen(
+                        viewModel = viewModel,
+                        showFinancials = currentUser?.canViewFinancialTotals == true,
+                        canVoid = currentUser?.canVoidReceipts == true,
+                        onEditCorrection = {
+                            receiptStep = 0
+                            activeTab = MainTab.RECEIPT
+                        }
+                    )
+
+                    MainTab.MORE -> MoreHubScreen(
+                        staffName = currentUser?.displayName ?: "Staff",
+                        staffRole = if (currentUser?.isAdmin == true) "Administrator" else "Staff",
+                        shiftOpen = authState.activeShift != null,
+                        onBusinessCard = { activeTab = MainTab.BUSINESS_CARD },
+                        onBlackpool = { activeTab = MainTab.BLACKPOOL },
+                        onPrinters = { activeTab = MainTab.PRINTERS },
+                        onOperations = { activeTab = MainTab.OPERATIONS },
+                        onPreviewAttractMode = { showAttractMode = true },
+                        onLockTerminal = authViewModel::logout,
+                        onSignOut = authViewModel::logout
+                    )
+
+                    MainTab.PREVIEW -> ThermalPreviewScreen(viewModel = viewModel, receipt = currentReceipt)
+                    MainTab.BUSINESS_CARD -> BusinessCardScreen(
+                        viewModel = viewModel,
+                        draft = businessCardDraft,
+                        onDraftChange = { businessCardDraft = it }
+                    )
+                    MainTab.BLACKPOOL -> BlackpoolHubScreen(
+                        viewModel = viewModel,
+                        onStartReceipt = ::openReceiptFromVenue
+                    )
+                    MainTab.PRINTERS -> PrinterManagerScreen(viewModel = viewModel)
+                    MainTab.OPERATIONS -> OperationsScreen(
+                        authViewModel = authViewModel,
+                        posViewModel = viewModel,
+                        onStartReceipt = ::openReceiptFromVenue
                     )
                 }
             }
-        },
-        snackbarHost = {
-            SnackbarHost(
-                hostState = snackbarHostState,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
-            )
-        },
-        containerColor = NaomiDarkBg
-    ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            when (activeTab) {
-                MainTab.DASHBOARD -> EventDashboardScreen(
-                    authViewModel = authViewModel,
-                    posViewModel = viewModel,
-                    onNewReceipt = {
-                        receiptStep = 0
-                        activeTab = MainTab.RECEIPT
-                    },
-                    onScan = { activeTab = MainTab.SCAN },
-                    onBlackpool = { activeTab = MainTab.BLACKPOOL },
-                    onOps = { activeTab = MainTab.OPERATIONS }
-                )
+        }
 
-                MainTab.RECEIPT -> ReceiptWizardScreen(
-                    viewModel = viewModel,
-                    receipt = currentReceipt,
-                    step = receiptStep,
-                    onStepChange = { receiptStep = it },
-                    onNavigateToPreview = { activeTab = MainTab.PREVIEW }
-                )
-
-                MainTab.SCAN -> BarcodeScannerScreen(
-                    viewModel = viewModel,
-                    onOpenLedger = { activeTab = MainTab.HISTORY }
-                )
-
-                MainTab.HISTORY -> SyncLedgerScreen(
-                    viewModel = viewModel,
-                    showFinancials = currentUser?.canViewFinancialTotals == true,
-                    canVoid = currentUser?.canVoidReceipts == true,
-                    onEditCorrection = {
-                        receiptStep = 0
-                        activeTab = MainTab.RECEIPT
-                    }
-                )
-
-                MainTab.MORE -> MoreHubScreen(
-                    staffName = currentUser?.displayName ?: "Staff",
-                    staffRole = if (currentUser?.isAdmin == true) "Administrator" else "Staff",
-                    shiftOpen = authState.activeShift != null,
-                    onBusinessCard = { activeTab = MainTab.BUSINESS_CARD },
-                    onBlackpool = { activeTab = MainTab.BLACKPOOL },
-                    onPrinters = { activeTab = MainTab.PRINTERS },
-                    onOperations = { activeTab = MainTab.OPERATIONS },
-                    onLockTerminal = authViewModel::logout,
-                    onSignOut = authViewModel::logout
-                )
-
-                MainTab.PREVIEW -> ThermalPreviewScreen(viewModel = viewModel, receipt = currentReceipt)
-                MainTab.BUSINESS_CARD -> BusinessCardScreen(
-                    viewModel = viewModel,
-                    draft = businessCardDraft,
-                    onDraftChange = { businessCardDraft = it }
-                )
-                MainTab.BLACKPOOL -> BlackpoolHubScreen(
-                    viewModel = viewModel,
-                    onStartReceipt = ::openReceiptFromVenue
-                )
-                MainTab.PRINTERS -> PrinterManagerScreen(viewModel = viewModel)
-                MainTab.OPERATIONS -> OperationsScreen(
-                    authViewModel = authViewModel,
-                    posViewModel = viewModel,
-                    onStartReceipt = ::openReceiptFromVenue
-                )
-            }
+        if (showAttractMode) {
+            IdleAttractScreen(onDismiss = ::dismissAttractMode)
         }
     }
 
