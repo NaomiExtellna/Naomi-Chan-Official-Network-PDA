@@ -1,20 +1,20 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.CloudSync
-import androidx.compose.material.icons.filled.CreditCard
-import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -37,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -46,9 +47,9 @@ import com.example.ui.AuthViewModel
 import com.example.ui.PosViewModel
 import com.example.ui.UiMessage
 import com.example.ui.components.NaomiHeader
+import com.example.ui.theme.NaomiBorder
 import com.example.ui.theme.NaomiDarkBg
 import com.example.ui.theme.NaomiOrange
-import com.example.ui.theme.NaomiRed
 import com.example.ui.theme.NaomiSurface
 import com.example.ui.theme.NaomiTextPrimary
 import com.example.ui.theme.NaomiTextSecondary
@@ -56,13 +57,21 @@ import com.example.ui.theme.NaomiTextSecondary
 private enum class MainTab {
     DASHBOARD,
     RECEIPT,
+    SCAN,
+    HISTORY,
+    MORE,
     PREVIEW,
     BUSINESS_CARD,
     BLACKPOOL,
     PRINTERS,
-    HISTORY,
     OPERATIONS
 }
+
+private data class MainNavItem(
+    val tab: MainTab,
+    val icon: ImageVector,
+    val label: String
+)
 
 @Composable
 fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
@@ -80,6 +89,19 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
     var receiptStep by remember { mutableIntStateOf(0) }
     var businessCardDraft by remember { mutableStateOf(BusinessCardDraft()) }
 
+    val utilityTabs = remember {
+        setOf(MainTab.BUSINESS_CARD, MainTab.BLACKPOOL, MainTab.PRINTERS, MainTab.OPERATIONS)
+    }
+    val navItems = remember {
+        listOf(
+            MainNavItem(MainTab.DASHBOARD, Icons.Default.Home, "Home"),
+            MainNavItem(MainTab.RECEIPT, Icons.Default.ReceiptLong, "Receipt"),
+            MainNavItem(MainTab.SCAN, Icons.Default.QrCodeScanner, "Scan"),
+            MainNavItem(MainTab.HISTORY, Icons.Default.CloudSync, "Ledger"),
+            MainNavItem(MainTab.MORE, Icons.Default.MoreHoriz, "More")
+        )
+    }
+
     fun openReceiptFromVenue() {
         receiptStep = 1
         activeTab = MainTab.RECEIPT
@@ -89,7 +111,7 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
         viewModel.uiMessages.collect { msg ->
             when (msg) {
                 is UiMessage.Success -> snackbarHostState.showSnackbar("✓ ${msg.message}")
-                is UiMessage.Error -> snackbarHostState.showSnackbar("⚠️ ${msg.message}")
+                is UiMessage.Error -> snackbarHostState.showSnackbar("⚠ ${msg.message}")
                 is UiMessage.Warning -> snackbarHostState.showSnackbar("ℹ ${msg.message}")
             }
         }
@@ -111,45 +133,51 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
         bottomBar = {
             NavigationBar(
                 containerColor = NaomiSurface,
-                modifier = Modifier.navigationBarsPadding().testTag("main_navigation_bar")
+                tonalElevation = 0.dp,
+                modifier = Modifier
+                    .height(68.dp)
+                    .navigationBarsPadding()
+                    .testTag("main_navigation_bar")
             ) {
-                val navItems = listOf(
-                    Triple(MainTab.DASHBOARD, Icons.Default.Home, "Home"),
-                    Triple(MainTab.RECEIPT, Icons.Default.EditNote, "Receipt"),
-                    Triple(MainTab.BUSINESS_CARD, Icons.Default.CreditCard, "Card"),
-                    Triple(MainTab.BLACKPOOL, Icons.Default.LocationOn, "Blackpool"),
-                    Triple(MainTab.PRINTERS, Icons.Default.Print, "Printer"),
-                    Triple(MainTab.HISTORY, Icons.Default.CloudSync, "Ledger"),
-                    Triple(MainTab.OPERATIONS, Icons.Default.Badge, "Ops")
-                )
-
-                navItems.forEach { (tab, icon, label) ->
-                    val isSelected = activeTab == tab
+                navItems.forEach { item ->
+                    val isSelected = activeTab == item.tab ||
+                        (item.tab == MainTab.MORE && activeTab in utilityTabs)
                     NavigationBarItem(
                         selected = isSelected,
-                        onClick = { activeTab = tab },
-                        icon = { Icon(icon, contentDescription = label, modifier = Modifier.size(19.dp)) },
+                        onClick = { activeTab = item.tab },
+                        icon = {
+                            Icon(
+                                imageVector = item.icon,
+                                contentDescription = item.label,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
                         label = {
                             Text(
-                                text = label,
-                                fontSize = 8.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                text = item.label,
+                                fontSize = 9.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                 maxLines = 1
                             )
                         },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color.White,
-                            selectedTextColor = NaomiOrange,
+                            selectedIconColor = NaomiOrange,
+                            selectedTextColor = NaomiTextPrimary,
                             unselectedIconColor = NaomiTextSecondary,
                             unselectedTextColor = NaomiTextSecondary,
-                            indicatorColor = NaomiRed
+                            indicatorColor = NaomiOrange.copy(alpha = 0.12f)
                         ),
-                        modifier = Modifier.testTag("nav_tab_${tab.name}")
+                        modifier = Modifier.testTag("nav_tab_${item.tab.name}")
                     )
                 }
             }
         },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState, modifier = Modifier.padding(16.dp)) },
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+            )
+        },
         containerColor = NaomiDarkBg
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
@@ -157,10 +185,15 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                 MainTab.DASHBOARD -> EventDashboardScreen(
                     authViewModel = authViewModel,
                     posViewModel = viewModel,
-                    onNewReceipt = { receiptStep = 0; activeTab = MainTab.RECEIPT },
+                    onNewReceipt = {
+                        receiptStep = 0
+                        activeTab = MainTab.RECEIPT
+                    },
+                    onScan = { activeTab = MainTab.SCAN },
                     onBlackpool = { activeTab = MainTab.BLACKPOOL },
                     onOps = { activeTab = MainTab.OPERATIONS }
                 )
+
                 MainTab.RECEIPT -> ReceiptWizardScreen(
                     viewModel = viewModel,
                     receipt = currentReceipt,
@@ -168,17 +201,45 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                     onStepChange = { receiptStep = it },
                     onNavigateToPreview = { activeTab = MainTab.PREVIEW }
                 )
-                MainTab.PREVIEW -> ThermalPreviewScreen(viewModel = viewModel, receipt = currentReceipt)
-                MainTab.BUSINESS_CARD -> BusinessCardScreen(viewModel = viewModel, draft = businessCardDraft, onDraftChange = { businessCardDraft = it })
-                MainTab.BLACKPOOL -> BlackpoolHubScreen(viewModel = viewModel, onStartReceipt = ::openReceiptFromVenue)
-                MainTab.PRINTERS -> PrinterManagerScreen(viewModel = viewModel)
+
+                MainTab.SCAN -> BarcodeScannerScreen(
+                    viewModel = viewModel,
+                    onOpenLedger = { activeTab = MainTab.HISTORY }
+                )
+
                 MainTab.HISTORY -> SyncLedgerScreen(
                     viewModel = viewModel,
                     showFinancials = currentUser?.canViewFinancialTotals == true,
                     canVoid = currentUser?.canVoidReceipts == true,
-                    onEditCorrection = { receiptStep = 0; activeTab = MainTab.RECEIPT }
+                    onEditCorrection = {
+                        receiptStep = 0
+                        activeTab = MainTab.RECEIPT
+                    }
                 )
-                MainTab.OPERATIONS -> OperationsScreen(authViewModel = authViewModel, posViewModel = viewModel, onStartReceipt = ::openReceiptFromVenue)
+
+                MainTab.MORE -> MoreHubScreen(
+                    onBusinessCard = { activeTab = MainTab.BUSINESS_CARD },
+                    onBlackpool = { activeTab = MainTab.BLACKPOOL },
+                    onPrinters = { activeTab = MainTab.PRINTERS },
+                    onOperations = { activeTab = MainTab.OPERATIONS }
+                )
+
+                MainTab.PREVIEW -> ThermalPreviewScreen(viewModel = viewModel, receipt = currentReceipt)
+                MainTab.BUSINESS_CARD -> BusinessCardScreen(
+                    viewModel = viewModel,
+                    draft = businessCardDraft,
+                    onDraftChange = { businessCardDraft = it }
+                )
+                MainTab.BLACKPOOL -> BlackpoolHubScreen(
+                    viewModel = viewModel,
+                    onStartReceipt = ::openReceiptFromVenue
+                )
+                MainTab.PRINTERS -> PrinterManagerScreen(viewModel = viewModel)
+                MainTab.OPERATIONS -> OperationsScreen(
+                    authViewModel = authViewModel,
+                    posViewModel = viewModel,
+                    onStartReceipt = ::openReceiptFromVenue
+                )
             }
         }
     }
@@ -187,26 +248,44 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
         AlertDialog(
             onDismissRequest = { showChannelDialog = false },
             containerColor = NaomiSurface,
-            title = { Text("Select Primary Output Printer", color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
+            title = {
+                Text(
+                    "Printer output",
+                    color = NaomiTextPrimary,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 17.sp
+                )
+            },
             text = {
                 Column {
-                    for (ch in PrinterChannel.values()) {
-                        val isCurrent = selectedChannel == ch
+                    PrinterChannel.entries.forEach { channel ->
+                        val isCurrent = selectedChannel == channel
                         OutlinedButton(
-                            onClick = { viewModel.selectChannel(ch); showChannelDialog = false },
+                            onClick = {
+                                viewModel.selectChannel(channel)
+                                showChannelDialog = false
+                            },
                             colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = if (isCurrent) NaomiRed.copy(alpha = 0.25f) else Color.Transparent,
+                                containerColor = if (isCurrent) NaomiOrange.copy(alpha = 0.10f) else Color.Transparent,
                                 contentColor = if (isCurrent) NaomiOrange else NaomiTextPrimary
                             ),
-                            border = androidx.compose.foundation.BorderStroke(if (isCurrent) 1.5.dp else 1.dp, if (isCurrent) NaomiOrange else NaomiSurface),
+                            border = BorderStroke(1.dp, if (isCurrent) NaomiOrange else NaomiBorder),
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                         ) {
-                            Text(ch.displayName + if (isCurrent) " (Active)" else "", fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal, fontSize = 13.sp)
+                            Text(
+                                channel.displayName + if (isCurrent) "  • ACTIVE" else "",
+                                fontWeight = if (isCurrent) FontWeight.Black else FontWeight.Medium,
+                                fontSize = 12.sp
+                            )
                         }
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showChannelDialog = false }) { Text("Close", color = NaomiOrange) } }
+            confirmButton = {
+                TextButton(onClick = { showChannelDialog = false }) {
+                    Text("Close", color = NaomiOrange)
+                }
+            }
         )
     }
 }
