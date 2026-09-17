@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Devices • Naomi-Chan™ DJ Company{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div>
+    <div class="eyebrow">Wireless POS Network</div>
+    <h1>Connected PDA devices</h1>
+    <p class="lead">SUNMI and Android terminals register themselves with the Flask gateway when they successfully sync. Online status is based on the latest heartbeat.</p>
+  </div>
+  <div class="toolbar">
+    <button class="btn btn-secondary" id="refresh-devices">Refresh</button>
+    <a href="{{ url_for('index') }}" class="btn btn-primary">Open terminal</a>
+  </div>
+</section>
+
+<section class="metric-grid">
+  <div class="metric"><div class="metric-label">Online now</div><div class="metric-value" id="metric-online">—</div><div class="metric-meta">Seen within 2 minutes</div></div>
+  <div class="metric"><div class="metric-label">Known devices</div><div class="metric-value" id="metric-known">—</div><div class="metric-meta">Registered PDA terminals</div></div>
+  <div class="metric"><div class="metric-label">Printer ready</div><div class="metric-value" id="metric-printers">—</div><div class="metric-meta">Reporting printer connection</div></div>
+  <div class="metric"><div class="metric-label">Unsynced</div><div class="metric-value" id="metric-unsynced">—</div><div class="metric-meta">Receipts waiting on devices</div></div>
+</section>
+
+<section class="card">
+  <div class="card-header">
+    <div><div class="card-kicker">Device registry</div><div class="card-title">PDA heartbeat status</div></div>
+    <div class="help">Auto-refreshes every 15 seconds</div>
+  </div>
+  <div class="card-body table-wrap">
+    <table>
+      <thead>
+        <tr><th>Device</th><th>Status</th><th>Network</th><th>Software</th><th>Printer / queue</th><th>Last seen</th></tr>
+      </thead>
+      <tbody id="devices-body"><tr><td colspan="6" class="empty-state">Waiting for PDA heartbeat…</td></tr></tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+function lastSeenLabel(device) {
+  const seconds = Number(device.last_seen_seconds || 0);
+  if (device.online && seconds < 10) return 'Just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  return `${Math.floor(minutes / 60)}h ago`;
+}
+
+async function loadDevices(showToast=false) {
+  try {
+    const devices = await NC.json('/api/devices');
+    const online = devices.filter(device => device.online);
+    document.getElementById('metric-online').textContent = online.length;
+    document.getElementById('metric-known').textContent = devices.length;
+    document.getElementById('metric-printers').textContent = online.filter(device => device.printer_connected).length;
+    document.getElementById('metric-unsynced').textContent = devices.reduce((sum, device) => sum + Number(device.unsynced_receipts || 0), 0);
+
+    document.getElementById('devices-body').innerHTML = devices.length ? devices.map(device => `<tr>
+      <td>
+        <strong>${NC.escape(device.device_name || 'Naomi-Chan PDA')}</strong>
+        <div class="help code">${NC.escape(device.id)}</div>
+        ${device.operator_name ? `<div class="help">Operator: ${NC.escape(device.operator_name)}</div>` : ''}
+      </td>
+      <td><span class="status ${device.online ? 'printed' : 'pending'}">${device.online ? 'ONLINE' : 'OFFLINE'}</span></td>
+      <td><div>${NC.escape(device.remote_addr || 'Unknown IP')}</div><div class="help">${NC.escape(device.manufacturer || '')} ${NC.escape(device.model || '')}</div></td>
+      <td><div>Android ${NC.escape(device.android_version || '?')} • API ${Number(device.sdk || 0)}</div><div class="help">PDA v${NC.escape(device.app_version || '?')}</div></td>
+      <td><div>${device.printer_connected ? 'Printer ready' : 'Printer not reported'}</div><div class="help">${Number(device.unsynced_receipts || 0)} unsynced receipt(s)</div></td>
+      <td>${NC.escape(lastSeenLabel(device))}</td>
+    </tr>`).join('') : '<tr><td colspan="6" class="empty-state">No PDA has registered yet. On the PDA, save the gateway URL and run a connection/sync check.</td></tr>';
+    if (showToast) NC.toast(`Device registry refreshed • ${online.length} online`);
+  } catch (error) {
+    NC.toast(error.message, 'error');
+  }
+}
+
+document.getElementById('refresh-devices').addEventListener('click', () => loadDevices(true));
+loadDevices();
+setInterval(() => loadDevices(false), 15000);
+</script>
+{% endblock %}
