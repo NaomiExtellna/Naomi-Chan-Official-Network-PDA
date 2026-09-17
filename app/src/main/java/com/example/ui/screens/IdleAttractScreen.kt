@@ -1,9 +1,14 @@
 package com.example.ui.screens
 
 import android.app.Activity
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Color as AndroidColor
+import android.os.BatteryManager
+import android.os.PowerManager
 import android.view.View
 import android.view.WindowManager
 import androidx.compose.foundation.Image
@@ -53,20 +58,27 @@ import java.util.Date
 import java.util.Locale
 
 private const val AD_ROTATION_MS = 12_000L
-private const val CLOCK_TICK_MS = 30_000L
+private const val POWER_SAVE_AD_ROTATION_MS = 30_000L
+private const val CLOCK_TICK_MS = 60_000L
 
 @Composable
 fun IdleAttractScreen(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
+    val powerManager = remember(context) {
+        context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+    }
 
-    DisposableEffect(activity) {
+    DisposableEffect(activity, context) {
         val window = activity?.window
         val decorView = window?.decorView
         val previousSystemUi = decorView?.systemUiVisibility ?: 0
         val previousStatusBarColor = window?.statusBarColor
         val previousNavigationBarColor = window?.navigationBarColor
-        val keepScreenOnWasSet = window?.attributes?.flags?.and(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) != 0
+        val keepScreenOnWasSet = window?.attributes?.flags
+            ?.and(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            ?.let { it != 0 }
+            ?: false
 
         if (decorView != null) {
             decorView.systemUiVisibility = previousSystemUi or
@@ -79,13 +91,54 @@ fun IdleAttractScreen(onDismiss: () -> Unit) {
         }
         window?.statusBarColor = AndroidColor.TRANSPARENT
         window?.navigationBarColor = AndroidColor.TRANSPARENT
-        window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        fun applyChargingPolicy(intent: Intent?) {
+            val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+            val plugged = intent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0
+            val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                status == BatteryManager.BATTERY_STATUS_FULL ||
+                plugged != 0
+
+            // Bedside-clock mode stays awake while plugged in. On battery, respect the
+            // terminal's normal screen timeout instead of silently draining it overnight.
+            if (charging || keepScreenOnWasSet) {
+                window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else {
+                window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        }
+
+        val batteryReceiver = object : BroadcastReceiver() {
+            override fun onReceive(receiverContext: Context?, intent: Intent?) {
+                applyChargingPolicy(intent)
+            }
+        }
+
+        var receiverRegistered = false
+        val stickyBatteryIntent = runCatching {
+            val sticky = context.registerReceiver(
+                batteryReceiver,
+                IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+            )
+            receiverRegistered = true
+            sticky
+        }.getOrNull()
+        applyChargingPolicy(stickyBatteryIntent)
 
         onDispose {
+            if (receiverRegistered) {
+                runCatching { context.unregisterReceiver(batteryReceiver) }
+            }
             if (decorView != null) decorView.systemUiVisibility = previousSystemUi
             if (previousStatusBarColor != null) window?.statusBarColor = previousStatusBarColor
             if (previousNavigationBarColor != null) window?.navigationBarColor = previousNavigationBarColor
-            if (!keepScreenOnWasSet) window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+            // Restore the exact screen-on policy that existed before attract mode opened.
+            if (keepScreenOnWasSet) {
+                window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else {
+                window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
         }
     }
 
@@ -102,17 +155,23 @@ fun IdleAttractScreen(onDismiss: () -> Unit) {
     var clockTick by remember { mutableIntStateOf(0) }
     val tapInteraction = remember { MutableInteractionSource() }
 
-    LaunchedEffect(adResourceIds.size) {
+    LaunchedEffect(adResourceIds.size, powerManager) {
         while (adResourceIds.size > 1) {
-            delay(AD_ROTATION_MS)
+            val rotationDelay = if (powerManager?.isPowerSaveMode == true) {
+                POWER_SAVE_AD_ROTATION_MS
+            } else {
+                AD_ROTATION_MS
+            }
+            delay(rotationDelay)
             adIndex = (adIndex + 1) % adResourceIds.size
         }
     }
 
     LaunchedEffect(Unit) {
         while (true) {
-            clockTick = (System.currentTimeMillis() / CLOCK_TICK_MS).toInt()
-            delay(CLOCK_TICK_MS)
+            val now = System.currentTimeMillis()
+            clockTick = (now / CLOCK_TICK_MS).toInt()
+            delay((CLOCK_TICK_MS - (now % CLOCK_TICK_MS)).coerceAtLeast(1_000L))
         }
     }
 
