@@ -110,7 +110,7 @@ fun SystemMaintenanceScreen(authViewModel: AuthViewModel, posViewModel: PosViewM
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Column {
@@ -143,7 +143,7 @@ fun SystemMaintenanceScreen(authViewModel: AuthViewModel, posViewModel: PosViewM
         Card(
             colors = CardDefaults.cardColors(containerColor = NaomiSurface),
             border = BorderStroke(1.dp, NaomiBorder),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(4.dp),
             modifier = Modifier.fillMaxWidth().weight(1f)
         ) {
             when (mode) {
@@ -311,7 +311,7 @@ fun SystemMaintenanceScreen(authViewModel: AuthViewModel, posViewModel: PosViewM
             onClick = authViewModel::logout,
             colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
             modifier = Modifier.fillMaxWidth().height(38.dp),
-            shape = RoundedCornerShape(10.dp)
+            shape = RoundedCornerShape(4.dp)
         ) {
             Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(15.dp))
             Spacer(modifier = Modifier.width(5.dp))
@@ -354,7 +354,7 @@ private fun WipeTicketsDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
         containerColor = NaomiSurface,
         title = { Text("Wipe All Current Tickets?", color = NaomiTextPrimary, fontWeight = FontWeight.Black) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
                     "This permanently deletes every receipt/ticket row from this PDA. Staff accounts, shifts, custom venues and the audit log are kept. Export a JSON backup first if needed.",
                     color = NaomiTextSecondary,
