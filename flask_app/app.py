@@ -18,6 +18,7 @@ from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.config["MAX_CONTENT_LENGTH"] = 128 * 1024
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 3600
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "orders.db")
 PAYMENT_METHODS = {"CARD", "CASH", "QR", "FREE", "WIRE"}
@@ -144,6 +145,25 @@ def init_db() -> None:
         ensure_column(conn, "orders", "event_id", "TEXT")
         ensure_column(conn, "catalog_items", "event_id", "TEXT")
 
+        # These are the hot read paths for the web terminal and the SUNMI polling
+        # endpoints. Keep them indexed as order/catalogue history grows.
+        conn.executescript(
+            """
+            CREATE INDEX IF NOT EXISTS index_orders_status_created_at
+                ON orders(status, created_at);
+            CREATE INDEX IF NOT EXISTS index_orders_event_created_at
+                ON orders(event_id, created_at);
+            CREATE INDEX IF NOT EXISTS index_orders_created_at
+                ON orders(created_at);
+            CREATE INDEX IF NOT EXISTS index_events_status_starts_at
+                ON events(status, starts_at);
+            CREATE INDEX IF NOT EXISTS index_catalog_active_event
+                ON catalog_items(active, event_id);
+            CREATE INDEX IF NOT EXISTS index_receipts_created_at
+                ON receipts(created_at);
+            """
+        )
+
         stamp = now_ms()
         for item in DEFAULT_CATALOG:
             conn.execute(
@@ -178,11 +198,14 @@ def get_events(include_closed: bool = False) -> list[dict[str, Any]]:
         return [event_to_dict(row) for row in conn.execute(sql).fetchall()]
 
 
-def find_event(event_id: str) -> dict[str, Any] | None:
+def find_event(event_id: str, conn: sqlite3.Connection | None = None) -> dict[str, Any] | None:
     if not event_id:
         return None
-    with get_db() as conn:
+    if conn is not None:
         row = conn.execute("SELECT * FROM events WHERE id=? LIMIT 1", (event_id,)).fetchone()
+    else:
+        with get_db() as database:
+            row = database.execute("SELECT * FROM events WHERE id=? LIMIT 1", (event_id,)).fetchone()
     return event_to_dict(row) if row else None
 
 
@@ -242,7 +265,14 @@ def get_catalog(include_inactive: bool = False, event_id: str = "") -> list[dict
         return [catalog_to_dict(row) for row in conn.execute(sql, params).fetchall()]
 
 
-def find_catalog_item(*, item_id: str = "", name: str = "", barcode: str = "", active_only: bool = True) -> dict[str, Any] | None:
+def find_catalog_item(
+    *,
+    item_id: str = "",
+    name: str = "",
+    barcode: str = "",
+    active_only: bool = True,
+    conn: sqlite3.Connection | None = None,
+) -> dict[str, Any] | None:
     clauses: list[str] = []
     params: list[Any] = []
     if item_id:
@@ -260,8 +290,11 @@ def find_catalog_item(*, item_id: str = "", name: str = "", barcode: str = "", a
     if active_only:
         sql += " AND active = 1"
     sql += " LIMIT 1"
-    with get_db() as conn:
+    if conn is not None:
         row = conn.execute(sql, params).fetchone()
+    else:
+        with get_db() as database:
+            row = database.execute(sql, params).fetchone()
     return catalog_to_dict(row) if row else None
 
 
@@ -329,7 +362,10 @@ def add_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
-    response.headers["Cache-Control"] = "no-store"
+    if request.endpoint == "static":
+        response.headers["Cache-Control"] = "public, max-age=3600"
+    else:
+        response.headers["Cache-Control"] = "no-store"
     return response
 
 
@@ -551,54 +587,58 @@ def api_create_order():
         return jsonify({"error": "Too many line items"}), 400
 
     event_id = clean_text(data.get("event_id"), "", 64)
-    event = find_event(event_id) if event_id else None
-    if event_id and event is None:
-        return jsonify({"error": "Selected event was not found"}), 400
-    if event and event["status"] == "CLOSED":
-        return jsonify({"error": "Selected event is closed"}), 400
-
     sanitized_items: list[dict[str, Any]] = []
     subtotal = 0.0
-    for raw_item in raw_items:
-        if not isinstance(raw_item, dict):
-            return jsonify({"error": "Each line item must be an object"}), 400
-        item_id = clean_text(raw_item.get("id"), max_length=64)
-        name = clean_text(raw_item.get("name"), max_length=120)
-        catalog_item = find_catalog_item(item_id=item_id, name=name)
-        if catalog_item is None:
-            return jsonify({"error": f"Unknown or inactive catalog item: {name or item_id or 'unnamed item'}"}), 400
-        if catalog_item["event_id"] and catalog_item["event_id"] != event_id:
-            return jsonify({"error": f"{catalog_item['name']} belongs to a different event"}), 400
-        try:
-            quantity = min(max(int(raw_item.get("quantity", 1)), 1), 99)
-        except (TypeError, ValueError):
-            return jsonify({"error": f"Invalid quantity for {catalog_item['name']}"}), 400
-        unit_price = float(catalog_item["price"])
-        subtotal += quantity * unit_price
-        sanitized_items.append({
-            "id": catalog_item["id"],
-            "name": catalog_item["name"],
-            "quantity": quantity,
-            "unitPrice": unit_price,
-            "itemType": catalog_item["item_type"],
-            "barcode": catalog_item["barcode"],
-        })
 
-    subtotal = round(subtotal, 2)
-    tax_percent = 20.0
-    tax_amount = round(subtotal * tax_percent / 100.0, 2)
-    grand_total = round(subtotal + tax_amount, 2)
-    payment_method = clean_text(data.get("payment_method"), "CARD", 16).upper()
-    if payment_method not in PAYMENT_METHODS:
-        return jsonify({"error": "Unsupported payment method"}), 400
-
-    order_id = "WPOS-" + uuid.uuid4().hex[:8].upper()
-    client_name = clean_text(data.get("client_name"), "Event Guest", 120)
-    client_contact = clean_text(data.get("client_contact"), "", 120)
-    venue_name = clean_text(data.get("venue_name"), event["venue_name"] if event else "Naomi-Chan Event", 200)
-    notes = clean_text(data.get("notes"), "Wireless event order", 500)
-    stamp = now_ms()
+    # Resolve the event, validate every catalogue row, calculate totals and insert
+    # the order using one SQLite connection. The previous path opened a new
+    # connection for every line item in the cart.
     with get_db() as conn:
+        event = find_event(event_id, conn=conn) if event_id else None
+        if event_id and event is None:
+            return jsonify({"error": "Selected event was not found"}), 400
+        if event and event["status"] == "CLOSED":
+            return jsonify({"error": "Selected event is closed"}), 400
+
+        for raw_item in raw_items:
+            if not isinstance(raw_item, dict):
+                return jsonify({"error": "Each line item must be an object"}), 400
+            item_id = clean_text(raw_item.get("id"), max_length=64)
+            name = clean_text(raw_item.get("name"), max_length=120)
+            catalog_item = find_catalog_item(item_id=item_id, name=name, conn=conn)
+            if catalog_item is None:
+                return jsonify({"error": f"Unknown or inactive catalog item: {name or item_id or 'unnamed item'}"}), 400
+            if catalog_item["event_id"] and catalog_item["event_id"] != event_id:
+                return jsonify({"error": f"{catalog_item['name']} belongs to a different event"}), 400
+            try:
+                quantity = min(max(int(raw_item.get("quantity", 1)), 1), 99)
+            except (TypeError, ValueError):
+                return jsonify({"error": f"Invalid quantity for {catalog_item['name']}"}), 400
+            unit_price = float(catalog_item["price"])
+            subtotal += quantity * unit_price
+            sanitized_items.append({
+                "id": catalog_item["id"],
+                "name": catalog_item["name"],
+                "quantity": quantity,
+                "unitPrice": unit_price,
+                "itemType": catalog_item["item_type"],
+                "barcode": catalog_item["barcode"],
+            })
+
+        subtotal = round(subtotal, 2)
+        tax_percent = 20.0
+        tax_amount = round(subtotal * tax_percent / 100.0, 2)
+        grand_total = round(subtotal + tax_amount, 2)
+        payment_method = clean_text(data.get("payment_method"), "CARD", 16).upper()
+        if payment_method not in PAYMENT_METHODS:
+            return jsonify({"error": "Unsupported payment method"}), 400
+
+        order_id = "WPOS-" + uuid.uuid4().hex[:8].upper()
+        client_name = clean_text(data.get("client_name"), "Event Guest", 120)
+        client_contact = clean_text(data.get("client_contact"), "", 120)
+        venue_name = clean_text(data.get("venue_name"), event["venue_name"] if event else "Naomi-Chan Event", 200)
+        notes = clean_text(data.get("notes"), "Wireless event order", 500)
+        stamp = now_ms()
         conn.execute(
             """INSERT INTO orders
                (id, event_id, client_name, client_contact, venue_name, items_json, subtotal, tax_percent, tax_amount, grand_total, payment_method, notes, status, created_at)
@@ -606,6 +646,7 @@ def api_create_order():
             (order_id, event_id or None, client_name, client_contact, venue_name, json.dumps(sanitized_items, separators=(",", ":")), subtotal, tax_percent, tax_amount, grand_total, payment_method, notes, stamp),
         )
         conn.commit()
+
     return jsonify({
         "success": True,
         "message": f"Event order {order_id} created",
