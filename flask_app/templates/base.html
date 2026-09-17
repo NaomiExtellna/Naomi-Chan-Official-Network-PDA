@@ -23,6 +23,7 @@
       <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Terminal</a>
       <a class="nav-link {% if request.endpoint == 'events_page' %}active{% endif %}" href="{{ url_for('events_page') }}">Events</a>
       <a class="nav-link {% if request.endpoint == 'catalog_page' %}active{% endif %}" href="{{ url_for('catalog_page') }}">Catalogue</a>
+      <a class="nav-link {% if request.endpoint == 'devices_page' %}active{% endif %}" href="{{ url_for('devices_page') }}">Devices</a>
       <span class="gateway-pill"><span class="gateway-dot"></span>Gateway live</span>
     </nav>
   </header>
