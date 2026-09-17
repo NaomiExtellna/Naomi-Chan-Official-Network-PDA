@@ -186,7 +186,7 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                     containerColor = NaomiSurface,
                     tonalElevation = 0.dp,
                     modifier = Modifier
-                        .height(66.dp)
+                        .height(54.dp)
                         .navigationBarsPadding()
                         .testTag("main_navigation_bar")
                 ) {
@@ -200,13 +200,13 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                                 Icon(
                                     imageVector = item.icon,
                                     contentDescription = item.label,
-                                    modifier = Modifier.size(23.dp)
+                                    modifier = Modifier.size(19.dp)
                                 )
                             },
                             label = {
                                 Text(
                                     text = item.label,
-                                    fontSize = 10.sp,
+                                    fontSize = 8.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                     maxLines = 1
                                 )
@@ -216,7 +216,7 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                                 selectedTextColor = NaomiTextPrimary,
                                 unselectedIconColor = NaomiTextSecondary,
                                 unselectedTextColor = NaomiTextSecondary,
-                                indicatorColor = NaomiOrange.copy(alpha = 0.10f)
+                                indicatorColor = NaomiSurface
                             ),
                             modifier = Modifier.testTag("nav_tab_${item.tab.name}")
                         )
