@@ -16,10 +16,21 @@ object GatewaySettings {
     private const val PREFS_NAME = "naomi_gateway"
     private const val KEY_BASE_URL = "base_url"
     private const val KEY_DEVICE_ID = "device_id"
+    private const val KEY_OPERATOR_NAME = "operator_name"
+    private const val KEY_SHIFT_ID = "shift_id"
+    private const val KEY_PRINTER_CONNECTED = "printer_connected"
+    private const val KEY_UNSYNCED_RECEIPTS = "unsynced_receipts"
     private const val DEFAULT_BASE_URL = "http://10.0.2.2:5000"
 
     @Volatile
     private var appContext: Context? = null
+
+    data class RuntimeState(
+        val operatorName: String = "",
+        val shiftId: String = "",
+        val printerConnected: Boolean = false,
+        val unsyncedReceipts: Int = 0
+    )
 
     fun initialize(context: Context) {
         appContext = context.applicationContext
@@ -42,6 +53,33 @@ object GatewaySettings {
             .edit()
             .putString(KEY_BASE_URL, url.trim().trimEnd('/'))
             .apply()
+    }
+
+    fun updateRuntimeState(
+        operatorName: String,
+        shiftId: String,
+        printerConnected: Boolean,
+        unsyncedReceipts: Int
+    ) {
+        val context = appContext ?: return
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_OPERATOR_NAME, operatorName.trim())
+            .putString(KEY_SHIFT_ID, shiftId.trim())
+            .putBoolean(KEY_PRINTER_CONNECTED, printerConnected)
+            .putInt(KEY_UNSYNCED_RECEIPTS, unsyncedReceipts.coerceAtLeast(0))
+            .apply()
+    }
+
+    fun getRuntimeState(): RuntimeState {
+        val context = appContext ?: return RuntimeState()
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return RuntimeState(
+            operatorName = prefs.getString(KEY_OPERATOR_NAME, "").orEmpty(),
+            shiftId = prefs.getString(KEY_SHIFT_ID, "").orEmpty(),
+            printerConnected = prefs.getBoolean(KEY_PRINTER_CONNECTED, false),
+            unsyncedReceipts = prefs.getInt(KEY_UNSYNCED_RECEIPTS, 0).coerceAtLeast(0)
+        )
     }
 
     fun getDeviceId(): String = ensureDeviceId()
