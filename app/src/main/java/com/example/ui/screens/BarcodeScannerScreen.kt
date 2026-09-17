@@ -45,7 +45,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,6 +62,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.model.ReceiptData
 import com.example.model.ReceiptItem
 import com.example.network.CatalogClient
@@ -84,6 +84,8 @@ import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 
+private val SCANNER_ANALYSIS_SIZE = Size(960, 540)
+
 @Composable
 fun BarcodeScannerScreen(
     viewModel: PosViewModel,
@@ -91,9 +93,9 @@ fun BarcodeScannerScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val receipts by viewModel.allReceipts.collectAsState()
-    val currentReceipt by viewModel.currentReceipt.collectAsState()
-    val gatewayUrl by viewModel.wirelessServerUrl.collectAsState()
+    val receipts by viewModel.allReceipts.collectAsStateWithLifecycle()
+    val currentReceipt by viewModel.currentReceipt.collectAsStateWithLifecycle()
+    val gatewayUrl by viewModel.wirelessServerUrl.collectAsStateWithLifecycle()
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -135,43 +137,46 @@ fun BarcodeScannerScreen(
                 details = "format=$format"
             )
 
-            if (localReceipt == null) {
+            if (localReceipt == null && !catalogueBusy) {
                 catalogueBusy = true
                 scope.launch {
-                    when (val result = CatalogClient.lookupBarcode(gatewayUrl, value)) {
-                        is CatalogLookupResult.Found -> {
-                            val item = result.item
-                            val existing = viewModel.currentReceipt.value.items.firstOrNull { it.id == item.id }
-                            if (existing != null) {
-                                viewModel.removeLineItem(existing.id)
-                                viewModel.addLineItem(existing.copy(quantity = existing.quantity + 1, unitPrice = item.price))
-                                catalogueMessage = "Quantity increased on the current receipt"
-                            } else {
-                                viewModel.addLineItem(
-                                    ReceiptItem(
-                                        id = item.id,
-                                        name = item.name,
-                                        quantity = 1,
-                                        unitPrice = item.price
+                    try {
+                        when (val result = CatalogClient.lookupBarcode(gatewayUrl, value)) {
+                            is CatalogLookupResult.Found -> {
+                                val item = result.item
+                                val existing = viewModel.currentReceipt.value.items.firstOrNull { it.id == item.id }
+                                if (existing != null) {
+                                    viewModel.removeLineItem(existing.id)
+                                    viewModel.addLineItem(existing.copy(quantity = existing.quantity + 1, unitPrice = item.price))
+                                    catalogueMessage = "Quantity increased on the current receipt"
+                                } else {
+                                    viewModel.addLineItem(
+                                        ReceiptItem(
+                                            id = item.id,
+                                            name = item.name,
+                                            quantity = 1,
+                                            unitPrice = item.price
+                                        )
                                     )
+                                    catalogueMessage = "Added to the current receipt"
+                                }
+                                catalogueItem = item
+                                viewModel.logAction(
+                                    action = "CATALOG_ITEM_SCANNED",
+                                    target = item.id,
+                                    details = "barcode=${item.barcode}; event=${item.eventId.ifBlank { "GLOBAL" }}"
                                 )
-                                catalogueMessage = "Added to the current receipt"
                             }
-                            catalogueItem = item
-                            viewModel.logAction(
-                                action = "CATALOG_ITEM_SCANNED",
-                                target = item.id,
-                                details = "barcode=${item.barcode}; event=${item.eventId.ifBlank { "GLOBAL" }}"
-                            )
+                            is CatalogLookupResult.NotFound -> {
+                                catalogueMessage = "No active web catalogue item is mapped to this barcode."
+                            }
+                            is CatalogLookupResult.Error -> {
+                                catalogueMessage = "Gateway lookup failed: ${result.message}"
+                            }
                         }
-                        is CatalogLookupResult.NotFound -> {
-                            catalogueMessage = "No active web catalogue item is mapped to this barcode."
-                        }
-                        is CatalogLookupResult.Error -> {
-                            catalogueMessage = "Gateway lookup failed: ${result.message}"
-                        }
+                    } finally {
+                        catalogueBusy = false
                     }
-                    catalogueBusy = false
                 }
             }
         }
@@ -476,34 +481,49 @@ private fun BarcodeCameraPreview(onBarcode: (String?, String) -> Unit) {
 
     DisposableEffect(lifecycleOwner) {
         val providerFuture = ProcessCameraProvider.getInstance(context)
+        var lastReportedValue: String? = null
         val listener = Runnable {
             runCatching {
                 val cameraProvider = providerFuture.get()
                 val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
                 val analysis = ImageAnalysis.Builder()
-                    .setTargetResolution(Size(1280, 720))
+                    .setTargetResolution(SCANNER_ANALYSIS_SIZE)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
 
                 analysis.setAnalyzer(analyzerExecutor) { imageProxy ->
                     val mediaImage = imageProxy.image
                     if (mediaImage == null) {
-                        currentOnBarcode(null, "")
+                        if (lastReportedValue != null) {
+                            lastReportedValue = null
+                            currentOnBarcode(null, "")
+                        }
                         imageProxy.close()
                         return@setAnalyzer
                     }
+
                     val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
                     scanner.process(image)
                         .addOnSuccessListener { barcodes ->
                             val barcode = barcodes.firstOrNull { !it.rawValue.isNullOrBlank() }
                             val value = barcode?.rawValue
-                            if (value.isNullOrBlank()) {
-                                currentOnBarcode(null, "")
-                            } else {
-                                currentOnBarcode(value, barcodeFormatLabel(barcode.format))
+                            when {
+                                value.isNullOrBlank() && lastReportedValue != null -> {
+                                    lastReportedValue = null
+                                    currentOnBarcode(null, "")
+                                }
+                                !value.isNullOrBlank() && value != lastReportedValue -> {
+                                    lastReportedValue = value
+                                    currentOnBarcode(value, barcodeFormatLabel(barcode.format))
+                                }
                             }
                         }
-                        .addOnFailureListener { currentOnBarcode(null, "") }
+                        .addOnFailureListener {
+                            if (lastReportedValue != null) {
+                                lastReportedValue = null
+                                currentOnBarcode(null, "")
+                            }
+                        }
                         .addOnCompleteListener { imageProxy.close() }
                 }
 
@@ -514,6 +534,8 @@ private fun BarcodeCameraPreview(onBarcode: (String?, String) -> Unit) {
                     preview,
                     analysis
                 )
+            }.onFailure {
+                LogScannerFailure.log(it)
             }
         }
         providerFuture.addListener(listener, ContextCompat.getMainExecutor(context))
@@ -528,6 +550,12 @@ private fun BarcodeCameraPreview(onBarcode: (String?, String) -> Unit) {
     }
 
     AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+}
+
+private object LogScannerFailure {
+    fun log(error: Throwable) {
+        android.util.Log.w("NaomiBarcodeScanner", "Unable to bind camera: ${error.message}")
+    }
 }
 
 private fun extractReceiptId(raw: String): String {
