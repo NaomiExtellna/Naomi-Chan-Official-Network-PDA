@@ -74,7 +74,7 @@ fun AuditLogScreen(authViewModel: AuthViewModel) {
     LaunchedEffect(query, filtered.size) { page = page.coerceIn(0, pages - 1) }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Column {
@@ -110,7 +110,7 @@ fun AuditLogScreen(authViewModel: AuthViewModel) {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
                         border = BorderStroke(1.dp, NaomiBorder),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(4.dp),
                         modifier = Modifier.fillMaxWidth().weight(1f)
                     ) {
                         Column(
