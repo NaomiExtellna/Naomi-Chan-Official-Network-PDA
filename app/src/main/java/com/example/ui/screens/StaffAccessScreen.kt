@@ -31,6 +31,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -48,6 +49,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -79,8 +81,12 @@ fun StaffAccessScreen(
     var credential by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
     var recoveryCode by remember { mutableStateOf("") }
+    var usePinPad by remember { mutableStateOf(true) }
 
-    val canSubmitLogin = username.isNotBlank() && credential.isNotBlank() && !state.isAuthenticating
+    val canSubmitLogin = username.isNotBlank() &&
+        credential.isNotBlank() &&
+        (!usePinPad || credential.length == 6) &&
+        !state.isAuthenticating
 
     Box(
         modifier = Modifier
@@ -184,7 +190,7 @@ fun StaffAccessScreen(
                             Text(
                                 text = when {
                                     state.needsAdminSetup -> "Secure this terminal before first use."
-                                    mode == AccessMode.LOGIN -> "Authenticate to open the operations workspace."
+                                    mode == AccessMode.LOGIN -> if (usePinPad) "Enter your 6-digit staff PIN." else "Authenticate with your staff password."
                                     mode == AccessMode.REGISTER -> "New accounts require administrator approval."
                                     else -> "Use the one-time recovery code issued for Naomi."
                                 },
@@ -229,20 +235,42 @@ fun StaffAccessScreen(
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            OutlinedTextField(
-                                value = credential,
-                                onValueChange = { credential = it },
-                                label = { Text("PIN or password") },
-                                visualTransformation = PasswordVisualTransformation(),
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                                keyboardActions = KeyboardActions(
-                                    onDone = {
-                                        if (canSubmitLogin) onLogin(username, credential)
+
+                            if (usePinPad) {
+                                PinEntryDisplay(pinLength = credential.length)
+                                PinKeypad(
+                                    enabled = !state.isAuthenticating,
+                                    onDigit = { digit ->
+                                        if (credential.length < 6) {
+                                            credential += digit
+                                        }
+                                    },
+                                    onClear = { credential = "" },
+                                    onBackspace = {
+                                        if (credential.isNotEmpty()) {
+                                            credential = credential.dropLast(1)
+                                        }
                                     }
-                                ),
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                                )
+                            } else {
+                                OutlinedTextField(
+                                    value = credential,
+                                    onValueChange = { credential = it },
+                                    label = { Text("Password") },
+                                    visualTransformation = PasswordVisualTransformation(),
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Password,
+                                        imeAction = ImeAction.Done
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onDone = {
+                                            if (canSubmitLogin) onLogin(username, credential)
+                                        }
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
 
                             PrimaryActionButton(
                                 text = if (state.isAuthenticating) "Signing in…" else "Sign in",
@@ -251,6 +279,22 @@ fun StaffAccessScreen(
                                 icon = Icons.Default.Badge,
                                 onClick = { onLogin(username, credential) }
                             )
+
+                            TextButton(
+                                onClick = {
+                                    credential = ""
+                                    usePinPad = !usePinPad
+                                },
+                                enabled = !state.isAuthenticating,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = if (usePinPad) "Use password instead" else "Use 6-digit PIN instead",
+                                    color = NaomiOrange,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -371,6 +415,142 @@ fun StaffAccessScreen(
                 fontWeight = FontWeight.Medium
             )
         }
+    }
+}
+
+@Composable
+private fun PinEntryDisplay(pinLength: Int) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = "6-DIGIT PIN",
+            color = NaomiTextTertiary,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            repeat(6) { index ->
+                val filled = index < pinLength
+                Surface(
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    shape = RoundedCornerShape(11.dp),
+                    color = if (filled) NaomiRed.copy(alpha = 0.12f) else NaomiSurfaceVariant,
+                    border = BorderStroke(
+                        1.dp,
+                        if (filled) NaomiOrange.copy(alpha = 0.75f) else NaomiBorder
+                    )
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = if (filled) "●" else "",
+                            color = NaomiOrange,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PinKeypad(
+    enabled: Boolean,
+    onDigit: (String) -> Unit,
+    onClear: () -> Unit,
+    onBackspace: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        listOf(
+            listOf("1", "2", "3"),
+            listOf("4", "5", "6"),
+            listOf("7", "8", "9")
+        ).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                row.forEach { digit ->
+                    PinDigitButton(
+                        label = digit,
+                        enabled = enabled,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onDigit(digit) }
+                    )
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(
+                onClick = onClear,
+                enabled = enabled,
+                border = BorderStroke(1.dp, NaomiBorder),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = NaomiTextSecondary),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.weight(1f).height(54.dp)
+            ) {
+                Text("Clear", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+
+            PinDigitButton(
+                label = "0",
+                enabled = enabled,
+                modifier = Modifier.weight(1f),
+                onClick = { onDigit("0") }
+            )
+
+            OutlinedButton(
+                onClick = onBackspace,
+                enabled = enabled,
+                border = BorderStroke(1.dp, NaomiBorder),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = NaomiTextPrimary),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.weight(1f).height(54.dp)
+            ) {
+                Text("⌫", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PinDigitButton(
+    label: String,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = NaomiSurfaceVariant,
+            contentColor = NaomiTextPrimary
+        ),
+        border = BorderStroke(1.dp, NaomiBorder),
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier.height(54.dp)
+    ) {
+        Text(
+            text = label,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -514,6 +694,10 @@ private fun CredentialFields(
         supportingText = { Text("6–12 digit PIN, or password with at least 8 characters.") },
         visualTransformation = PasswordVisualTransformation(),
         singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Password,
+            imeAction = ImeAction.Next
+        ),
         modifier = Modifier.fillMaxWidth()
     )
     OutlinedTextField(
@@ -522,6 +706,10 @@ private fun CredentialFields(
         label = { Text("Confirm credential") },
         visualTransformation = PasswordVisualTransformation(),
         singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Password,
+            imeAction = ImeAction.Done
+        ),
         modifier = Modifier.fillMaxWidth()
     )
 }
