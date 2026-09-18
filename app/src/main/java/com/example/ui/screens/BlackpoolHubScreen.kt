@@ -111,14 +111,14 @@ fun BlackpoolHubScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("BLACKPOOL STAFF HUB", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                        Text("BLACKPOOL STAFF HUB", color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                         Text("Venues & Tramway", color = NaomiTextPrimary, fontSize = 19.sp, fontWeight = FontWeight.Black)
                     }
                     Icon(Icons.Default.DirectionsTransit, contentDescription = null, tint = NaomiOrange, modifier = Modifier.size(26.dp))
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     HubModeChip(mode == BlackpoolHubMode.VENUES, "Venues", Icons.Default.LocationOn, { mode = BlackpoolHubMode.VENUES }, Modifier.weight(1f))
                     HubModeChip(mode == BlackpoolHubMode.TRAMS, "Live", Icons.Default.DirectionsTransit, { mode = BlackpoolHubMode.TRAMS }, Modifier.weight(1f))
@@ -148,14 +148,14 @@ private fun HubModeChip(
     FilterChip(
         selected = selected,
         onClick = onClick,
-        label = { Text(label, fontSize = 9.sp) },
+        label = { Text(label, fontSize = 10.sp) },
         leadingIcon = { Icon(icon, contentDescription = null, modifier = Modifier.size(14.dp)) },
         colors = FilterChipDefaults.filterChipColors(
             selectedContainerColor = NaomiRed,
             selectedLabelColor = Color.White,
             selectedLeadingIconColor = Color.White
         ),
-        modifier = modifier.height(36.dp)
+        modifier = modifier.height(40.dp)
     )
 }
 
@@ -192,7 +192,7 @@ private fun VenueDirectory(viewModel: PosViewModel, onStartReceipt: () -> Unit) 
             label = { Text("Search venues") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth().height(52.dp)
+            modifier = Modifier.fillMaxWidth().height(54.dp)
         )
 
         SelectorBar(
@@ -246,7 +246,7 @@ private fun VenueCardCompact(
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-        shape = RoundedCornerShape(5.dp),
+        shape = RoundedCornerShape(10.dp),
         border = BorderStroke(1.dp, NaomiBorder),
         modifier = modifier.fillMaxWidth()
     ) {
@@ -254,7 +254,7 @@ private fun VenueCardCompact(
             modifier = Modifier.fillMaxSize().padding(11.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(
                         venue.name,
@@ -265,29 +265,29 @@ private fun VenueCardCompact(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
-                    Text(venue.barType, color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text(venue.barType, color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
-                Text(venue.address, color = NaomiTextSecondary, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(venue.address, color = NaomiTextSecondary, fontSize = 10.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (venue.nearestTramStop.isNotBlank()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.DirectionsTransit, contentDescription = null, tint = NaomiTextSecondary, modifier = Modifier.size(13.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("${venue.nearestTramStop} tram", color = NaomiTextSecondary, fontSize = 8.sp, maxLines = 1)
+                        Text("${venue.nearestTramStop} tram", color = NaomiTextSecondary, fontSize = 9.sp, maxLines = 1)
                     }
                 }
                 if (venue.notes.isNotBlank()) {
-                    Text(venue.notes, color = NaomiTextSecondary, fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(venue.notes, color = NaomiTextSecondary, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             Button(
                 onClick = onCreateReceipt,
                 colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                shape = RoundedCornerShape(4.dp),
-                modifier = Modifier.fillMaxWidth().height(38.dp)
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth().height(42.dp)
             ) {
                 Icon(Icons.Default.EditNote, contentDescription = null, modifier = Modifier.size(15.dp))
                 Spacer(modifier = Modifier.width(5.dp))
-                Text("Create sale here", fontWeight = FontWeight.Bold, fontSize = 9.sp)
+                Text("Create sale here", fontWeight = FontWeight.Bold, fontSize = 10.sp)
             }
         }
     }
@@ -320,12 +320,12 @@ private fun AllTramStops() {
             label = { Text("Search tram stops") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth().height(52.dp)
+            modifier = Modifier.fillMaxWidth().height(54.dp)
         )
 
         Surface(
             color = NaomiSurfaceVariant,
-            shape = RoundedCornerShape(4.dp),
+            shape = RoundedCornerShape(10.dp),
             border = BorderStroke(1.dp, NaomiBorder),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -335,16 +335,16 @@ private fun AllTramStops() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("BLACKPOOL TRAMWAY", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black)
-                    Text("Starr Gate ↔ Fleetwood + North Station", color = NaomiTextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("BLACKPOOL TRAMWAY", color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    Text("Starr Gate ↔ Fleetwood + North Station", color = NaomiTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
-                Text("${allStops.size} stops", color = NaomiTextSecondary, fontSize = 9.sp)
+                Text("${allStops.size} stops", color = NaomiTextSecondary, fontSize = 10.sp)
             }
         }
 
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             if (visible.isEmpty()) {
                 EmptyPosPanel("No tram stops found", "Change the search term.")
@@ -370,7 +370,7 @@ private fun AllTramStops() {
 private fun TramStopCardCompact(number: Int?, stop: TramStopInfo, modifier: Modifier = Modifier) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(10.dp),
         border = BorderStroke(1.dp, if (stop.isBranchStop) NaomiOrange.copy(alpha = 0.55f) else NaomiBorder),
         modifier = modifier.fillMaxWidth()
     ) {
@@ -381,17 +381,17 @@ private fun TramStopCardCompact(number: Int?, stop: TramStopInfo, modifier: Modi
             Box(
                 modifier = Modifier.size(32.dp).background(
                     if (stop.isBranchStop) NaomiOrange.copy(alpha = 0.13f) else NaomiSurfaceVariant,
-                    RoundedCornerShape(3.dp)
+                    RoundedCornerShape(8.dp)
                 ),
                 contentAlignment = Alignment.Center
             ) {
-                Text(number?.toString() ?: "B", color = if (stop.isBranchStop) NaomiOrange else NaomiTextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                Text(number?.toString() ?: "B", color = if (stop.isBranchStop) NaomiOrange else NaomiTextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Black)
             }
             Spacer(modifier = Modifier.width(9.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(stop.name, color = NaomiTextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                Text(stop.area, color = NaomiTextSecondary, fontSize = 8.sp)
-                if (stop.note.isNotBlank()) Text(stop.note, color = if (stop.isBranchStop) NaomiOrange else NaomiTextSecondary, fontSize = 7.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(stop.area, color = NaomiTextSecondary, fontSize = 9.sp)
+                if (stop.note.isNotBlank()) Text(stop.note, color = if (stop.isBranchStop) NaomiOrange else NaomiTextSecondary, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -455,22 +455,22 @@ private fun TramBoard() {
     ) {
         Card(
             colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-            shape = RoundedCornerShape(5.dp),
+            shape = RoundedCornerShape(10.dp),
             border = BorderStroke(1.dp, NaomiBorder),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("BLACKPOOL LOCAL TIME", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                    Text("BLACKPOOL LOCAL TIME", color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Black)
                     Text(clockText, color = NaomiTextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Icon(Icons.Default.Schedule, contentDescription = null, tint = NaomiOrange, modifier = Modifier.size(24.dp))
-                    Text("Room cache · HTTP max 5m", color = NaomiTextSecondary, fontSize = 7.sp)
+                    Text("Room cache · HTTP max 5m", color = NaomiTextSecondary, fontSize = 9.sp)
                 }
             }
         }
@@ -491,7 +491,7 @@ private fun TramBoard() {
             onPrevious = { stopIndex--; page = 0 },
             onNext = { stopIndex++; page = 0 },
             trailing = {
-                OutlinedButton(onClick = { refreshKey++ }, modifier = Modifier.height(36.dp)) {
+                OutlinedButton(onClick = { refreshKey++ }, modifier = Modifier.height(40.dp)) {
                     Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
                 }
             }
@@ -499,20 +499,20 @@ private fun TramBoard() {
 
         Surface(
             color = NaomiSurfaceVariant,
-            shape = RoundedCornerShape(4.dp),
+            shape = RoundedCornerShape(10.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
                 "Local database first · network only when cache is stale · refresh forces live",
                 color = NaomiTextSecondary,
-                fontSize = 8.sp,
+                fontSize = 9.sp,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
             )
         }
 
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             when {
                 errorText != null -> EmptyPosPanel("Live data unavailable", errorText.orEmpty())
@@ -540,7 +540,7 @@ private fun TramBoard() {
 private fun DepartureCardCompact(departure: TramDeparture, modifier: Modifier = Modifier) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(10.dp),
         border = BorderStroke(1.dp, if (departure.isLive) NaomiSuccess.copy(alpha = 0.55f) else NaomiBorder),
         modifier = modifier.fillMaxWidth()
     ) {
@@ -554,11 +554,11 @@ private fun DepartureCardCompact(departure: TramDeparture, modifier: Modifier = 
                 Text(
                     "${departure.directionLabel} · ${if (departure.isLive) "LIVE" else "Scheduled"}",
                     color = if (departure.isLive) NaomiSuccess else NaomiTextSecondary,
-                    fontSize = 8.sp,
+                    fontSize = 9.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
-            Text(departure.departureTime, color = NaomiOrange, fontSize = 17.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+            Text(departure.departureTime, color = NaomiOrange, fontSize = 20.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
         }
     }
 }
@@ -575,27 +575,27 @@ private fun SelectorBar(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        OutlinedButton(onClick = onPrevious, enabled = canPrevious, modifier = Modifier.height(38.dp)) { Text("‹", fontSize = 18.sp) }
+        OutlinedButton(onClick = onPrevious, enabled = canPrevious, modifier = Modifier.height(42.dp)) { Text("‹", fontSize = 20.sp) }
         Surface(
-            modifier = Modifier.weight(1f).height(38.dp),
+            modifier = Modifier.weight(1f).height(42.dp),
             color = NaomiSurface,
             border = BorderStroke(1.dp, NaomiBorder),
-            shape = RoundedCornerShape(4.dp)
+            shape = RoundedCornerShape(10.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 9.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(label, color = NaomiTextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                Text(detail, color = NaomiTextSecondary, fontSize = 7.sp, maxLines = 1)
+                Text(label, color = NaomiTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(detail, color = NaomiTextSecondary, fontSize = 9.sp, maxLines = 1)
             }
         }
         trailing?.invoke()
-        OutlinedButton(onClick = onNext, enabled = canNext, modifier = Modifier.height(38.dp)) { Text("›", fontSize = 18.sp) }
+        OutlinedButton(onClick = onNext, enabled = canNext, modifier = Modifier.height(42.dp)) { Text("›", fontSize = 20.sp) }
     }
 }
 
@@ -604,7 +604,7 @@ private fun EmptyPosPanel(title: String, subtitle: String) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, NaomiBorder),
-        shape = RoundedCornerShape(5.dp),
+        shape = RoundedCornerShape(10.dp),
         modifier = Modifier.fillMaxSize()
     ) {
         Column(
@@ -613,7 +613,7 @@ private fun EmptyPosPanel(title: String, subtitle: String) {
             verticalArrangement = Arrangement.Center
         ) {
             Text(title, color = NaomiTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Black)
-            Text(subtitle, color = NaomiTextSecondary, fontSize = 9.sp)
+            Text(subtitle, color = NaomiTextSecondary, fontSize = 10.sp)
         }
     }
 }
