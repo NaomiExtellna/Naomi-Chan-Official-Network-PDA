@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.QrCodeScanner
@@ -87,8 +87,6 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
     val currentReceipt by viewModel.currentReceipt.collectAsStateWithLifecycle()
     val selectedChannel by viewModel.selectedChannel.collectAsStateWithLifecycle()
     val printerStatus by viewModel.printerStatus.collectAsStateWithLifecycle()
-    val unsyncedCount by viewModel.unsyncedCount.collectAsStateWithLifecycle()
-    val isOfflineSimulated by viewModel.isOfflineSimulated.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
     var showChannelDialog by remember { mutableStateOf(false) }
@@ -108,7 +106,7 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
         listOf(
             MainNavItem(MainTab.RECEIPT, Icons.Default.ReceiptLong, "Sell"),
             MainNavItem(MainTab.SCAN, Icons.Default.QrCodeScanner, "Scan"),
-            MainNavItem(MainTab.HISTORY, Icons.Default.CloudSync, "Activity"),
+            MainNavItem(MainTab.HISTORY, Icons.Default.History, "Activity"),
             MainNavItem(MainTab.DASHBOARD, Icons.Default.Home, "Home"),
             MainNavItem(MainTab.MORE, Icons.Default.MoreHoriz, "More")
         )
@@ -175,9 +173,6 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                 NaomiHeader(
                     selectedChannel = selectedChannel,
                     printerStatus = printerStatus,
-                    unsyncedCount = unsyncedCount,
-                    isOfflineSimulated = isOfflineSimulated,
-                    onToggleOffline = { viewModel.toggleOfflineSimulation() },
                     onReloadPaper = { viewModel.reloadPaperRoll() },
                     onSelectChannelClick = { showChannelDialog = true }
                 )
@@ -263,6 +258,7 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                         viewModel = viewModel,
                         showFinancials = currentUser?.canViewFinancialTotals == true,
                         canVoid = currentUser?.canVoidReceipts == true,
+                        canExport = currentUser?.canExportData == true,
                         onEditCorrection = {
                             receiptStep = 0
                             activeTab = MainTab.RECEIPT
