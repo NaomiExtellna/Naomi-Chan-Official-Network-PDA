@@ -19,9 +19,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.CloudDone
-import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Usb
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -43,7 +42,6 @@ import com.example.model.PrinterChannel
 import com.example.model.PrinterStatus
 import com.example.ui.theme.NaomiBorder
 import com.example.ui.theme.NaomiError
-import com.example.ui.theme.NaomiOrange
 import com.example.ui.theme.NaomiRed
 import com.example.ui.theme.NaomiSuccess
 import com.example.ui.theme.NaomiSurface
@@ -55,9 +53,6 @@ import com.example.ui.theme.NaomiTextSecondary
 fun NaomiHeader(
     selectedChannel: PrinterChannel,
     printerStatus: PrinterStatus,
-    unsyncedCount: Int,
-    isOfflineSimulated: Boolean,
-    onToggleOffline: () -> Unit,
     onReloadPaper: () -> Unit,
     onSelectChannelClick: () -> Unit
 ) {
@@ -106,7 +101,7 @@ fun NaomiHeader(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "OFFICIAL NETWORK · SUNMI V2",
+                    text = "STANDALONE · LOCAL RECORDS · SUNMI V2",
                     color = NaomiTextSecondary,
                     fontSize = 8.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -135,12 +130,33 @@ fun NaomiHeader(
                     .clickable(enabled = !printerStatus.hasPaper, onClick = onReloadPaper)
             )
 
-            SyncChip(
-                unsyncedCount = unsyncedCount,
-                isOfflineSimulated = isOfflineSimulated,
-                onClick = onToggleOffline,
-                modifier = Modifier.weight(1f)
-            )
+            Surface(
+                modifier = Modifier.weight(1f),
+                color = NaomiSuccess.copy(alpha = 0.07f),
+                border = BorderStroke(1.dp, NaomiSuccess.copy(alpha = 0.22f)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.SaveAlt,
+                        contentDescription = null,
+                        tint = NaomiSuccess,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = "Local · CSV ready",
+                        color = NaomiTextPrimary,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
+                    )
+                }
+            }
         }
 
         HorizontalDivider(color = NaomiBorder, thickness = 1.dp)
@@ -207,56 +223,6 @@ private fun StatusChip(
                 modifier = Modifier
                     .size(6.dp)
                     .background(if (healthy) NaomiSuccess else NaomiError, CircleShape)
-            )
-            Spacer(modifier = Modifier.width(5.dp))
-            Text(
-                text = label,
-                color = NaomiTextPrimary,
-                fontSize = 8.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-private fun SyncChip(
-    unsyncedCount: Int,
-    isOfflineSimulated: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val healthy = !isOfflineSimulated && unsyncedCount == 0
-    val label = when {
-        isOfflineSimulated -> "Offline mode"
-        unsyncedCount > 0 -> "$unsyncedCount pending"
-        else -> "Synced"
-    }
-
-    Surface(
-        modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
-            .testTag("offline_sync_toggle"),
-        color = if (healthy) NaomiSuccess.copy(alpha = 0.07f) else NaomiSurfaceVariant,
-        border = BorderStroke(
-            1.dp,
-            if (healthy) NaomiSuccess.copy(alpha = 0.22f) else NaomiBorder
-        ),
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = if (isOfflineSimulated) Icons.Default.CloudOff else Icons.Default.CloudDone,
-                contentDescription = null,
-                tint = if (healthy) NaomiSuccess else NaomiOrange,
-                modifier = Modifier.size(13.dp)
             )
             Spacer(modifier = Modifier.width(5.dp))
             Text(
