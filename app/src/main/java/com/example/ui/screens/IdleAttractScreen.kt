@@ -190,12 +190,16 @@ fun IdleAttractScreen(onDismiss: () -> Unit) {
             )
     ) {
         if (adResourceIds.isNotEmpty()) {
-            // One poster only, edge-to-edge. Crop fills the entire SUNMI display without
-            // stretching the artwork or leaving black letterbox areas.
+            // Always show the complete advert. These source posters use a different aspect
+            // ratio from the SUNMI display, so Crop was cutting off the artwork and forcing a
+            // much larger upscale that made the advert look soft. Fit keeps the entire poster
+            // visible, scales it only as much as necessary, and lets the black attract-mode
+            // canvas absorb any unavoidable aspect-ratio difference without distortion.
             Image(
                 painter = painterResource(adResourceIds[adIndex]),
                 contentDescription = "Naomi-Chan promotion ${adIndex + 1} of ${adResourceIds.size}",
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.Fit,
+                alignment = Alignment.Center,
                 modifier = Modifier.fillMaxSize()
             )
         } else {
