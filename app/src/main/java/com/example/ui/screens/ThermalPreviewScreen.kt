@@ -72,7 +72,7 @@ fun ThermalPreviewScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(NaomiDarkBg)
-            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .padding(horizontal = 10.dp, vertical = 8.dp)
             .testTag("thermal_preview_screen"),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
@@ -82,37 +82,37 @@ fun ThermalPreviewScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("58MM PROOF", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                Text("Thermal preview", color = NaomiTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                Text(selectedChannel.displayName, color = NaomiTextSecondary, fontSize = 7.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("58MM PROOF", color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                Text("Thermal preview", color = NaomiTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                Text(selectedChannel.displayName, color = NaomiTextSecondary, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Button(
                 onClick = { viewModel.printCurrentReceipt() },
                 colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                shape = RoundedCornerShape(4.dp),
-                modifier = Modifier.height(38.dp).testTag("thermal_print_now_btn")
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.height(42.dp).testTag("thermal_print_now_btn")
             ) {
                 Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Print", fontSize = 8.sp, fontWeight = FontWeight.Black)
+                Text("Print", fontSize = 9.sp, fontWeight = FontWeight.Black)
             }
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(
                 selected = mode == PreviewMode.RECEIPT,
                 onClick = { mode = PreviewMode.RECEIPT },
-                label = { Text("Receipt proof", fontSize = 8.sp) },
+                label = { Text("Receipt proof", fontSize = 9.sp) },
                 colors = FilterChipDefaults.filterChipColors(selectedContainerColor = NaomiRed, selectedLabelColor = Color.White),
-                modifier = Modifier.weight(1f).height(34.dp)
+                modifier = Modifier.weight(1f).height(40.dp)
             )
             FilterChip(
                 selected = mode == PreviewMode.DIAGNOSTICS,
                 onClick = { mode = PreviewMode.DIAGNOSTICS },
-                label = { Text("ESC/POS", fontSize = 8.sp) },
+                label = { Text("ESC/POS", fontSize = 9.sp) },
                 leadingIcon = { Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(13.dp)) },
                 colors = FilterChipDefaults.filterChipColors(selectedContainerColor = NaomiRed, selectedLabelColor = Color.White, selectedLeadingIconColor = Color.White),
-                modifier = Modifier.weight(1f).height(34.dp).testTag("toggle_escpos_hex_btn")
+                modifier = Modifier.weight(1f).height(40.dp).testTag("toggle_escpos_hex_btn")
             )
         }
 
@@ -125,7 +125,7 @@ fun ThermalPreviewScreen(
         Card(
             colors = CardDefaults.cardColors(containerColor = NaomiSurface),
             border = BorderStroke(1.dp, if (printerStatus.hasPaper) NaomiBorder else NaomiRed.copy(alpha = 0.5f)),
-            shape = RoundedCornerShape(4.dp),
+            shape = RoundedCornerShape(10.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
@@ -137,16 +137,16 @@ fun ThermalPreviewScreen(
                     Icon(Icons.Default.Warning, contentDescription = null, tint = if (printerStatus.hasPaper) NaomiTextSecondary else NaomiRed, modifier = Modifier.size(15.dp))
                     Spacer(modifier = Modifier.width(5.dp))
                     Column {
-                        Text("Hardware test", color = NaomiTextPrimary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                        Text(if (printerStatus.hasPaper) "Paper loaded · status OK" else "OUT OF PAPER simulated", color = if (printerStatus.hasPaper) NaomiTextSecondary else NaomiRed, fontSize = 7.sp)
+                        Text("Hardware test", color = NaomiTextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text(if (printerStatus.hasPaper) "Paper loaded · status OK" else "OUT OF PAPER simulated", color = if (printerStatus.hasPaper) NaomiTextSecondary else NaomiRed, fontSize = 9.sp)
                     }
                 }
                 Button(
                     onClick = { viewModel.togglePaperRollAlert() },
                     colors = ButtonDefaults.buttonColors(containerColor = if (printerStatus.hasPaper) NaomiSurfaceVariant else NaomiOrange),
-                    modifier = Modifier.height(34.dp).testTag("test_paper_out_btn")
+                    modifier = Modifier.height(40.dp).testTag("test_paper_out_btn")
                 ) {
-                    Text(if (printerStatus.hasPaper) "Test paper" else "Reload", color = if (printerStatus.hasPaper) NaomiTextPrimary else Color.White, fontSize = 7.sp)
+                    Text(if (printerStatus.hasPaper) "Test paper" else "Reload", color = if (printerStatus.hasPaper) NaomiTextPrimary else Color.White, fontSize = 9.sp)
                 }
             }
         }
@@ -157,19 +157,19 @@ fun ThermalPreviewScreen(
 private fun CompactReceiptProof(receipt: ReceiptData, modifier: Modifier = Modifier) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiPaperWhite),
-        shape = RoundedCornerShape(3.dp),
+        shape = RoundedCornerShape(8.dp),
         modifier = modifier
     ) {
         Column(
             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 11.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text("NAOMI-CHAN™", color = NaomiPaperInk, fontFamily = FontFamily.Monospace, fontSize = 17.sp, fontWeight = FontWeight.Black)
-            Text("PREMIUM DJ SERVICES · BLACKPOOL", color = NaomiPaperInk, fontFamily = FontFamily.Monospace, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            Text("NAOMI-CHAN™", color = NaomiPaperInk, fontFamily = FontFamily.Monospace, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            Text("PREMIUM DJ SERVICES · BLACKPOOL", color = NaomiPaperInk, fontFamily = FontFamily.Monospace, fontSize = 9.sp, fontWeight = FontWeight.Bold)
             if (receipt.isEffectivelyFree) {
                 Surface(color = Color(0xFFF1F8E9), border = BorderStroke(1.dp, NaomiPaperInk), modifier = Modifier.fillMaxWidth()) {
-                    Text("*** FREE ADMISSION ***", color = NaomiPaperInk, textAlign = TextAlign.Center, fontFamily = FontFamily.Monospace, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(4.dp))
+                    Text("*** FREE ADMISSION ***", color = NaomiPaperInk, textAlign = TextAlign.Center, fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(4.dp))
                 }
             }
             ReceiptProofLine("RECEIPT", receipt.id)
@@ -178,7 +178,7 @@ private fun CompactReceiptProof(receipt: ReceiptData, modifier: Modifier = Modif
             ReceiptProofLine("GIG", receipt.gigType.label)
 
             Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(NaomiPaperInk.copy(alpha = 0.45f)))
-            Text("SERVICES & MERCHANDISE", color = NaomiPaperInk, fontFamily = FontFamily.Monospace, fontSize = 8.sp, fontWeight = FontWeight.Black)
+            Text("SERVICES & MERCHANDISE", color = NaomiPaperInk, fontFamily = FontFamily.Monospace, fontSize = 9.sp, fontWeight = FontWeight.Black)
 
             receipt.items.take(3).forEach { item ->
                 ReceiptProofLine(
@@ -187,7 +187,7 @@ private fun CompactReceiptProof(receipt: ReceiptData, modifier: Modifier = Modif
                 )
             }
             if (receipt.items.size > 3) {
-                Text("+ ${receipt.items.size - 3} additional item(s)", color = NaomiPaperInk.copy(alpha = 0.7f), fontFamily = FontFamily.Monospace, fontSize = 7.sp)
+                Text("+ ${receipt.items.size - 3} additional item(s)", color = NaomiPaperInk.copy(alpha = 0.7f), fontFamily = FontFamily.Monospace, fontSize = 9.sp)
             }
 
             Spacer(modifier = Modifier.weight(1f))
@@ -198,7 +198,7 @@ private fun CompactReceiptProof(receipt: ReceiptData, modifier: Modifier = Modif
                 Text("TOTAL", color = NaomiPaperInk, fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Black)
                 Text(if (receipt.isEffectivelyFree) "FREE" else ReceiptData.formatCurrency(receipt.grandTotal), color = NaomiPaperInk, fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Black)
             }
-            Text("POS proof · printed receipt includes full detail", color = NaomiPaperInk.copy(alpha = 0.55f), fontFamily = FontFamily.Monospace, fontSize = 6.sp)
+            Text("POS proof · printed receipt includes full detail", color = NaomiPaperInk.copy(alpha = 0.55f), fontFamily = FontFamily.Monospace, fontSize = 8.sp)
         }
     }
 }
@@ -206,8 +206,8 @@ private fun CompactReceiptProof(receipt: ReceiptData, modifier: Modifier = Modif
 @Composable
 private fun ReceiptProofLine(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = NaomiPaperInk, fontFamily = FontFamily.Monospace, fontSize = 7.sp, modifier = Modifier.weight(0.45f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(value, color = NaomiPaperInk, fontFamily = FontFamily.Monospace, fontSize = 7.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.55f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(label, color = NaomiPaperInk, fontFamily = FontFamily.Monospace, fontSize = 9.sp, modifier = Modifier.weight(0.45f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, color = NaomiPaperInk, fontFamily = FontFamily.Monospace, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.55f), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -220,17 +220,17 @@ private fun EscPosPanel(bytes: ByteArray?, modifier: Modifier = Modifier) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.Black),
         border = BorderStroke(1.dp, NaomiBorder),
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(10.dp),
         modifier = modifier
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(11.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Text("RAW ESC/POS STREAM", color = NaomiOrange, fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black)
-            Text("${bytes?.size ?: 0} captured bytes · showing first 10 rows", color = Color.Gray, fontSize = 7.sp, fontFamily = FontFamily.Monospace)
+            Text("RAW ESC/POS STREAM", color = NaomiOrange, fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Black)
+            Text("${bytes?.size ?: 0} captured bytes · showing first 10 rows", color = Color.Gray, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
             Surface(color = Color(0xFF071007), shape = RoundedCornerShape(7.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
                 Text(
                     hexData,
                     color = Color.Green,
-                    fontSize = 8.sp,
+                    fontSize = 9.sp,
                     lineHeight = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     modifier = Modifier.padding(9.dp)
