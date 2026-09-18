@@ -175,7 +175,6 @@ class MainActivity : ComponentActivity() {
                         canVoid = user.canVoid,
                         canExport = user.canExport,
                         canEditVenues = user.canEditVenues,
-                        canChangeGateway = user.canChangeGateway,
                         canViewTotals = user.canViewTotals
                     )
                 }
