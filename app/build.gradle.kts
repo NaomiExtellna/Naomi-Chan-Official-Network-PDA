@@ -26,8 +26,8 @@ android {
     // SUNMI V2 (T5930) runs SUNMI OS based on Android 7.1.x (API 25).
     minSdk = 24
     targetSdk = 36
-    versionCode = 2
-    versionName = "1.1"
+    versionCode = 3
+    versionName = "1.2.0"
     buildConfigField("String", "BUILD_UTC", "\"$buildUtc\"")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
