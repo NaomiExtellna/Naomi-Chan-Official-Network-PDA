@@ -24,14 +24,10 @@ local.properties
 debug.keystore
 my-upload-key.jks
 
-# Local databases and Python runtime files.
+# Local database files.
 *.db
 *.db-shm
 *.db-wal
-__pycache__/
-*.py[cod]
-.venv/
-venv/
 
 # Android/IDE generated output.
 app/build/
