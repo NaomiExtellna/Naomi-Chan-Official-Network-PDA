@@ -97,11 +97,6 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         SharingStarted.WhileSubscribed(5000),
         emptyList()
     )
-    val unsyncedCount: StateFlow<Int> = repository.unsyncedCount.stateIn(
-        viewModelScope,
-        SharingStarted.WhileSubscribed(5000),
-        0
-    )
 
     private val _currentReceipt = MutableStateFlow(ReceiptData())
     val currentReceipt: StateFlow<ReceiptData> = _currentReceipt.asStateFlow()
