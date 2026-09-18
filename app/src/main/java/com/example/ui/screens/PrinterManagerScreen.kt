@@ -85,9 +85,9 @@ fun PrinterManagerScreen(viewModel: PosViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .background(NaomiDarkBg)
-            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .padding(horizontal = 10.dp, vertical = 8.dp)
             .testTag("printer_manager_screen"),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -95,15 +95,15 @@ fun PrinterManagerScreen(viewModel: PosViewModel) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text("PRINT OUTPUT", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                Text("Printer console", color = NaomiTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                Text("PRINT OUTPUT", color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                Text("Printer console", color = NaomiTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
             }
             IconButton(onClick = { viewModel.printerManager.refreshDiscoveredDevices() }) {
                 Icon(Icons.Default.Refresh, contentDescription = "Refresh printers", tint = NaomiOrange)
             }
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PrinterChannel.values().forEach { channel ->
                 ChannelTile(
                     channel = channel,
@@ -183,7 +183,7 @@ private fun ChannelTile(
         modifier = modifier.height(56.dp).clickable(onClick = onClick).testTag("channel_selector_${channel.name}"),
         color = if (selected) NaomiRed.copy(alpha = 0.10f) else NaomiSurface,
         border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) NaomiRed else NaomiBorder),
-        shape = RoundedCornerShape(4.dp)
+        shape = RoundedCornerShape(10.dp)
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -191,7 +191,7 @@ private fun ChannelTile(
             verticalArrangement = Arrangement.Center
         ) {
             Icon(icon, contentDescription = null, tint = if (selected) NaomiOrange else NaomiTextSecondary, modifier = Modifier.size(18.dp))
-            Text(label, color = NaomiTextPrimary, fontSize = 8.sp, fontWeight = if (selected) FontWeight.Black else FontWeight.Bold)
+            Text(label, color = NaomiTextPrimary, fontSize = 9.sp, fontWeight = if (selected) FontWeight.Black else FontWeight.Bold)
         }
     }
 }
@@ -230,13 +230,13 @@ private fun SunmiPanel(
                     }
                     Column {
                         Text(deviceName, color = NaomiTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Black)
-                        Text("Built-in 58mm thermal", color = NaomiTextSecondary, fontSize = 8.sp)
+                        Text("Built-in 58mm thermal", color = NaomiTextSecondary, fontSize = 9.sp)
                     }
                 }
                 StatusBadge(if (connected) "ONLINE" else "OFFLINE", connected)
             }
 
-            Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(4.dp), modifier = Modifier.fillMaxWidth()) {
+            Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth()) {
                 Row(
                     modifier = Modifier.padding(10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -248,43 +248,43 @@ private fun SunmiPanel(
             }
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Serial", color = NaomiTextSecondary, fontSize = 8.sp)
-                Text(serialNumber, color = NaomiTextPrimary, fontSize = 8.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("Serial", color = NaomiTextSecondary, fontSize = 9.sp)
+                Text(serialNumber, color = NaomiTextPrimary, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
 
             error?.let {
-                Surface(color = NaomiError.copy(alpha = 0.08f), shape = RoundedCornerShape(4.dp), modifier = Modifier.fillMaxWidth()) {
-                    Text(it, color = NaomiError, fontSize = 9.sp, modifier = Modifier.padding(9.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Surface(color = NaomiError.copy(alpha = 0.08f), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    Text(it, color = NaomiError, fontSize = 10.sp, modifier = Modifier.padding(9.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
 
-            Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(4.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
+            Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
                 Column(
                     modifier = Modifier.fillMaxSize().padding(10.dp),
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text("SUNMI V2 PRIMARY OUTPUT", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black)
-                    Text("Manual tear bar · cutter commands disabled · paper feeds forward after print.", color = NaomiTextSecondary, fontSize = 9.sp)
+                    Text("SUNMI V2 PRIMARY OUTPUT", color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    Text("Manual tear bar · cutter commands disabled · paper feeds forward after print.", color = NaomiTextSecondary, fontSize = 10.sp)
                 }
             }
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 OutlinedButton(
                     onClick = { viewModel.printerManager.refreshSunmiStatus() },
-                    modifier = Modifier.weight(0.8f).height(40.dp)
+                    modifier = Modifier.weight(0.8f).height(44.dp)
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(3.dp))
-                    Text("Refresh", fontSize = 8.sp)
+                    Text("Refresh", fontSize = 9.sp)
                 }
                 OutlinedButton(
                     onClick = { viewModel.printerManager.feedPaper(3) },
                     enabled = connected,
-                    modifier = Modifier.weight(1f).height(40.dp)
+                    modifier = Modifier.weight(1f).height(44.dp)
                 ) {
                     Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(3.dp))
-                    Text("Feed", fontSize = 8.sp)
+                    Text("Feed", fontSize = 9.sp)
                 }
                 Button(
                     onClick = {
@@ -293,9 +293,9 @@ private fun SunmiPanel(
                     },
                     enabled = connected && hasPaper && !coverOpen && !overheated,
                     colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                    modifier = Modifier.weight(1.2f).height(40.dp)
+                    modifier = Modifier.weight(1.2f).height(44.dp)
                 ) {
-                    Text("Print current", fontSize = 8.sp, fontWeight = FontWeight.Black)
+                    Text("Print current", fontSize = 9.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
@@ -326,16 +326,16 @@ private fun ExternalPrinterPanel(
     ) {
         Column(
             modifier = Modifier.fillMaxSize().padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(10.dp)) {
                         Icon(icon, contentDescription = null, tint = NaomiOrange, modifier = Modifier.padding(9.dp).size(19.dp))
                     }
                     Column {
                         Text(title, color = NaomiTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Black)
-                        Text(subtitle, color = NaomiTextSecondary, fontSize = 8.sp)
+                        Text(subtitle, color = NaomiTextSecondary, fontSize = 9.sp)
                     }
                 }
                 IconButton(onClick = onRefresh) {
@@ -380,14 +380,14 @@ private fun sunmiStateLabel(statusCode: Int?, hasPaper: Boolean): String = when 
 @Composable
 private fun StatusBadge(text: String, healthy: Boolean) {
     Surface(
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(10.dp),
         color = if (healthy) NaomiSuccess.copy(alpha = 0.12f) else NaomiError.copy(alpha = 0.12f)
     ) {
         Text(
             text,
             color = if (healthy) NaomiSuccess else NaomiError,
             fontWeight = FontWeight.Black,
-            fontSize = 8.sp,
+            fontSize = 9.sp,
             modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
         )
     }
@@ -396,8 +396,8 @@ private fun StatusBadge(text: String, healthy: Boolean) {
 @Composable
 fun HardwareMetric(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, color = NaomiTextSecondary, fontSize = 7.sp)
-        Text(value, color = NaomiTextPrimary, fontWeight = FontWeight.Black, fontSize = 9.sp)
+        Text(label, color = NaomiTextSecondary, fontSize = 9.sp)
+        Text(value, color = NaomiTextPrimary, fontWeight = FontWeight.Black, fontSize = 10.sp)
     }
 }
 
@@ -405,11 +405,11 @@ fun HardwareMetric(label: String, value: String) {
 private fun EmptyDeviceState(message: String) {
     Surface(
         color = NaomiSurfaceVariant,
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(10.dp),
         modifier = Modifier.fillMaxSize()
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.Center) {
-            Text(message, color = NaomiTextSecondary, fontSize = 9.sp)
+            Text(message, color = NaomiTextSecondary, fontSize = 10.sp)
         }
     }
 }
@@ -423,7 +423,7 @@ fun DiscoveredPrinterRow(
     Surface(
         modifier = modifier.fillMaxWidth().clickable(onClick = onSelect),
         color = NaomiSurfaceVariant,
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(10.dp),
         border = BorderStroke(1.dp, NaomiBorder)
     ) {
         Row(
@@ -432,12 +432,12 @@ fun DiscoveredPrinterRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(device.name, color = NaomiTextPrimary, fontWeight = FontWeight.Black, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(device.address, color = NaomiTextSecondary, fontSize = 8.sp, maxLines = 1)
-                if (!device.isBonded) Text("Permission may be requested on first print", color = NaomiOrange, fontSize = 7.sp)
+                Text(device.name, color = NaomiTextPrimary, fontWeight = FontWeight.Black, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(device.address, color = NaomiTextSecondary, fontSize = 9.sp, maxLines = 1)
+                if (!device.isBonded) Text("Permission may be requested on first print", color = NaomiOrange, fontSize = 9.sp)
             }
-            Button(onClick = onSelect, colors = ButtonDefaults.buttonColors(containerColor = NaomiRed), modifier = Modifier.height(34.dp)) {
-                Text("Use", fontSize = 8.sp)
+            Button(onClick = onSelect, colors = ButtonDefaults.buttonColors(containerColor = NaomiRed), modifier = Modifier.height(40.dp)) {
+                Text("Use", fontSize = 9.sp)
             }
         }
     }

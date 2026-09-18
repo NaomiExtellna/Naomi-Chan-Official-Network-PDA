@@ -5,10 +5,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -21,6 +23,7 @@ import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Usb
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -41,6 +44,7 @@ import com.example.model.PrinterStatus
 import com.example.ui.theme.NaomiBorder
 import com.example.ui.theme.NaomiError
 import com.example.ui.theme.NaomiOrange
+import com.example.ui.theme.NaomiRed
 import com.example.ui.theme.NaomiSuccess
 import com.example.ui.theme.NaomiSurface
 import com.example.ui.theme.NaomiSurfaceVariant
@@ -67,29 +71,30 @@ fun NaomiHeader(
             .fillMaxWidth()
             .background(NaomiSurface)
             .statusBarsPadding()
-            .padding(horizontal = 9.dp, vertical = 5.dp)
-            .testTag("naomi_pos_header"),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .testTag("naomi_pos_header")
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp)
+                .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(30.dp),
                 color = NaomiSurfaceVariant,
-                shape = RoundedCornerShape(4.dp),
+                shape = RoundedCornerShape(8.dp),
                 border = BorderStroke(1.dp, NaomiBorder)
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.img_naomi_logo),
                     contentDescription = "Naomi-Chan logo",
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(30.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(7.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -101,123 +106,164 @@ fun NaomiHeader(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "SUNMI V2 · DESKTOP POS",
+                    text = "OFFICIAL NETWORK · SUNMI V2",
                     color = NaomiTextSecondary,
                     fontSize = 8.sp,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1
                 )
             }
 
-            Surface(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(4.dp))
-                    .clickable(onClick = onSelectChannelClick)
-                    .testTag("printer_channel_badge"),
-                color = NaomiSurfaceVariant,
-                border = BorderStroke(1.dp, NaomiBorder),
-                shape = RoundedCornerShape(4.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val icon = when (selectedChannel) {
-                        PrinterChannel.SUNMI_BUILTIN -> Icons.Default.Print
-                        PrinterChannel.BLUETOOTH -> Icons.Default.Bluetooth
-                        PrinterChannel.USB_OTG -> Icons.Default.Usb
-                    }
-                    val label = when (selectedChannel) {
-                        PrinterChannel.SUNMI_BUILTIN -> "SUNMI"
-                        PrinterChannel.BLUETOOTH -> "BT"
-                        PrinterChannel.USB_OTG -> "USB"
-                    }
-                    Icon(icon, contentDescription = null, tint = NaomiOrange, modifier = Modifier.size(12.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(label, color = NaomiTextPrimary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                }
-            }
+            PrinterChannelBadge(
+                selectedChannel = selectedChannel,
+                onClick = onSelectChannelClick
+            )
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            CompactStatus(
+            StatusChip(
                 label = printerStateLabel(printerStatus),
                 healthy = printerHealthy,
                 modifier = Modifier
                     .weight(1f)
                     .clickable(enabled = !printerStatus.hasPaper, onClick = onReloadPaper)
             )
-            Surface(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(4.dp))
-                    .clickable(onClick = onToggleOffline)
-                    .testTag("offline_sync_toggle"),
-                color = NaomiSurfaceVariant,
-                border = BorderStroke(1.dp, NaomiBorder),
-                shape = RoundedCornerShape(4.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = if (isOfflineSimulated) Icons.Default.CloudOff else Icons.Default.CloudDone,
-                        contentDescription = null,
-                        tint = if (isOfflineSimulated || unsyncedCount > 0) NaomiOrange else NaomiSuccess,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = when {
-                            isOfflineSimulated -> "Offline"
-                            unsyncedCount > 0 -> "$unsyncedCount pending"
-                            else -> "Synced"
-                        },
-                        color = NaomiTextPrimary,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
+
+            SyncChip(
+                unsyncedCount = unsyncedCount,
+                isOfflineSimulated = isOfflineSimulated,
+                onClick = onToggleOffline,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        HorizontalDivider(color = NaomiBorder, thickness = 1.dp)
+    }
+}
+
+@Composable
+private fun PrinterChannelBadge(
+    selectedChannel: PrinterChannel,
+    onClick: () -> Unit
+) {
+    val icon = when (selectedChannel) {
+        PrinterChannel.SUNMI_BUILTIN -> Icons.Default.Print
+        PrinterChannel.BLUETOOTH -> Icons.Default.Bluetooth
+        PrinterChannel.USB_OTG -> Icons.Default.Usb
+    }
+    val label = when (selectedChannel) {
+        PrinterChannel.SUNMI_BUILTIN -> "SUNMI"
+        PrinterChannel.BLUETOOTH -> "BT"
+        PrinterChannel.USB_OTG -> "USB"
+    }
+
+    Surface(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .testTag("printer_channel_badge"),
+        color = NaomiSurfaceVariant,
+        border = BorderStroke(1.dp, NaomiBorder),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, contentDescription = null, tint = NaomiRed, modifier = Modifier.size(13.dp))
+            Spacer(modifier = Modifier.width(5.dp))
+            Text(label, color = NaomiTextPrimary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
 
 @Composable
-private fun CompactStatus(
+private fun StatusChip(
     label: String,
     healthy: Boolean,
     modifier: Modifier = Modifier
 ) {
     Surface(
         modifier = modifier,
-        color = NaomiSurfaceVariant,
-        border = BorderStroke(1.dp, NaomiBorder),
-        shape = RoundedCornerShape(4.dp)
+        color = if (healthy) NaomiSuccess.copy(alpha = 0.07f) else NaomiSurfaceVariant,
+        border = BorderStroke(
+            1.dp,
+            if (healthy) NaomiSuccess.copy(alpha = 0.22f) else NaomiBorder
+        ),
+        shape = RoundedCornerShape(8.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            androidx.compose.foundation.layout.Box(
+            Box(
                 modifier = Modifier
                     .size(6.dp)
                     .background(if (healthy) NaomiSuccess else NaomiError, CircleShape)
             )
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(5.dp))
             Text(
                 text = label,
                 color = NaomiTextPrimary,
                 fontSize = 8.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun SyncChip(
+    unsyncedCount: Int,
+    isOfflineSimulated: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val healthy = !isOfflineSimulated && unsyncedCount == 0
+    val label = when {
+        isOfflineSimulated -> "Offline mode"
+        unsyncedCount > 0 -> "$unsyncedCount pending"
+        else -> "Synced"
+    }
+
+    Surface(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .testTag("offline_sync_toggle"),
+        color = if (healthy) NaomiSuccess.copy(alpha = 0.07f) else NaomiSurfaceVariant,
+        border = BorderStroke(
+            1.dp,
+            if (healthy) NaomiSuccess.copy(alpha = 0.22f) else NaomiBorder
+        ),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (isOfflineSimulated) Icons.Default.CloudOff else Icons.Default.CloudDone,
+                contentDescription = null,
+                tint = if (healthy) NaomiSuccess else NaomiOrange,
+                modifier = Modifier.size(13.dp)
+            )
+            Spacer(modifier = Modifier.width(5.dp))
+            Text(
+                text = label,
+                color = NaomiTextPrimary,
+                fontSize = 8.sp,
+                fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -229,7 +275,7 @@ private fun printerStateLabel(status: PrinterStatus): String = when {
     !status.hasPaper -> "No paper"
     status.isCoverOpen -> "Cover open"
     status.isOverheated -> "Overheated"
-    status.statusCode == 2 -> "Preparing"
+    status.statusCode == 2 -> "Preparing printer"
     status.isConnected -> "Printer ready"
     else -> "Printer offline"
 }

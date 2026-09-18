@@ -223,7 +223,7 @@ fun IdleAttractScreen(onDismiss: () -> Unit) {
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(188.dp)
+                .height(124.dp)
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.68f))
@@ -243,7 +243,7 @@ fun IdleAttractScreen(onDismiss: () -> Unit) {
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 12.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             AdPositionDots(adResourceIds.size, adIndex)
@@ -278,7 +278,7 @@ private fun PlainHeader(time: String, modifier: Modifier = Modifier) {
             Text(
                 text = time,
                 color = Color.White,
-                fontSize = 30.sp,
+                fontSize = 26.sp,
                 fontWeight = FontWeight.Black
             )
             Text(
@@ -313,10 +313,16 @@ private fun AdPositionDots(count: Int, selected: Int) {
 
 @Composable
 private fun NfcReaderPad() {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = Color.Black.copy(alpha = 0.62f),
+                shape = RoundedCornerShape(14.dp)
+            )
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
@@ -327,58 +333,41 @@ private fun NfcReaderPad() {
             Icon(
                 imageVector = Icons.Default.Contactless,
                 contentDescription = null,
-                tint = Color(0xFF55565A),
-                modifier = Modifier.size(23.dp)
+                tint = Color(0xFF4B4F55),
+                modifier = Modifier.size(22.dp)
             )
         }
 
-        Text(
-            text = "NFC TAG READER",
-            color = Color.White,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.5.sp
-        )
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.62f)
-                .height(1.dp)
-                .background(Color.White.copy(alpha = 0.32f))
-        )
-
-        Box(
-            modifier = Modifier
-                .size(54.dp)
-                .border(3.dp, Color.White, CircleShape),
-            contentAlignment = Alignment.Center
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(1.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .width(24.dp)
-                    .height(33.dp)
-                    .border(2.dp, Color.White, RoundedCornerShape(4.dp))
+            Text(
+                text = "NFC READY",
+                color = Color.White.copy(alpha = 0.72f),
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.7.sp
+            )
+            Text(
+                text = "Tap anywhere to start",
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Black
+            )
+            Text(
+                text = "Payment begins from Sell",
+                color = Color.White.copy(alpha = 0.62f),
+                fontSize = 8.sp
             )
         }
 
         Text(
-            text = "HOLD NEAR TAG",
-            color = Color.White.copy(alpha = 0.90f),
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Medium,
-            letterSpacing = 0.4.sp
-        )
-        Text(
-            text = "Tap anywhere to start",
-            color = Color.White,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = "Display only · Payment begins from Sell",
-            color = Color.White.copy(alpha = 0.58f),
-            fontSize = 7.sp,
-            textAlign = TextAlign.Center
+            text = "HOLD\nNEAR TAG",
+            color = Color.White.copy(alpha = 0.86f),
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.End
         )
     }
 }

@@ -52,6 +52,7 @@ import com.example.ui.components.NaomiHeader
 import com.example.ui.theme.NaomiBorder
 import com.example.ui.theme.NaomiDarkBg
 import com.example.ui.theme.NaomiOrange
+import com.example.ui.theme.NaomiRed
 import com.example.ui.theme.NaomiSurface
 import com.example.ui.theme.NaomiTextPrimary
 import com.example.ui.theme.NaomiTextSecondary
@@ -186,7 +187,7 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                     containerColor = NaomiSurface,
                     tonalElevation = 0.dp,
                     modifier = Modifier
-                        .height(54.dp)
+                        .height(60.dp)
                         .navigationBarsPadding()
                         .testTag("main_navigation_bar")
                 ) {
@@ -200,13 +201,13 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                                 Icon(
                                     imageVector = item.icon,
                                     contentDescription = item.label,
-                                    modifier = Modifier.size(19.dp)
+                                    modifier = Modifier.size(20.dp)
                                 )
                             },
                             label = {
                                 Text(
                                     text = item.label,
-                                    fontSize = 8.sp,
+                                    fontSize = 9.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                     maxLines = 1
                                 )
@@ -216,7 +217,7 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                                 selectedTextColor = NaomiTextPrimary,
                                 unselectedIconColor = NaomiTextSecondary,
                                 unselectedTextColor = NaomiTextSecondary,
-                                indicatorColor = NaomiSurface
+                                indicatorColor = NaomiRed.copy(alpha = 0.10f)
                             ),
                             modifier = Modifier.testTag("nav_tab_${item.tab.name}")
                         )
@@ -310,12 +311,13 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
         AlertDialog(
             onDismissRequest = { showChannelDialog = false },
             containerColor = NaomiSurface,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
             title = {
                 Text(
                     "Printer output",
                     color = NaomiTextPrimary,
                     fontWeight = FontWeight.Black,
-                    fontSize = 17.sp
+                    fontSize = 18.sp
                 )
             },
             text = {

@@ -61,8 +61,8 @@ fun MoreHubScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(NaomiDarkBg)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -70,18 +70,18 @@ fun MoreHubScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text("MORE", color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                Text("Terminal tools", color = NaomiTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Black)
+                Text("MORE", color = NaomiOrange, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                Text("Terminal tools", color = NaomiTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
             }
             Surface(
                 color = if (shiftOpen) NaomiSuccess.copy(alpha = 0.10f) else NaomiSurfaceVariant,
                 border = BorderStroke(1.dp, if (shiftOpen) NaomiSuccess.copy(alpha = 0.35f) else NaomiBorder),
-                shape = RoundedCornerShape(4.dp)
+                shape = RoundedCornerShape(10.dp)
             ) {
                 Text(
                     if (shiftOpen) "SHIFT OPEN" else "NO SHIFT",
                     color = if (shiftOpen) NaomiSuccess else NaomiTextSecondary,
-                    fontSize = 8.sp,
+                    fontSize = 9.sp,
                     fontWeight = FontWeight.Black,
                     modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)
                 )
@@ -92,17 +92,17 @@ fun MoreHubScreen(
 
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(modifier = Modifier.fillMaxWidth().height(58.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().height(64.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PosToolTile(Icons.Default.LocationOn, "Blackpool", "Venues & trams", onBlackpool, Modifier.weight(1f))
                 PosToolTile(Icons.Default.CreditCard, "Business card", "Create & print", onBusinessCard, Modifier.weight(1f))
             }
-            Row(modifier = Modifier.fillMaxWidth().height(58.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().height(64.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PosToolTile(Icons.Default.Print, "Printers", "Output devices", onPrinters, Modifier.weight(1f))
                 PosToolTile(Icons.Default.Badge, "Staff ops", "Shifts & admin", onOperations, Modifier.weight(1f))
             }
-            Row(modifier = Modifier.fillMaxWidth().height(58.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().height(64.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PosToolTile(Icons.Default.Contactless, "Idle display", "Preview attract", onPreviewAttractMode, Modifier.weight(1f))
                 PosToolTile(Icons.Default.Lock, "Lock terminal", "Return to PIN", onLockTerminal, Modifier.weight(1f), NaomiOrange)
             }
@@ -111,10 +111,10 @@ fun MoreHubScreen(
         Card(
             colors = CardDefaults.cardColors(containerColor = NaomiSurface),
             border = BorderStroke(1.dp, NaomiBorder),
-            shape = RoundedCornerShape(4.dp),
+            shape = RoundedCornerShape(10.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(40.dp)
+                .height(44.dp)
                 .clickable(onClick = onSignOut)
         ) {
             Row(
@@ -126,7 +126,7 @@ fun MoreHubScreen(
                     Icon(Icons.Default.Logout, contentDescription = null, tint = NaomiRed, modifier = Modifier.size(19.dp))
                     Text("Sign out", color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
-                Text("END SESSION", color = NaomiRed, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                Text("END SESSION", color = NaomiRed, fontSize = 9.sp, fontWeight = FontWeight.Black)
             }
         }
     }
@@ -137,7 +137,7 @@ private fun AccountStrip(staffName: String, staffRole: String) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, NaomiBorder),
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(10.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -145,12 +145,12 @@ private fun AccountStrip(staffName: String, staffRole: String) {
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(3.dp)) {
+            Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(8.dp)) {
                 Icon(Icons.Default.Person, contentDescription = null, tint = NaomiOrange, modifier = Modifier.padding(9.dp).size(18.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(staffName, color = NaomiTextPrimary, fontWeight = FontWeight.Black, fontSize = 13.sp)
-                Text(staffRole, color = NaomiTextSecondary, fontSize = 9.sp)
+                Text(staffRole, color = NaomiTextSecondary, fontSize = 10.sp)
             }
         }
     }
@@ -168,20 +168,20 @@ private fun PosToolTile(
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, NaomiBorder),
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(10.dp),
         modifier = modifier.clickable(onClick = onClick)
     ) {
         Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(7.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(3.dp)) {
+            Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(8.dp)) {
                 Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.padding(6.dp).size(17.dp))
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                Text(title, color = NaomiTextPrimary, fontWeight = FontWeight.Black, fontSize = 10.sp, maxLines = 1)
-                Text(subtitle, color = NaomiTextSecondary, fontSize = 7.sp, maxLines = 1)
+                Text(title, color = NaomiTextPrimary, fontWeight = FontWeight.Black, fontSize = 11.sp, maxLines = 1)
+                Text(subtitle, color = NaomiTextSecondary, fontSize = 9.sp, maxLines = 1)
             }
         }
     }

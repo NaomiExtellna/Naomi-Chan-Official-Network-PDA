@@ -8,23 +8,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-private val DesktopShapes = Shapes(
-    extraSmall = RoundedCornerShape(2.dp),
-    small = RoundedCornerShape(3.dp),
-    medium = RoundedCornerShape(4.dp),
-    large = RoundedCornerShape(6.dp),
-    extraLarge = RoundedCornerShape(8.dp)
+private val CorporateShapes = Shapes(
+    extraSmall = RoundedCornerShape(6.dp),
+    small = RoundedCornerShape(8.dp),
+    medium = RoundedCornerShape(10.dp),
+    large = RoundedCornerShape(12.dp),
+    extraLarge = RoundedCornerShape(16.dp)
 )
 
 private val LightColorScheme = lightColorScheme(
     primary = NaomiRed,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFE3DD),
-    onPrimaryContainer = Color(0xFF4A1510),
+    primaryContainer = Color(0xFFFFE7E2),
+    onPrimaryContainer = NaomiDeepRed,
     secondary = NaomiOrange,
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFFFE8DC),
-    onSecondaryContainer = Color(0xFF4B2412),
+    secondaryContainer = Color(0xFFFFECE2),
+    onSecondaryContainer = Color(0xFF5B2D18),
     tertiary = NaomiDeepRed,
     onTertiary = Color.White,
     background = NaomiDarkBg,
@@ -34,6 +34,7 @@ private val LightColorScheme = lightColorScheme(
     surfaceVariant = NaomiSurfaceVariant,
     onSurfaceVariant = NaomiTextSecondary,
     outline = NaomiBorder,
+    outlineVariant = Color(0xFFE8EBEF),
     error = NaomiError,
     onError = Color.White
 )
@@ -43,12 +44,10 @@ fun NaomiChanTheme(
     @Suppress("UNUSED_PARAMETER") darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    // The SUNMI app intentionally uses one stable retail-light scheme. Keeping a
-    // single palette avoids mixed dark/light legacy surfaces on Android 7.1.
     MaterialTheme(
         colorScheme = LightColorScheme,
         typography = Typography,
-        shapes = DesktopShapes,
+        shapes = CorporateShapes,
         content = content
     )
 }

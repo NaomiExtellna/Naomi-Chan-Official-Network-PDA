@@ -139,9 +139,9 @@ fun SyncLedgerScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(NaomiDarkBg)
-            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .padding(horizontal = 10.dp, vertical = 8.dp)
             .testTag("sync_ledger_screen"),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -149,18 +149,18 @@ fun SyncLedgerScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text("ACTIVITY", color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                Text("Transactions", color = NaomiTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                Text("ACTIVITY", color = NaomiOrange, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                Text("Transactions", color = NaomiTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
             }
             Surface(
                 color = if (gatewayOnline) NaomiSuccess.copy(alpha = 0.10f) else NaomiOrange.copy(alpha = 0.12f),
                 border = BorderStroke(1.dp, if (gatewayOnline) NaomiSuccess.copy(alpha = 0.30f) else NaomiOrange.copy(alpha = 0.35f)),
-                shape = RoundedCornerShape(5.dp)
+                shape = RoundedCornerShape(10.dp)
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Icon(
                         if (gatewayOnline) Icons.Default.CloudDone else Icons.Default.CloudOff,
@@ -171,7 +171,7 @@ fun SyncLedgerScreen(
                     Text(
                         if (gatewayOnline) "ONLINE" else "OFFLINE",
                         color = if (gatewayOnline) NaomiSuccess else NaomiOrange,
-                        fontSize = 8.sp,
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.Black
                     )
                 }
@@ -191,16 +191,16 @@ fun SyncLedgerScreen(
             FilterChip(
                 selected = mode == ActivityMode.TRANSACTIONS,
                 onClick = { mode = ActivityMode.TRANSACTIONS },
-                label = { Text("Transactions", fontSize = 10.sp) },
+                label = { Text("Transactions", fontSize = 11.sp) },
                 colors = FilterChipDefaults.filterChipColors(selectedContainerColor = NaomiRed, selectedLabelColor = Color.White),
-                modifier = Modifier.weight(1f).height(38.dp)
+                modifier = Modifier.weight(1f).height(42.dp)
             )
             FilterChip(
                 selected = mode == ActivityMode.INCOMING,
                 onClick = { mode = ActivityMode.INCOMING },
-                label = { Text("Incoming (${pendingOrders.size})", fontSize = 10.sp) },
+                label = { Text("Incoming (${pendingOrders.size})", fontSize = 11.sp) },
                 colors = FilterChipDefaults.filterChipColors(selectedContainerColor = NaomiRed, selectedLabelColor = Color.White),
-                modifier = Modifier.weight(1f).height(38.dp)
+                modifier = Modifier.weight(1f).height(42.dp)
             )
         }
 
@@ -211,10 +211,10 @@ fun SyncLedgerScreen(
                 label = { Text("Search transactions") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth().height(52.dp)
+                modifier = Modifier.fillMaxWidth().height(54.dp)
             )
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 LedgerFilter.values().forEach { item ->
                     FilterChip(
                         selected = filter == item,
@@ -227,11 +227,11 @@ fun SyncLedgerScreen(
                                     LedgerFilter.UNSYNCED -> "Pending"
                                     LedgerFilter.VOIDED -> "Voided"
                                 },
-                                fontSize = 9.sp
+                                fontSize = 10.sp
                             )
                         },
                         colors = FilterChipDefaults.filterChipColors(selectedContainerColor = NaomiRed, selectedLabelColor = Color.White),
-                        modifier = Modifier.weight(1f).height(36.dp)
+                        modifier = Modifier.weight(1f).height(40.dp)
                     )
                 }
             }
@@ -304,7 +304,7 @@ fun SyncLedgerScreen(
             containerColor = NaomiSurface,
             title = { Text("Void ${receipt.id}?", color = NaomiTextPrimary, fontWeight = FontWeight.Black) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         "This keeps the transaction in Activity and records the staff member, reason and time.",
                         color = NaomiTextSecondary,
@@ -348,7 +348,7 @@ private fun CompactSyncBar(
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, if (emphasized) NaomiOrange.copy(alpha = 0.45f) else NaomiBorder),
-        shape = RoundedCornerShape(5.dp),
+        shape = RoundedCornerShape(10.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -366,7 +366,7 @@ private fun CompactSyncBar(
                     },
                     color = NaomiTextPrimary,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 10.sp,
+                    fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -375,15 +375,15 @@ private fun CompactSyncBar(
                 onClick = onSync,
                 enabled = !busy,
                 colors = ButtonDefaults.buttonColors(containerColor = if (emphasized) NaomiRed else NaomiSurfaceVariant),
-                shape = RoundedCornerShape(4.dp),
-                modifier = Modifier.height(36.dp).testTag("sync_all_btn")
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.height(40.dp).testTag("sync_all_btn")
             ) {
                 if (busy) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
                 } else {
                     Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(15.dp), tint = if (emphasized) Color.White else NaomiOrange)
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Sync", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = if (emphasized) Color.White else NaomiTextPrimary)
+                    Text("Sync", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (emphasized) Color.White else NaomiTextPrimary)
                 }
             }
         }
@@ -395,7 +395,7 @@ private fun IncomingOrderRow(order: WirelessOrder, onPrint: () -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, NaomiOrange.copy(alpha = 0.35f)),
-        shape = RoundedCornerShape(5.dp),
+        shape = RoundedCornerShape(10.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -408,7 +408,7 @@ private fun IncomingOrderRow(order: WirelessOrder, onPrint: () -> Unit) {
                 Text(
                     "${order.venueName} · ${ReceiptData.formatCurrency(order.grandTotal)}",
                     color = NaomiTextSecondary,
-                    fontSize = 10.sp,
+                    fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -416,12 +416,12 @@ private fun IncomingOrderRow(order: WirelessOrder, onPrint: () -> Unit) {
             Button(
                 onClick = onPrint,
                 colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                shape = RoundedCornerShape(4.dp),
-                modifier = Modifier.height(40.dp)
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.height(44.dp)
             ) {
                 Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(15.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Print", fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Text("Print", fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -430,7 +430,7 @@ private fun IncomingOrderRow(order: WirelessOrder, onPrint: () -> Unit) {
 @Composable
 private fun EmptyActivityState(title: String, subtitle: String, modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(18.dp)) {
                 Icon(
                     Icons.Default.History,
@@ -440,7 +440,7 @@ private fun EmptyActivityState(title: String, subtitle: String, modifier: Modifi
                 )
             }
             Text(title, color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text(subtitle, color = NaomiTextSecondary, fontSize = 10.sp)
+            Text(subtitle, color = NaomiTextSecondary, fontSize = 11.sp)
         }
     }
 }
@@ -456,7 +456,7 @@ private fun ReceiptActivityCard(
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-        shape = RoundedCornerShape(5.dp),
+        shape = RoundedCornerShape(10.dp),
         border = BorderStroke(1.dp, if (receipt.isVoided) NaomiOrange.copy(alpha = 0.55f) else NaomiBorder),
         modifier = Modifier.fillMaxWidth().testTag("receipt_item_${receipt.id}")
     ) {
@@ -478,18 +478,18 @@ private fun ReceiptActivityCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text("${receipt.formattedDate()} · ${receipt.paymentMethod.label}", color = NaomiTextSecondary, fontSize = 9.sp)
+                    Text("${receipt.formattedDate()} · ${receipt.paymentMethod.label}", color = NaomiTextSecondary, fontSize = 10.sp)
                     if (receipt.processedBy.isNotBlank()) {
-                        Text("Processed by ${receipt.processedBy}", color = NaomiTextSecondary, fontSize = 9.sp)
+                        Text("Processed by ${receipt.processedBy}", color = NaomiTextSecondary, fontSize = 10.sp)
                     }
                     receipt.replacesReceiptId?.let {
-                        Text("Correction of $it", color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        Text("Correction of $it", color = NaomiOrange, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                     if (receipt.isVoided) {
                         Text(
                             "VOID: ${receipt.voidReason.orEmpty()} · ${receipt.voidedBy.orEmpty()}",
                             color = NaomiOrange,
-                            fontSize = 9.sp,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
@@ -504,26 +504,26 @@ private fun ReceiptActivityCard(
                 )
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedButton(onClick = onReprint, enabled = !receipt.isVoided, modifier = Modifier.weight(1f).height(40.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onReprint, enabled = !receipt.isVoided, modifier = Modifier.weight(1f).height(44.dp)) {
                     Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(3.dp))
-                    Text("Reprint", fontSize = 9.sp)
+                    Text("Reprint", fontSize = 10.sp)
                 }
-                OutlinedButton(onClick = onCorrect, modifier = Modifier.weight(1f).height(40.dp)) {
+                OutlinedButton(onClick = onCorrect, modifier = Modifier.weight(1f).height(44.dp)) {
                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(3.dp))
-                    Text("Correct", fontSize = 9.sp)
+                    Text("Correct", fontSize = 10.sp)
                 }
                 Button(
                     onClick = onVoid,
                     enabled = canVoid && !receipt.isVoided,
                     colors = ButtonDefaults.buttonColors(containerColor = NaomiDeepRed),
-                    modifier = Modifier.weight(1f).height(40.dp)
+                    modifier = Modifier.weight(1f).height(44.dp)
                 ) {
                     Icon(Icons.Default.VisibilityOff, contentDescription = null, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(3.dp))
-                    Text("Void", fontSize = 9.sp)
+                    Text("Void", fontSize = 10.sp)
                 }
             }
         }
@@ -533,12 +533,12 @@ private fun ReceiptActivityCard(
 @Composable
 private fun ActivityStatusPill(label: String, receipt: ReceiptData) {
     val color = if (receipt.isVoided || receipt.isBufferedOffline) NaomiOrange else NaomiSuccess
-    Surface(shape = RoundedCornerShape(4.dp), color = color.copy(alpha = 0.12f)) {
+    Surface(shape = RoundedCornerShape(10.dp), color = color.copy(alpha = 0.12f)) {
         Text(
             label,
             color = color,
             fontWeight = FontWeight.Bold,
-            fontSize = 7.sp,
+            fontSize = 9.sp,
             modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
         )
     }

@@ -162,45 +162,45 @@ fun BarcodeScannerScreen(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().background(NaomiDarkBg).padding(horizontal = 8.dp, vertical = 6.dp),
+        modifier = Modifier.fillMaxSize().background(NaomiDarkBg).padding(horizontal = 10.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("EVENT SCANNER", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                Text("Scan to sell or verify", color = NaomiTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                Text("EVENT SCANNER", color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                Text("Scan to sell or verify", color = NaomiTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
             }
             Surface(
-                shape = RoundedCornerShape(5.dp),
+                shape = RoundedCornerShape(10.dp),
                 color = if (hasCameraPermission) NaomiSuccess.copy(alpha = 0.12f) else NaomiOrange.copy(alpha = 0.12f),
                 border = BorderStroke(1.dp, if (hasCameraPermission) NaomiSuccess.copy(alpha = 0.35f) else NaomiOrange.copy(alpha = 0.35f))
             ) {
                 Text(
                     if (hasCameraPermission) "CAMERA LIVE" else "CAMERA OFF",
                     color = if (hasCameraPermission) NaomiSuccess else NaomiOrange,
-                    fontSize = 7.sp,
+                    fontSize = 9.sp,
                     fontWeight = FontWeight.Black,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
                 )
             }
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(
                 selected = mode == ScannerMode.CAMERA,
                 onClick = { mode = ScannerMode.CAMERA },
-                label = { Text("Camera", fontSize = 8.sp) },
+                label = { Text("Camera", fontSize = 9.sp) },
                 leadingIcon = { Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp)) },
                 colors = FilterChipDefaults.filterChipColors(selectedContainerColor = NaomiRed, selectedLabelColor = Color.White, selectedLeadingIconColor = Color.White),
-                modifier = Modifier.weight(1f).height(34.dp)
+                modifier = Modifier.weight(1f).height(40.dp)
             )
             FilterChip(
                 selected = mode == ScannerMode.MANUAL,
                 onClick = { mode = ScannerMode.MANUAL },
-                label = { Text("Manual code", fontSize = 8.sp) },
+                label = { Text("Manual code", fontSize = 9.sp) },
                 leadingIcon = { Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(14.dp)) },
                 colors = FilterChipDefaults.filterChipColors(selectedContainerColor = NaomiRed, selectedLabelColor = Color.White, selectedLeadingIconColor = Color.White),
-                modifier = Modifier.weight(1f).height(34.dp)
+                modifier = Modifier.weight(1f).height(40.dp)
             )
         }
 
@@ -208,7 +208,7 @@ fun BarcodeScannerScreen(
             Card(
                 colors = CardDefaults.cardColors(containerColor = NaomiSurface),
                 border = BorderStroke(1.dp, NaomiBorder),
-                shape = RoundedCornerShape(5.dp),
+                shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.fillMaxWidth().weight(1f)
             ) {
                 if (hasCameraPermission) {
@@ -226,14 +226,14 @@ fun BarcodeScannerScreen(
                                 .align(Alignment.Center)
                                 .fillMaxWidth(0.76f)
                                 .height(145.dp)
-                                .border(2.dp, NaomiOrange, RoundedCornerShape(5.dp))
+                                .border(2.dp, NaomiOrange, RoundedCornerShape(10.dp))
                         )
                         Surface(
                             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp),
                             color = Color.Black.copy(alpha = 0.70f),
-                            shape = RoundedCornerShape(5.dp)
+                            shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("Scan once · move code away to re-arm", color = Color.White, fontSize = 8.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp))
+                            Text("Scan once · move code away to re-arm", color = Color.White, fontSize = 9.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp))
                         }
                     }
                 } else {
@@ -244,10 +244,10 @@ fun BarcodeScannerScreen(
                     ) {
                         Icon(Icons.Default.CameraAlt, contentDescription = null, tint = NaomiOrange, modifier = Modifier.size(36.dp))
                         Text("Camera access required", color = NaomiTextPrimary, fontWeight = FontWeight.Black, fontSize = 13.sp)
-                        Text("Rear camera is used only while this screen is open.", color = NaomiTextSecondary, fontSize = 8.sp)
+                        Text("Rear camera is used only while this screen is open.", color = NaomiTextSecondary, fontSize = 9.sp)
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }, colors = ButtonDefaults.buttonColors(containerColor = NaomiRed)) {
-                            Text("Enable camera", fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Text("Enable camera", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -269,17 +269,17 @@ fun BarcodeScannerScreen(
             Card(
                 colors = CardDefaults.cardColors(containerColor = NaomiSurface),
                 border = BorderStroke(1.dp, NaomiBorder),
-                shape = RoundedCornerShape(5.dp),
+                shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text("MANUAL BARCODE / RECEIPT", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                    Text("MANUAL BARCODE / RECEIPT", color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Black)
                     OutlinedTextField(
                         value = manualValue,
                         onValueChange = { manualValue = it },
                         label = { Text("Code or receipt reference") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = NaomiTextPrimary,
                             unfocusedTextColor = NaomiTextPrimary,
@@ -298,8 +298,8 @@ fun BarcodeScannerScreen(
                         },
                         enabled = manualValue.isNotBlank() && !catalogueBusy,
                         colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                        modifier = Modifier.fillMaxWidth().height(38.dp)
-                    ) { Text("Resolve code", fontSize = 8.sp, fontWeight = FontWeight.Black) }
+                        modifier = Modifier.fillMaxWidth().height(42.dp)
+                    ) { Text("Resolve code", fontSize = 9.sp, fontWeight = FontWeight.Black) }
                 }
             }
 
@@ -308,12 +308,12 @@ fun BarcodeScannerScreen(
                     Card(
                         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
                         border = BorderStroke(1.dp, NaomiBorder),
-                        shape = RoundedCornerShape(5.dp),
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
                         Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = NaomiTextSecondary, modifier = Modifier.size(30.dp))
-                            Text("Enter a code above", color = NaomiTextSecondary, fontSize = 9.sp)
+                            Text("Enter a code above", color = NaomiTextSecondary, fontSize = 10.sp)
                         }
                     }
                 } else {
@@ -350,10 +350,10 @@ private fun CompactScanResult(
     Card(
         colors = CardDefaults.cardColors(containerColor = if (found) NaomiSuccess.copy(alpha = 0.08f) else NaomiSurface),
         border = BorderStroke(1.dp, if (found) NaomiSuccess.copy(alpha = 0.45f) else NaomiBorder),
-        shape = RoundedCornerShape(5.dp),
+        shape = RoundedCornerShape(10.dp),
         modifier = modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     if (found) Icons.Default.CheckCircle else Icons.Default.QrCodeScanner,
@@ -372,9 +372,9 @@ private fun CompactScanResult(
                         },
                         color = NaomiTextPrimary,
                         fontWeight = FontWeight.Black,
-                        fontSize = 10.sp
+                        fontSize = 11.sp
                     )
-                    Text("${format.ifBlank { "UNKNOWN" }} · $rawValue", color = NaomiTextSecondary, fontSize = 7.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("${format.ifBlank { "UNKNOWN" }} · $rawValue", color = NaomiTextSecondary, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
 
@@ -383,19 +383,19 @@ private fun CompactScanResult(
                     ResultLine("Receipt", receipt.id)
                     ResultLine("Venue", receipt.venueName)
                     ResultLine("Total", ReceiptData.formatCurrency(receipt.grandTotal))
-                    OutlinedButton(onClick = onOpenLedger, modifier = Modifier.fillMaxWidth().height(34.dp)) {
+                    OutlinedButton(onClick = onOpenLedger, modifier = Modifier.fillMaxWidth().height(40.dp)) {
                         Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(13.dp))
                         Spacer(modifier = Modifier.size(3.dp))
-                        Text("Open Activity", fontSize = 7.sp)
+                        Text("Open Activity", fontSize = 9.sp)
                     }
                 }
                 catalogueItem != null -> {
                     ResultLine("Item", catalogueItem.name)
                     ResultLine("Price", ReceiptData.formatCurrency(catalogueItem.price))
                     ResultLine("Qty", quantity.toString())
-                    if (!catalogueMessage.isNullOrBlank()) Text(catalogueMessage, color = NaomiSuccess, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                    if (!catalogueMessage.isNullOrBlank()) Text(catalogueMessage, color = NaomiSuccess, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                 }
-                !catalogueMessage.isNullOrBlank() -> Text(catalogueMessage, color = NaomiTextSecondary, fontSize = 7.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                !catalogueMessage.isNullOrBlank() -> Text(catalogueMessage, color = NaomiTextSecondary, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -404,8 +404,8 @@ private fun CompactScanResult(
 @Composable
 private fun ResultLine(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = NaomiTextSecondary, fontSize = 7.sp)
-        Text(value, color = NaomiTextPrimary, fontSize = 7.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        Text(label, color = NaomiTextSecondary, fontSize = 9.sp)
+        Text(value, color = NaomiTextPrimary, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
     }
 }
 

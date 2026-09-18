@@ -85,8 +85,8 @@ fun BusinessCardScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(NaomiDarkBg)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -94,13 +94,13 @@ fun BusinessCardScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text("BUSINESS CARD", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                Text("58mm Contact Card", color = NaomiTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                Text("BUSINESS CARD", color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                Text("58mm Contact Card", color = NaomiTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
             }
-            Text(selectedChannel.displayName, color = NaomiTextSecondary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            Text(selectedChannel.displayName, color = NaomiTextSecondary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             BusinessModeChip(mode == BusinessCardMode.IDENTITY, "Identity", { mode = BusinessCardMode.IDENTITY }, Modifier.weight(1f))
             BusinessModeChip(mode == BusinessCardMode.CONTACT, "Contact", { mode = BusinessCardMode.CONTACT }, Modifier.weight(1f))
             BusinessModeChip(mode == BusinessCardMode.PREVIEW, "Preview", { mode = BusinessCardMode.PREVIEW }, Modifier.weight(1f))
@@ -126,7 +126,7 @@ fun BusinessCardScreen(
 
                 BusinessCardMode.CONTACT -> Column(
                     modifier = Modifier.fillMaxSize().padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     PanelTitle("Contact", "Details and QR destination.")
                     BusinessField("Email", draft.email) { onDraftChange(draft.copy(email = it)) }
@@ -142,24 +142,24 @@ fun BusinessCardScreen(
             Text(
                 it,
                 color = if (printSucceeded) NaomiSuccess else NaomiOrange,
-                fontSize = 9.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1
             )
         }
 
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = {
                     onDraftChange(BusinessCardDraft())
                     printStatus = null
                 },
                 modifier = Modifier.weight(1f).height(44.dp),
-                shape = RoundedCornerShape(4.dp)
+                shape = RoundedCornerShape(10.dp)
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.size(5.dp))
-                Text("Reset", fontSize = 10.sp)
+                Text("Reset", fontSize = 11.sp)
             }
 
             Button(
@@ -195,11 +195,11 @@ fun BusinessCardScreen(
                 enabled = draft.businessName.isNotBlank() && draft.displayName.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
                 modifier = Modifier.weight(1.25f).height(44.dp),
-                shape = RoundedCornerShape(4.dp)
+                shape = RoundedCornerShape(10.dp)
             ) {
                 Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.size(5.dp))
-                Text("Print card", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text("Print card", fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -210,9 +210,9 @@ private fun BusinessModeChip(selected: Boolean, label: String, onClick: () -> Un
     FilterChip(
         selected = selected,
         onClick = onClick,
-        label = { Text(label, fontSize = 9.sp) },
+        label = { Text(label, fontSize = 10.sp) },
         colors = FilterChipDefaults.filterChipColors(selectedContainerColor = NaomiRed, selectedLabelColor = Color.White),
-        modifier = modifier.height(36.dp)
+        modifier = modifier.height(40.dp)
     )
 }
 
@@ -220,7 +220,7 @@ private fun BusinessModeChip(selected: Boolean, label: String, onClick: () -> Un
 private fun PanelTitle(title: String, subtitle: String) {
     Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Text(title, color = NaomiTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text(subtitle, color = NaomiTextSecondary, fontSize = 8.sp)
+        Text(subtitle, color = NaomiTextSecondary, fontSize = 9.sp)
     }
 }
 
@@ -228,7 +228,7 @@ private fun PanelTitle(title: String, subtitle: String) {
 private fun BusinessCardPreview(draft: BusinessCardDraft, modifier: Modifier = Modifier) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(10.dp),
         border = BorderStroke(1.dp, NaomiBorder),
         modifier = modifier
     ) {
@@ -239,22 +239,22 @@ private fun BusinessCardPreview(draft: BusinessCardDraft, modifier: Modifier = M
         ) {
             Text(draft.businessName, color = Color.Black, fontSize = 22.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
             Text(draft.displayName, color = Color.Black, fontSize = 15.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-            Text(draft.role, color = Color.DarkGray, fontSize = 10.sp, textAlign = TextAlign.Center)
+            Text(draft.role, color = Color.DarkGray, fontSize = 11.sp, textAlign = TextAlign.Center)
 
             Box(modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp).height(1.dp).background(Color.LightGray))
 
-            if (draft.email.isNotBlank()) Text(draft.email, color = Color.Black, fontSize = 9.sp)
-            if (draft.phone.isNotBlank()) Text(draft.phone, color = Color.Black, fontSize = 9.sp)
+            if (draft.email.isNotBlank()) Text(draft.email, color = Color.Black, fontSize = 10.sp)
+            if (draft.phone.isNotBlank()) Text(draft.phone, color = Color.Black, fontSize = 10.sp)
             if (draft.website.isNotBlank()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Web, contentDescription = null, tint = Color.Black, modifier = Modifier.size(12.dp))
                     Spacer(modifier = Modifier.size(3.dp))
-                    Text(draft.website, color = Color.Black, fontSize = 9.sp)
+                    Text(draft.website, color = Color.Black, fontSize = 10.sp)
                 }
             }
-            if (draft.location.isNotBlank()) Text(draft.location, color = Color.DarkGray, fontSize = 8.sp)
+            if (draft.location.isNotBlank()) Text(draft.location, color = Color.DarkGray, fontSize = 9.sp)
             Spacer(modifier = Modifier.height(5.dp))
-            Text("SCAN QR ON PRINTED CARD", color = Color.Gray, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+            Text("SCAN QR ON PRINTED CARD", color = Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -264,8 +264,8 @@ private fun BusinessField(label: String, value: String, onValueChange: (String) 
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label, fontSize = 10.sp) },
+        label = { Text(label, fontSize = 11.sp) },
         singleLine = true,
-        modifier = Modifier.fillMaxWidth().height(54.dp)
+        modifier = Modifier.fillMaxWidth().height(56.dp)
     )
 }
