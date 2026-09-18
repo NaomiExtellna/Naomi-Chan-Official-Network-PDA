@@ -15,7 +15,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.AuthViewModel
 import com.example.ui.PosViewModel
 import com.example.ui.screens.ChangeCredentialScreen
@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             NaomiChanTheme(darkTheme = true) {
                 var minimumSplashElapsed by remember { mutableStateOf(false) }
-                val authState = authVm?.state?.collectAsState()?.value
+                val authState = authVm?.state?.collectAsStateWithLifecycle()?.value
 
                 LaunchedEffect(Unit) {
                     delay(MIN_SPLASH_DURATION_MS)
@@ -112,7 +112,9 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        val authState by authVm.state.collectAsState()
+        // Lifecycle-aware collection stops observing authentication state while the Activity
+        // is stopped, avoiding unnecessary work when the SUNMI is sleeping/backgrounded.
+        val authState by authVm.state.collectAsStateWithLifecycle()
         val user = authState.currentUser
         val recoveryCode = authState.pendingRecoveryCode
 

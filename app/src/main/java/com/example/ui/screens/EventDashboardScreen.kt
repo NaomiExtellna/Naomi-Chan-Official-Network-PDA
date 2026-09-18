@@ -33,11 +33,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.model.ReceiptData
 import com.example.network.BlackpoolTramClient
 import com.example.network.BlackpoolTramStops
@@ -59,7 +63,7 @@ import java.util.Date
 import java.util.Locale
 
 private const val DASHBOARD_CLOCK_TICK_MS = 60_000L
-private const val TRAM_REFRESH_MS = 60_000L
+private const val DASHBOARD_TRAM_REFRESH_MS = 180_000L
 
 @Composable
 fun EventDashboardScreen(
@@ -70,6 +74,8 @@ fun EventDashboardScreen(
     onBlackpool: () -> Unit,
     onOps: () -> Unit
 ) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val context = LocalContext.current
     val authState by authViewModel.state.collectAsStateWithLifecycle()
     val receipt by posViewModel.currentReceipt.collectAsStateWithLifecycle()
     val printer by posViewModel.printerStatus.collectAsStateWithLifecycle()
@@ -79,7 +85,7 @@ fun EventDashboardScreen(
 
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     var departures by remember { mutableStateOf<List<TramDeparture>>(emptyList()) }
-    val tramClient = remember { BlackpoolTramClient() }
+    val tramClient = remember(context.applicationContext) { BlackpoolTramClient(context.applicationContext) }
     val tower = remember {
         BlackpoolTramStops.FEATURED.firstOrNull { it.name == "Tower" }
             ?: BlackpoolTramStops.FEATURED.first()
@@ -89,18 +95,22 @@ fun EventDashboardScreen(
     val clockText = remember(now / DASHBOARD_CLOCK_TICK_MS) { clockFormatter.format(Date(now)) }
     val dateText = remember(now / 86_400_000L) { dateFormatter.format(Date(now)) }
 
-    LaunchedEffect(Unit) {
-        while (true) {
-            val current = System.currentTimeMillis()
-            now = current
-            delay((DASHBOARD_CLOCK_TICK_MS - (current % DASHBOARD_CLOCK_TICK_MS)).coerceAtLeast(1_000L))
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                val current = System.currentTimeMillis()
+                now = current
+                delay((DASHBOARD_CLOCK_TICK_MS - (current % DASHBOARD_CLOCK_TICK_MS)).coerceAtLeast(1_000L))
+            }
         }
     }
 
-    LaunchedEffect(tower.name) {
-        while (true) {
-            departures = tramClient.fetchDepartures(tower)
-            delay(TRAM_REFRESH_MS)
+    LaunchedEffect(lifecycleOwner, tower.name) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                departures = tramClient.fetchDepartures(tower)
+                delay(DASHBOARD_TRAM_REFRESH_MS)
+            }
         }
     }
 
@@ -108,8 +118,8 @@ fun EventDashboardScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(NaomiDarkBg)
-            .padding(horizontal = 12.dp, vertical = 9.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -117,8 +127,8 @@ fun EventDashboardScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("HOME", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                Text("Hi ${user.displayName}", color = NaomiTextPrimary, fontSize = 19.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("WORKSTATION", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                Text("Hi ${user.displayName}", color = NaomiTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text("$dateText · $clockText", color = NaomiTextSecondary, fontSize = 9.sp)
             }
             ShiftBadge(active = authState.activeShift != null)
@@ -127,20 +137,20 @@ fun EventDashboardScreen(
         Button(
             onClick = { posViewModel.resetNewReceipt(); onNewReceipt() },
             colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-            shape = RoundedCornerShape(13.dp),
-            modifier = Modifier.fillMaxWidth().height(48.dp)
+            shape = RoundedCornerShape(4.dp),
+            modifier = Modifier.fillMaxWidth().height(38.dp)
         ) {
             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(19.dp))
             Spacer(modifier = Modifier.size(7.dp))
-            Text("START NEW SALE", fontWeight = FontWeight.Black, fontSize = 12.sp)
+            Text("NEW SALE", fontWeight = FontWeight.Black, fontSize = 12.sp)
         }
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             OutlinedButton(
                 onClick = onScan,
                 border = BorderStroke(1.dp, NaomiBorder),
-                shape = RoundedCornerShape(11.dp),
-                modifier = Modifier.weight(1f).height(40.dp)
+                shape = RoundedCornerShape(4.dp),
+                modifier = Modifier.weight(1f).height(34.dp)
             ) {
                 Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.size(4.dp))
@@ -149,8 +159,8 @@ fun EventDashboardScreen(
             OutlinedButton(
                 onClick = onBlackpool,
                 border = BorderStroke(1.dp, NaomiBorder),
-                shape = RoundedCornerShape(11.dp),
-                modifier = Modifier.weight(1f).height(40.dp)
+                shape = RoundedCornerShape(4.dp),
+                modifier = Modifier.weight(1f).height(34.dp)
             ) {
                 Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.size(4.dp))
@@ -159,8 +169,8 @@ fun EventDashboardScreen(
             OutlinedButton(
                 onClick = onOps,
                 border = BorderStroke(1.dp, NaomiBorder),
-                shape = RoundedCornerShape(11.dp),
-                modifier = Modifier.weight(1f).height(40.dp)
+                shape = RoundedCornerShape(4.dp),
+                modifier = Modifier.weight(1f).height(34.dp)
             ) {
                 Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.size(4.dp))
@@ -200,10 +210,10 @@ private fun DashboardSaleCard(receipt: ReceiptData, modifier: Modifier = Modifie
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, NaomiBorder),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(4.dp),
         modifier = modifier
     ) {
-        Column(modifier = Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text("CURRENT SALE", color = NaomiTextSecondary, fontSize = 8.sp, fontWeight = FontWeight.Black)
             val empty = receipt.items.isEmpty() && receipt.clientName.isBlank()
             Text(
@@ -236,11 +246,11 @@ private fun DashboardShiftCard(
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, if (shiftOpen) NaomiSuccess.copy(alpha = 0.32f) else NaomiOrange.copy(alpha = 0.35f)),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(4.dp),
         modifier = modifier
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(10.dp),
+            modifier = Modifier.fillMaxSize().padding(8.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
@@ -262,16 +272,25 @@ private fun TramMiniBoard(departures: List<TramDeparture>, modifier: Modifier = 
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, NaomiBorder),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(4.dp),
         modifier = modifier
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(10.dp),
+            modifier = Modifier.fillMaxSize().padding(8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("BLACKPOOL · TOWER", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black)
-                Text("LIVE TRAMS", color = NaomiTextSecondary, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                val cached = departures.any { departure ->
+                    departure.directionLabel.contains("CACHE", ignoreCase = true) ||
+                        departure.directionLabel.contains("OFFLINE", ignoreCase = true)
+                }
+                Text(
+                    if (cached) "LOCAL CACHE" else "LIVE TRAMS",
+                    color = NaomiTextSecondary,
+                    fontSize = 7.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
             if (departures.isEmpty()) {
                 Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -279,7 +298,7 @@ private fun TramMiniBoard(departures: List<TramDeparture>, modifier: Modifier = 
                 }
             } else {
                 departures.forEach { departure ->
-                    Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(3.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
                         Row(
                             modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -303,7 +322,7 @@ private fun ShiftBadge(active: Boolean) {
     Surface(
         color = if (active) NaomiSuccess.copy(alpha = 0.12f) else NaomiOrange.copy(alpha = 0.12f),
         border = BorderStroke(1.dp, if (active) NaomiSuccess.copy(alpha = 0.35f) else NaomiOrange.copy(alpha = 0.35f)),
-        shape = RoundedCornerShape(14.dp)
+        shape = RoundedCornerShape(4.dp)
     ) {
         Text(
             if (active) "SHIFT OPEN" else "NO SHIFT",
@@ -320,10 +339,10 @@ private fun HealthTile(label: String, value: String, healthy: Boolean, modifier:
     Surface(
         modifier = modifier,
         color = NaomiSurface,
-        shape = RoundedCornerShape(11.dp),
+        shape = RoundedCornerShape(4.dp),
         border = BorderStroke(1.dp, NaomiBorder)
     ) {
-        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(label.uppercase(), color = NaomiTextSecondary, fontSize = 7.sp, fontWeight = FontWeight.Bold)
             Text(
                 value,

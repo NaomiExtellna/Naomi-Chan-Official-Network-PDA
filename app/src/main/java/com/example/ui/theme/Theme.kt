@@ -1,9 +1,20 @@
 package com.example.ui.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+
+private val DesktopShapes = Shapes(
+    extraSmall = RoundedCornerShape(2.dp),
+    small = RoundedCornerShape(3.dp),
+    medium = RoundedCornerShape(4.dp),
+    large = RoundedCornerShape(6.dp),
+    extraLarge = RoundedCornerShape(8.dp)
+)
 
 private val LightColorScheme = lightColorScheme(
     primary = NaomiRed,
@@ -37,6 +48,7 @@ fun NaomiChanTheme(
     MaterialTheme(
         colorScheme = LightColorScheme,
         typography = Typography,
+        shapes = DesktopShapes,
         content = content
     )
 }

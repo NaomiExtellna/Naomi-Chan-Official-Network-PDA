@@ -78,7 +78,7 @@ fun OperationsScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
                 Row(
@@ -160,7 +160,7 @@ private fun OpsChip(
 private fun RoleBadge(user: StaffAccount) {
     Surface(
         color = if (user.isAdmin) NaomiOrange.copy(alpha = 0.14f) else NaomiSurfaceVariant,
-        shape = RoundedCornerShape(8.dp)
+        shape = RoundedCornerShape(3.dp)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
@@ -204,13 +204,13 @@ private fun ShiftPanel(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Card(
             colors = CardDefaults.cardColors(containerColor = NaomiSurface),
             border = BorderStroke(1.dp, NaomiBorder),
-            shape = RoundedCornerShape(13.dp),
+            shape = RoundedCornerShape(5.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -256,7 +256,7 @@ private fun ShiftPanel(
         Card(
             colors = CardDefaults.cardColors(containerColor = NaomiSurface),
             border = BorderStroke(1.dp, NaomiBorder),
-            shape = RoundedCornerShape(13.dp),
+            shape = RoundedCornerShape(5.dp),
             modifier = Modifier.fillMaxWidth().weight(1f)
         ) {
             Column(
@@ -299,7 +299,7 @@ private fun ShiftPanel(
                 }
 
                 if (shiftHistory.isNotEmpty()) {
-                    Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(9.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(4.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
                         Column(
                             modifier = Modifier.fillMaxSize().padding(8.dp),
                             verticalArrangement = Arrangement.Center
@@ -329,7 +329,7 @@ private fun ShiftMetric(
     Surface(
         modifier = modifier,
         color = if (emphasize) NaomiOrange.copy(alpha = 0.08f) else NaomiSurfaceVariant,
-        shape = RoundedCornerShape(9.dp),
+        shape = RoundedCornerShape(4.dp),
         border = if (emphasize) BorderStroke(1.dp, NaomiOrange.copy(alpha = 0.30f)) else null
     ) {
         Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {

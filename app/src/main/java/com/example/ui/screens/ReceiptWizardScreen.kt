@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -81,8 +82,8 @@ fun ReceiptWizardScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(NaomiDarkBg)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(7.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
         CompactSaleHeader(
             step = safeStep,
@@ -98,7 +99,7 @@ fun ReceiptWizardScreen(
         Card(
             colors = CardDefaults.cardColors(containerColor = NaomiSurface),
             border = BorderStroke(1.dp, NaomiBorder),
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(5.dp),
             modifier = Modifier.fillMaxWidth().weight(1f)
         ) {
             when (safeStep) {
@@ -166,8 +167,8 @@ private fun StepProgress(step: Int) {
             Surface(
                 color = if (index == step) NaomiRed else if (index < step) NaomiOrange.copy(alpha = 0.18f) else NaomiSurface,
                 border = BorderStroke(1.dp, if (index <= step) NaomiRed.copy(alpha = 0.45f) else NaomiBorder),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.weight(1f).height(31.dp)
+                shape = RoundedCornerShape(3.dp),
+                modifier = Modifier.weight(1f).height(27.dp)
             ) {
                 Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
@@ -191,24 +192,34 @@ private fun CustomerStep(viewModel: PosViewModel, receipt: ReceiptData) {
             onValueChange = viewModel::updateClientName,
             label = { Text("Customer or business name") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth().height(55.dp)
+            modifier = Modifier.fillMaxWidth().height(49.dp)
         )
         OutlinedTextField(
             value = receipt.clientContact,
             onValueChange = viewModel::updateClientContact,
             label = { Text("Phone / contact") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth().height(55.dp)
+            modifier = Modifier.fillMaxWidth().height(49.dp)
         )
         Surface(
             color = NaomiSurfaceVariant,
-            shape = RoundedCornerShape(11.dp),
+            shape = RoundedCornerShape(4.dp),
             border = BorderStroke(1.dp, NaomiBorder),
-            modifier = Modifier.fillMaxWidth().weight(1f)
+            modifier = Modifier.fillMaxWidth().height(54.dp)
         ) {
-            Column(modifier = Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.Center) {
-                Text("POS CUSTOMER", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black)
-                Text("These details print on the receipt and are searchable later in Activity.", color = NaomiTextSecondary, fontSize = 9.sp)
+            Row(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 7.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("CUSTOMER RECORD", color = NaomiOrange, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                Box(modifier = Modifier.width(1.dp).height(26.dp).background(NaomiBorder))
+                Text(
+                    "Printed on receipt · searchable in Activity",
+                    color = NaomiTextSecondary,
+                    fontSize = 8.sp,
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
     }
@@ -252,7 +263,7 @@ private fun EventStep(viewModel: PosViewModel, receipt: ReceiptData) {
 
         Surface(
             color = NaomiSurfaceVariant,
-            shape = RoundedCornerShape(10.dp),
+            shape = RoundedCornerShape(4.dp),
             border = BorderStroke(1.dp, NaomiBorder),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -321,7 +332,7 @@ private fun ItemsStep(viewModel: PosViewModel, receipt: ReceiptData) {
                     if (pair.size == 1) Spacer(modifier = Modifier.weight(1f))
                 }
             }
-            Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
+            Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(4.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
                 Column(modifier = Modifier.fillMaxSize().padding(10.dp), verticalArrangement = Arrangement.Center) {
                     Text(receipt.packageTier.title, color = NaomiTextPrimary, fontWeight = FontWeight.Black, fontSize = 10.sp)
                     Text(receipt.packageTier.description, color = NaomiTextSecondary, fontSize = 8.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -330,7 +341,7 @@ private fun ItemsStep(viewModel: PosViewModel, receipt: ReceiptData) {
         } else {
             Surface(
                 color = NaomiSurfaceVariant,
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(4.dp),
                 border = BorderStroke(1.dp, NaomiBorder),
                 modifier = Modifier.fillMaxWidth().height(57.dp)
             ) {
@@ -388,7 +399,7 @@ private fun ItemsStep(viewModel: PosViewModel, receipt: ReceiptData) {
                     }
                 },
                 enabled = itemName.isNotBlank() && itemPrice.toDoubleOrNull() != null,
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(4.dp),
                 modifier = Modifier.fillMaxWidth().height(38.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(15.dp))
@@ -463,8 +474,8 @@ private fun ReviewStep(
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             OutlinedButton(
                 onClick = onNavigateToPreview,
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.weight(1f).height(42.dp)
+                shape = RoundedCornerShape(4.dp),
+                modifier = Modifier.weight(1f).height(38.dp)
             ) {
                 Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(15.dp))
                 Spacer(modifier = Modifier.size(4.dp))
@@ -473,7 +484,7 @@ private fun ReviewStep(
             Button(
                 onClick = viewModel::printCurrentReceipt,
                 colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(4.dp),
                 modifier = Modifier.weight(1.4f).height(42.dp)
             ) {
                 Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -491,12 +502,12 @@ private fun StepPanel(
     content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(11.dp),
+        modifier = Modifier.fillMaxSize().padding(8.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-            Text(title, color = NaomiTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Black)
-            Text(subtitle, color = NaomiTextSecondary, fontSize = 7.sp)
+            Text(title, color = NaomiTextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Black)
+            Text(subtitle, color = NaomiTextSecondary, fontSize = 7.sp, maxLines = 1)
         }
         content()
     }
@@ -509,10 +520,10 @@ private fun NavigationActions(
     onNext: () -> Unit,
     onNewSale: () -> Unit
 ) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         OutlinedButton(
             onClick = if (step == 0) onNewSale else onBack,
-            shape = RoundedCornerShape(11.dp),
+            shape = RoundedCornerShape(4.dp),
             modifier = Modifier.weight(1f).height(42.dp)
         ) {
             if (step == 0) {
@@ -528,14 +539,14 @@ private fun NavigationActions(
             Button(
                 onClick = onNext,
                 colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                shape = RoundedCornerShape(11.dp),
-                modifier = Modifier.weight(1.3f).height(42.dp)
+                shape = RoundedCornerShape(4.dp),
+                modifier = Modifier.weight(1.3f).height(38.dp)
             ) { Text("Continue ›", fontWeight = FontWeight.Black, fontSize = 9.sp) }
         } else {
             Button(
                 onClick = onNewSale,
                 colors = ButtonDefaults.buttonColors(containerColor = NaomiSurfaceVariant),
-                shape = RoundedCornerShape(11.dp),
+                shape = RoundedCornerShape(4.dp),
                 modifier = Modifier.weight(1.3f).height(42.dp)
             ) { Text("New sale", color = NaomiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 9.sp) }
         }

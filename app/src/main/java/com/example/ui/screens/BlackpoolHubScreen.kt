@@ -42,12 +42,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.model.BlackpoolBar
 import com.example.model.BlackpoolVenues
 import com.example.network.BlackpoolTramClient
@@ -74,6 +78,8 @@ private enum class BlackpoolHubMode { VENUES, TRAMS, ALL_STOPS }
 private const val VENUES_PER_PAGE = 2
 private const val STOPS_PER_PAGE = 4
 private const val DEPARTURES_PER_PAGE = 4
+private const val TRAM_CLOCK_TICK_MS = 60_000L
+private const val TRAM_AUTO_REFRESH_MS = 120_000L
 
 private data class PagedTramStop(val number: Int?, val stop: TramStopInfo)
 
@@ -240,7 +246,7 @@ private fun VenueCardCompact(
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-        shape = RoundedCornerShape(13.dp),
+        shape = RoundedCornerShape(5.dp),
         border = BorderStroke(1.dp, NaomiBorder),
         modifier = modifier.fillMaxWidth()
     ) {
@@ -276,7 +282,7 @@ private fun VenueCardCompact(
             Button(
                 onClick = onCreateReceipt,
                 colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(4.dp),
                 modifier = Modifier.fillMaxWidth().height(38.dp)
             ) {
                 Icon(Icons.Default.EditNote, contentDescription = null, modifier = Modifier.size(15.dp))
@@ -319,7 +325,7 @@ private fun AllTramStops() {
 
         Surface(
             color = NaomiSurfaceVariant,
-            shape = RoundedCornerShape(11.dp),
+            shape = RoundedCornerShape(4.dp),
             border = BorderStroke(1.dp, NaomiBorder),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -364,7 +370,7 @@ private fun AllTramStops() {
 private fun TramStopCardCompact(number: Int?, stop: TramStopInfo, modifier: Modifier = Modifier) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-        shape = RoundedCornerShape(11.dp),
+        shape = RoundedCornerShape(4.dp),
         border = BorderStroke(1.dp, if (stop.isBranchStop) NaomiOrange.copy(alpha = 0.55f) else NaomiBorder),
         modifier = modifier.fillMaxWidth()
     ) {
@@ -375,7 +381,7 @@ private fun TramStopCardCompact(number: Int?, stop: TramStopInfo, modifier: Modi
             Box(
                 modifier = Modifier.size(32.dp).background(
                     if (stop.isBranchStop) NaomiOrange.copy(alpha = 0.13f) else NaomiSurfaceVariant,
-                    RoundedCornerShape(8.dp)
+                    RoundedCornerShape(3.dp)
                 ),
                 contentAlignment = Alignment.Center
             ) {
@@ -393,36 +399,50 @@ private fun TramStopCardCompact(number: Int?, stop: TramStopInfo, modifier: Modi
 
 @Composable
 private fun TramBoard() {
-    val client = remember { BlackpoolTramClient() }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val context = LocalContext.current
+    val client = remember(context.applicationContext) { BlackpoolTramClient(context.applicationContext) }
     val featured = remember { BlackpoolTramStops.FEATURED }
     var stopIndex by remember { mutableIntStateOf(0) }
     var departures by remember { mutableStateOf<List<TramDeparture>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var errorText by remember { mutableStateOf<String?>(null) }
     var refreshKey by remember { mutableIntStateOf(0) }
-    var clockText by remember { mutableStateOf("--:--:--") }
+    var lastHandledRefreshKey by remember { mutableIntStateOf(0) }
+    var clockText by remember { mutableStateOf("--:--") }
     var page by remember { mutableIntStateOf(0) }
     val selectedStop = featured[stopIndex.coerceIn(0, featured.lastIndex)]
 
-    LaunchedEffect(Unit) {
-        val clockFormat = SimpleDateFormat("HH:mm:ss", Locale.UK).apply {
-            timeZone = TimeZone.getTimeZone("Europe/London")
-        }
-        while (true) {
-            clockText = clockFormat.format(Date())
-            delay(1_000)
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            val clockFormat = SimpleDateFormat("HH:mm", Locale.UK).apply {
+                timeZone = TimeZone.getTimeZone("Europe/London")
+            }
+            while (true) {
+                val now = System.currentTimeMillis()
+                clockText = clockFormat.format(Date(now))
+                delay((TRAM_CLOCK_TICK_MS - (now % TRAM_CLOCK_TICK_MS)).coerceAtLeast(1_000L))
+            }
         }
     }
 
-    LaunchedEffect(selectedStop, refreshKey) {
-        while (true) {
-            loading = true
-            val latest = client.fetchDepartures(selectedStop)
-            departures = latest
-            errorText = if (latest.isEmpty()) "No live departures returned." else null
-            page = 0
-            loading = false
-            delay(60_000)
+    LaunchedEffect(lifecycleOwner, selectedStop, refreshKey) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            var forceNetwork = refreshKey != lastHandledRefreshKey
+            if (forceNetwork) lastHandledRefreshKey = refreshKey
+            while (true) {
+                loading = true
+                val latest = client.fetchDepartures(
+                    stop = selectedStop,
+                    forceRefresh = forceNetwork
+                )
+                forceNetwork = false
+                departures = latest
+                errorText = if (latest.isEmpty()) "No cached or live departures available." else null
+                page = 0
+                loading = false
+                delay(TRAM_AUTO_REFRESH_MS)
+            }
         }
     }
 
@@ -435,12 +455,12 @@ private fun TramBoard() {
     ) {
         Card(
             colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-            shape = RoundedCornerShape(13.dp),
+            shape = RoundedCornerShape(5.dp),
             border = BorderStroke(1.dp, NaomiBorder),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -450,14 +470,22 @@ private fun TramBoard() {
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Icon(Icons.Default.Schedule, contentDescription = null, tint = NaomiOrange, modifier = Modifier.size(24.dp))
-                    Text("60s live refresh", color = NaomiTextSecondary, fontSize = 7.sp)
+                    Text("Room cache · HTTP max 5m", color = NaomiTextSecondary, fontSize = 7.sp)
                 }
             }
         }
 
         SelectorBar(
             label = selectedStop.name,
-            detail = if (loading) "Refreshing…" else "Live stop ${stopIndex + 1}/${featured.size}",
+            detail = if (loading) {
+                "Checking local cache…"
+            } else {
+                val cached = departures.any { departure ->
+                    departure.directionLabel.contains("CACHE", ignoreCase = true) ||
+                        departure.directionLabel.contains("OFFLINE", ignoreCase = true)
+                }
+                if (cached) "Cached stop ${stopIndex + 1}/${featured.size}" else "Live stop ${stopIndex + 1}/${featured.size}"
+            },
             canPrevious = stopIndex > 0,
             canNext = stopIndex < featured.lastIndex,
             onPrevious = { stopIndex--; page = 0 },
@@ -471,11 +499,11 @@ private fun TramBoard() {
 
         Surface(
             color = NaomiSurfaceVariant,
-            shape = RoundedCornerShape(10.dp),
+            shape = RoundedCornerShape(4.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                "Base daytime service: from every 15 min · live times below take priority",
+                "Local database first · network only when cache is stale · refresh forces live",
                 color = NaomiTextSecondary,
                 fontSize = 8.sp,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
@@ -512,7 +540,7 @@ private fun TramBoard() {
 private fun DepartureCardCompact(departure: TramDeparture, modifier: Modifier = Modifier) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
-        shape = RoundedCornerShape(11.dp),
+        shape = RoundedCornerShape(4.dp),
         border = BorderStroke(1.dp, if (departure.isLive) NaomiSuccess.copy(alpha = 0.55f) else NaomiBorder),
         modifier = modifier.fillMaxWidth()
     ) {
@@ -555,7 +583,7 @@ private fun SelectorBar(
             modifier = Modifier.weight(1f).height(38.dp),
             color = NaomiSurface,
             border = BorderStroke(1.dp, NaomiBorder),
-            shape = RoundedCornerShape(10.dp)
+            shape = RoundedCornerShape(4.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 9.dp),
@@ -576,7 +604,7 @@ private fun EmptyPosPanel(title: String, subtitle: String) {
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, NaomiBorder),
-        shape = RoundedCornerShape(13.dp),
+        shape = RoundedCornerShape(5.dp),
         modifier = Modifier.fillMaxSize()
     ) {
         Column(

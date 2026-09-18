@@ -46,14 +46,14 @@ internal fun PosPager(
     val safePage = page.coerceIn(0, safeTotal - 1)
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         OutlinedButton(
             onClick = onPrevious,
             enabled = safePage > 0,
             modifier = Modifier.weight(1f).height(42.dp),
-            shape = RoundedCornerShape(10.dp),
+            shape = RoundedCornerShape(4.dp),
             border = BorderStroke(1.dp, NaomiBorder),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = NaomiTextPrimary)
         ) {
@@ -64,7 +64,7 @@ internal fun PosPager(
             modifier = Modifier.weight(1.1f).height(42.dp),
             color = NaomiSurface,
             border = BorderStroke(1.dp, NaomiBorder),
-            shape = RoundedCornerShape(10.dp)
+            shape = RoundedCornerShape(4.dp)
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 8.dp),
@@ -84,7 +84,7 @@ internal fun PosPager(
             onClick = onNext,
             enabled = safePage < safeTotal - 1,
             modifier = Modifier.weight(1f).height(42.dp),
-            shape = RoundedCornerShape(10.dp),
+            shape = RoundedCornerShape(4.dp),
             border = BorderStroke(1.dp, NaomiBorder),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = NaomiOrange)
         ) {

@@ -55,7 +55,8 @@ import com.example.ui.theme.NaomiOrange
 import com.example.ui.theme.NaomiSurface
 import com.example.ui.theme.NaomiTextPrimary
 import com.example.ui.theme.NaomiTextSecondary
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.withTimeoutOrNull
 
 private const val IDLE_ATTRACT_DELAY_MS = 45_000L
 
@@ -93,8 +94,11 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
     var activeTab by remember { mutableStateOf(MainTab.RECEIPT) }
     var receiptStep by remember { mutableIntStateOf(0) }
     var businessCardDraft by remember { mutableStateOf(BusinessCardDraft()) }
-    var interactionGeneration by remember { mutableIntStateOf(0) }
     var showAttractMode by remember { mutableStateOf(false) }
+
+    // Touches are frequent on a POS. A conflated channel resets the idle countdown without
+    // mutating Compose state, avoiding a top-level recomposition on every button press/tap.
+    val idleResetChannel = remember { Channel<Unit>(capacity = Channel.CONFLATED) }
 
     val utilityTabs = remember {
         setOf(MainTab.BUSINESS_CARD, MainTab.BLACKPOOL, MainTab.PRINTERS, MainTab.OPERATIONS)
@@ -116,7 +120,7 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
 
     fun dismissAttractMode() {
         showAttractMode = false
-        interactionGeneration += 1
+        idleResetChannel.trySend(Unit)
     }
 
     fun openReceiptFromVenue() {
@@ -124,11 +128,19 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
         activeTab = MainTab.RECEIPT
     }
 
-    LaunchedEffect(interactionGeneration, attractModeEligible) {
-        showAttractMode = false
-        if (attractModeEligible) {
-            delay(IDLE_ATTRACT_DELAY_MS)
-            showAttractMode = true
+    LaunchedEffect(attractModeEligible, showAttractMode) {
+        if (!attractModeEligible || showAttractMode) return@LaunchedEffect
+
+        while (true) {
+            val resetReceived = withTimeoutOrNull(IDLE_ATTRACT_DELAY_MS) {
+                idleResetChannel.receive()
+                true
+            } ?: false
+
+            if (!resetReceived) {
+                showAttractMode = true
+                break
+            }
         }
     }
 
@@ -150,7 +162,7 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         if (!showAttractMode && event.changes.any { it.pressed && !it.previousPressed }) {
-                            interactionGeneration += 1
+                            idleResetChannel.trySend(Unit)
                         }
                     }
                 }
@@ -174,7 +186,7 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                     containerColor = NaomiSurface,
                     tonalElevation = 0.dp,
                     modifier = Modifier
-                        .height(66.dp)
+                        .height(54.dp)
                         .navigationBarsPadding()
                         .testTag("main_navigation_bar")
                 ) {
@@ -188,13 +200,13 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                                 Icon(
                                     imageVector = item.icon,
                                     contentDescription = item.label,
-                                    modifier = Modifier.size(23.dp)
+                                    modifier = Modifier.size(19.dp)
                                 )
                             },
                             label = {
                                 Text(
                                     text = item.label,
-                                    fontSize = 10.sp,
+                                    fontSize = 8.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                     maxLines = 1
                                 )
@@ -204,7 +216,7 @@ fun MainPosScreen(viewModel: PosViewModel, authViewModel: AuthViewModel) {
                                 selectedTextColor = NaomiTextPrimary,
                                 unselectedIconColor = NaomiTextSecondary,
                                 unselectedTextColor = NaomiTextSecondary,
-                                indicatorColor = NaomiOrange.copy(alpha = 0.10f)
+                                indicatorColor = NaomiSurface
                             ),
                             modifier = Modifier.testTag("nav_tab_${item.tab.name}")
                         )

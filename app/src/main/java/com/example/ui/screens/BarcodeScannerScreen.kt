@@ -162,7 +162,7 @@ fun BarcodeScannerScreen(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().background(NaomiDarkBg).padding(horizontal = 10.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxSize().background(NaomiDarkBg).padding(horizontal = 8.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -171,7 +171,7 @@ fun BarcodeScannerScreen(
                 Text("Scan to sell or verify", color = NaomiTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Black)
             }
             Surface(
-                shape = RoundedCornerShape(13.dp),
+                shape = RoundedCornerShape(5.dp),
                 color = if (hasCameraPermission) NaomiSuccess.copy(alpha = 0.12f) else NaomiOrange.copy(alpha = 0.12f),
                 border = BorderStroke(1.dp, if (hasCameraPermission) NaomiSuccess.copy(alpha = 0.35f) else NaomiOrange.copy(alpha = 0.35f))
             ) {
@@ -208,7 +208,7 @@ fun BarcodeScannerScreen(
             Card(
                 colors = CardDefaults.cardColors(containerColor = NaomiSurface),
                 border = BorderStroke(1.dp, NaomiBorder),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(5.dp),
                 modifier = Modifier.fillMaxWidth().weight(1f)
             ) {
                 if (hasCameraPermission) {
@@ -226,12 +226,12 @@ fun BarcodeScannerScreen(
                                 .align(Alignment.Center)
                                 .fillMaxWidth(0.76f)
                                 .height(145.dp)
-                                .border(2.dp, NaomiOrange, RoundedCornerShape(16.dp))
+                                .border(2.dp, NaomiOrange, RoundedCornerShape(5.dp))
                         )
                         Surface(
                             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp),
                             color = Color.Black.copy(alpha = 0.70f),
-                            shape = RoundedCornerShape(16.dp)
+                            shape = RoundedCornerShape(5.dp)
                         ) {
                             Text("Scan once · move code away to re-arm", color = Color.White, fontSize = 8.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp))
                         }
@@ -269,7 +269,7 @@ fun BarcodeScannerScreen(
             Card(
                 colors = CardDefaults.cardColors(containerColor = NaomiSurface),
                 border = BorderStroke(1.dp, NaomiBorder),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(5.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -308,7 +308,7 @@ fun BarcodeScannerScreen(
                     Card(
                         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
                         border = BorderStroke(1.dp, NaomiBorder),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(5.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
                         Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -350,7 +350,7 @@ private fun CompactScanResult(
     Card(
         colors = CardDefaults.cardColors(containerColor = if (found) NaomiSuccess.copy(alpha = 0.08f) else NaomiSurface),
         border = BorderStroke(1.dp, if (found) NaomiSuccess.copy(alpha = 0.45f) else NaomiBorder),
-        shape = RoundedCornerShape(13.dp),
+        shape = RoundedCornerShape(5.dp),
         modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {

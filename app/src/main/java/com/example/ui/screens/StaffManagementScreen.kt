@@ -61,7 +61,7 @@ fun StaffManagementScreen(authViewModel: AuthViewModel) {
     val account = pageSlice(visibleAccounts, page, 1).firstOrNull()
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -135,7 +135,7 @@ fun StaffManagementScreen(authViewModel: AuthViewModel) {
                 )
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(code, color = NaomiOrange, fontSize = 24.sp, fontWeight = FontWeight.Black)
                     Text(
                         "Give this temporary PIN directly to the staff member. They must replace it after signing in.",
@@ -159,7 +159,7 @@ private fun StaffCardCompact(
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, if (account.isLocked) NaomiOrange else NaomiBorder),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(4.dp),
         modifier = modifier
     ) {
         Column(
@@ -289,7 +289,7 @@ private fun ChangeCredentialDialog(
         containerColor = NaomiSurface,
         title = { Text(title, color = NaomiTextPrimary, fontWeight = FontWeight.Black) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedTextField(first, { first = it }, label = { Text("New PIN / password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
                 OutlinedTextField(second, { second = it }, label = { Text("Confirm") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
                 Text("6–12 digit PIN or password of at least 8 characters.", color = NaomiTextSecondary, fontSize = 9.sp)

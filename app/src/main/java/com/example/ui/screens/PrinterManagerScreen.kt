@@ -85,9 +85,9 @@ fun PrinterManagerScreen(viewModel: PosViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .background(NaomiDarkBg)
-            .padding(horizontal = 12.dp, vertical = 9.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp)
             .testTag("printer_manager_screen"),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -96,7 +96,7 @@ fun PrinterManagerScreen(viewModel: PosViewModel) {
         ) {
             Column {
                 Text("PRINT OUTPUT", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                Text("Printer console", color = NaomiTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                Text("Printer console", color = NaomiTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Black)
             }
             IconButton(onClick = { viewModel.printerManager.refreshDiscoveredDevices() }) {
                 Icon(Icons.Default.Refresh, contentDescription = "Refresh printers", tint = NaomiOrange)
@@ -183,7 +183,7 @@ private fun ChannelTile(
         modifier = modifier.height(56.dp).clickable(onClick = onClick).testTag("channel_selector_${channel.name}"),
         color = if (selected) NaomiRed.copy(alpha = 0.10f) else NaomiSurface,
         border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) NaomiRed else NaomiBorder),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(4.dp)
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -236,7 +236,7 @@ private fun SunmiPanel(
                 StatusBadge(if (connected) "ONLINE" else "OFFLINE", connected)
             }
 
-            Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(11.dp), modifier = Modifier.fillMaxWidth()) {
+            Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(4.dp), modifier = Modifier.fillMaxWidth()) {
                 Row(
                     modifier = Modifier.padding(10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -253,12 +253,12 @@ private fun SunmiPanel(
             }
 
             error?.let {
-                Surface(color = NaomiError.copy(alpha = 0.08f), shape = RoundedCornerShape(9.dp), modifier = Modifier.fillMaxWidth()) {
+                Surface(color = NaomiError.copy(alpha = 0.08f), shape = RoundedCornerShape(4.dp), modifier = Modifier.fillMaxWidth()) {
                     Text(it, color = NaomiError, fontSize = 9.sp, modifier = Modifier.padding(9.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
 
-            Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
+            Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(4.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
                 Column(
                     modifier = Modifier.fillMaxSize().padding(10.dp),
                     verticalArrangement = Arrangement.Center
@@ -326,11 +326,11 @@ private fun ExternalPrinterPanel(
     ) {
         Column(
             modifier = Modifier.fillMaxSize().padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(4.dp)) {
                         Icon(icon, contentDescription = null, tint = NaomiOrange, modifier = Modifier.padding(9.dp).size(19.dp))
                     }
                     Column {
@@ -380,7 +380,7 @@ private fun sunmiStateLabel(statusCode: Int?, hasPaper: Boolean): String = when 
 @Composable
 private fun StatusBadge(text: String, healthy: Boolean) {
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(4.dp),
         color = if (healthy) NaomiSuccess.copy(alpha = 0.12f) else NaomiError.copy(alpha = 0.12f)
     ) {
         Text(
@@ -405,7 +405,7 @@ fun HardwareMetric(label: String, value: String) {
 private fun EmptyDeviceState(message: String) {
     Surface(
         color = NaomiSurfaceVariant,
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(4.dp),
         modifier = Modifier.fillMaxSize()
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.Center) {
@@ -423,7 +423,7 @@ fun DiscoveredPrinterRow(
     Surface(
         modifier = modifier.fillMaxWidth().clickable(onClick = onSelect),
         color = NaomiSurfaceVariant,
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(4.dp),
         border = BorderStroke(1.dp, NaomiBorder)
     ) {
         Row(

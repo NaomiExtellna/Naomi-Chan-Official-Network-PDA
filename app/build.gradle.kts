@@ -46,8 +46,12 @@ android {
 
   buildTypes {
     release {
+      // R8 removes unused Compose/ML Kit/icon code and resource shrinking strips assets
+      // that are not reachable in the release graph. This reduces APK size, dex loading,
+      // startup work and memory pressure on the low-RAM SUNMI V2.
+      isMinifyEnabled = true
+      isShrinkResources = true
       isCrunchPngs = false
-      isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       if (hasReleaseSigning) {
         signingConfig = signingConfigs.getByName("release")

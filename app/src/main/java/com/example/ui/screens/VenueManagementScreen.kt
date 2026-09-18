@@ -95,7 +95,7 @@ fun VenueManagementScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(NaomiDarkBg)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Row(
@@ -110,7 +110,7 @@ fun VenueManagementScreen(
             Button(
                 onClick = { showAddDialog = true },
                 colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(4.dp),
                 modifier = Modifier.height(38.dp)
             ) {
                 Icon(Icons.Default.AddLocationAlt, contentDescription = null, modifier = Modifier.size(15.dp))
@@ -206,7 +206,7 @@ private fun ManagedVenueCard(
     Card(
         colors = CardDefaults.cardColors(containerColor = NaomiSurface),
         border = BorderStroke(1.dp, if (favourite) NaomiOrange else NaomiBorder),
-        shape = RoundedCornerShape(11.dp),
+        shape = RoundedCornerShape(4.dp),
         modifier = modifier.fillMaxWidth()
     ) {
         Column(
@@ -235,14 +235,14 @@ private fun ManagedVenueCard(
                     onClick = onReceipt,
                     colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
                     modifier = Modifier.weight(1f).height(36.dp),
-                    shape = RoundedCornerShape(9.dp)
+                    shape = RoundedCornerShape(4.dp)
                 ) {
                     Icon(Icons.Default.EditNote, contentDescription = null, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(3.dp))
                     Text("Sale", fontSize = 8.sp)
                 }
                 if (isCustom) {
-                    OutlinedButton(onClick = onDelete, modifier = Modifier.weight(1f).height(36.dp), shape = RoundedCornerShape(9.dp)) {
+                    OutlinedButton(onClick = onDelete, modifier = Modifier.weight(1f).height(36.dp), shape = RoundedCornerShape(4.dp)) {
                         Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(3.dp))
                         Text("Delete", fontSize = 8.sp)

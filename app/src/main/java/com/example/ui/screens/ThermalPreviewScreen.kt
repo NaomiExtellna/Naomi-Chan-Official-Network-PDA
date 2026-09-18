@@ -72,7 +72,7 @@ fun ThermalPreviewScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(NaomiDarkBg)
-            .padding(horizontal = 10.dp, vertical = 8.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp)
             .testTag("thermal_preview_screen"),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
@@ -89,7 +89,7 @@ fun ThermalPreviewScreen(
             Button(
                 onClick = { viewModel.printCurrentReceipt() },
                 colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(4.dp),
                 modifier = Modifier.height(38.dp).testTag("thermal_print_now_btn")
             ) {
                 Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -125,7 +125,7 @@ fun ThermalPreviewScreen(
         Card(
             colors = CardDefaults.cardColors(containerColor = NaomiSurface),
             border = BorderStroke(1.dp, if (printerStatus.hasPaper) NaomiBorder else NaomiRed.copy(alpha = 0.5f)),
-            shape = RoundedCornerShape(11.dp),
+            shape = RoundedCornerShape(4.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
@@ -220,7 +220,7 @@ private fun EscPosPanel(bytes: ByteArray?, modifier: Modifier = Modifier) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.Black),
         border = BorderStroke(1.dp, NaomiBorder),
-        shape = RoundedCornerShape(11.dp),
+        shape = RoundedCornerShape(4.dp),
         modifier = modifier
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(11.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
