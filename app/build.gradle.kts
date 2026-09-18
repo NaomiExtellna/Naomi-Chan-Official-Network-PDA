@@ -114,7 +114,7 @@ dependencies {
   // Backport newer Java library APIs used by modern dependencies to Android 7.1.1.
   coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
-  implementation("com.sunmi:printerlibrary:1.0.18")
+  implementation("com.sunmi:printerlibrary:1.0.24")
 
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
