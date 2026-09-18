@@ -77,15 +77,11 @@ fun SystemMaintenanceScreen(authViewModel: AuthViewModel, posViewModel: PosViewM
     val user = authState.currentUser ?: return
     val printerStatus by posViewModel.printerStatus.collectAsState()
     val selectedChannel by posViewModel.selectedChannel.collectAsState()
-    val unsynced by posViewModel.unsyncedCount.collectAsState()
     val ram by posViewModel.ramInfo.collectAsState()
-    val gatewayOnline by posViewModel.isWirelessOnline.collectAsState()
-    val gatewayUrl by posViewModel.wirelessServerUrl.collectAsState()
     val receipts by posViewModel.allReceipts.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var mode by remember { mutableStateOf(MaintenanceMode.DEVICE) }
-    var gatewayDraft by remember(gatewayUrl) { mutableStateOf(gatewayUrl) }
     var testMessage by remember { mutableStateOf<String?>(null) }
     var showWipe by remember { mutableStateOf(false) }
     var refresh by remember { mutableIntStateOf(0) }
@@ -170,7 +166,7 @@ fun SystemMaintenanceScreen(authViewModel: AuthViewModel, posViewModel: PosViewM
                     modifier = Modifier.fillMaxSize().padding(11.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    PanelHeading("Database & Backup", "Ticket storage and exports")
+                    PanelHeading("Local Data", "CSV export and local backup")
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         MiniMetric("Tickets", stats.receiptCount.toString(), Modifier.weight(1f))
                         MiniMetric("Active", stats.activeCount.toString(), Modifier.weight(1f))
@@ -214,7 +210,7 @@ fun SystemMaintenanceScreen(authViewModel: AuthViewModel, posViewModel: PosViewM
                         OutlinedButton(
                             onClick = { posViewModel.archiveOldTickets(90); refresh++ },
                             modifier = Modifier.fillMaxWidth().height(36.dp)
-                        ) { Text("Archive synced tickets older than 90 days", fontSize = 7.sp) }
+                        ) { Text("Archive local tickets older than 90 days", fontSize = 7.sp) }
                         Button(
                             onClick = { showWipe = true },
                             colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
@@ -231,10 +227,10 @@ fun SystemMaintenanceScreen(authViewModel: AuthViewModel, posViewModel: PosViewM
                     modifier = Modifier.fillMaxSize().padding(11.dp),
                     verticalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
-                    PanelHeading("Printer & Gateway", "Output and network diagnostics")
+                    PanelHeading("Printer", "Local output diagnostics")
                     InfoLine("Printer", if (printerStatus.isConnected) "Connected · ${printerStatus.deviceName}" else "Offline · ${printerStatus.deviceName}")
-                    InfoLine("Gateway", if (gatewayOnline) "Online" else "Offline")
-                    InfoLine("Unsynced", unsynced.toString())
+                    InfoLine("Storage", "Local Room database")
+                    InfoLine("Export", "CSV available from Activity or Data")
                     OutlinedButton(
                         onClick = {
                             scope.launch {
@@ -256,20 +252,6 @@ fun SystemMaintenanceScreen(authViewModel: AuthViewModel, posViewModel: PosViewM
                         Text("Print diagnostic slip", fontSize = 8.sp)
                     }
                     testMessage?.let { Text(it, color = NaomiOrange, fontSize = 8.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }
-                    OutlinedTextField(
-                        value = gatewayDraft,
-                        onValueChange = { gatewayDraft = it },
-                        enabled = user.canConfigureGateway,
-                        label = { Text("Flask gateway URL", fontSize = 9.sp) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth().height(52.dp)
-                    )
-                    Button(
-                        onClick = { posViewModel.setWirelessServerUrl(gatewayDraft) },
-                        enabled = user.canConfigureGateway,
-                        colors = ButtonDefaults.buttonColors(containerColor = NaomiSurfaceVariant),
-                        modifier = Modifier.fillMaxWidth().height(38.dp)
-                    ) { Text("Save & test gateway", color = NaomiTextPrimary, fontSize = 8.sp) }
                 }
 
                 MaintenanceMode.LOGS -> Column(
@@ -293,7 +275,7 @@ fun SystemMaintenanceScreen(authViewModel: AuthViewModel, posViewModel: PosViewM
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         OutlinedButton(
-                            onClick = { refresh++; posViewModel.refreshRamInfo(); posViewModel.checkWirelessConnection() },
+                            onClick = { refresh++; posViewModel.refreshRamInfo() },
                             modifier = Modifier.weight(1f).height(36.dp)
                         ) { Text("Refresh", fontSize = 8.sp) }
                         if (user.isAdmin) {

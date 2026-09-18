@@ -18,27 +18,14 @@ class ReceiptRepository(private val receiptDao: ReceiptDao) {
         list.map { entityToData(it) }
     }
 
-    val unsyncedCount: Flow<Int> = receiptDao.getUnsyncedCount()
-
-    suspend fun saveReceipt(receipt: ReceiptData, isOfflineBuffered: Boolean): Long = withContext(Dispatchers.IO) {
-        val syncStatus = if (isOfflineBuffered) "BUFFERED_OFFLINE" else "PENDING_RETRY"
-        receiptDao.insertReceipt(dataToEntity(receipt, syncStatus))
+    suspend fun saveReceipt(receipt: ReceiptData): Long = withContext(Dispatchers.IO) {
+        // The POS is standalone: "LOCAL" means the transaction is committed to
+        // Room on this terminal and is ready for CSV export.
+        receiptDao.insertReceipt(dataToEntity(receipt, "LOCAL"))
     }
 
     suspend fun markPrinted(receiptId: String, channel: String) = withContext(Dispatchers.IO) {
         receiptDao.updatePrintStatus(receiptId, true, channel)
-    }
-
-    suspend fun getUnsyncedReceipts(): List<ReceiptData> = withContext(Dispatchers.IO) {
-        receiptDao.getUnsyncedReceipts().map { entityToData(it) }
-    }
-
-    suspend fun markSynced(receiptId: String) = withContext(Dispatchers.IO) {
-        receiptDao.updateSyncStatus(receiptId, "SYNCED")
-    }
-
-    suspend fun markPendingRetry(receiptId: String) = withContext(Dispatchers.IO) {
-        receiptDao.updateSyncStatus(receiptId, "PENDING_RETRY")
     }
 
     suspend fun voidReceipt(receiptId: String, reason: String, voidedBy: String): Boolean = withContext(Dispatchers.IO) {
@@ -48,15 +35,14 @@ class ReceiptRepository(private val receiptDao: ReceiptDao) {
     suspend fun restoreReceipts(receipts: List<ReceiptData>): Int = withContext(Dispatchers.IO) {
         var restored = 0
         for (receipt in receipts) {
-            val syncStatus = if (receipt.isBufferedOffline) "PENDING_RETRY" else "SYNCED"
-            if (receiptDao.insertReceiptIgnore(dataToEntity(receipt, syncStatus)) != -1L) restored++
+            if (receiptDao.insertReceiptIgnore(dataToEntity(receipt, "LOCAL")) != -1L) restored++
         }
         restored
     }
 
-    suspend fun archiveSyncedOlderThan(days: Int): Int = withContext(Dispatchers.IO) {
+    suspend fun archiveLocalOlderThan(days: Int): Int = withContext(Dispatchers.IO) {
         val cutoff = System.currentTimeMillis() - days.coerceAtLeast(1) * 86_400_000L
-        receiptDao.archiveSyncedBefore(cutoff)
+        receiptDao.archiveLocalBefore(cutoff)
     }
 
     suspend fun wipeAllReceipts(): Int = withContext(Dispatchers.IO) {
@@ -154,7 +140,7 @@ class ReceiptRepository(private val receiptDao: ReceiptDao) {
             discountPercent = entity.discountPercent,
             taxPercent = entity.taxPercent,
             createdAt = entity.createdAt,
-            isBufferedOffline = entity.syncStatus != "SYNCED",
+            isBufferedOffline = false,
             isPrinted = entity.isPrinted,
             isFreeEvent = entity.isFreeEvent,
             iconType = iconType,

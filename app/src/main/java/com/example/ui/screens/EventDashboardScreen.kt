@@ -79,8 +79,7 @@ fun EventDashboardScreen(
     val authState by authViewModel.state.collectAsStateWithLifecycle()
     val receipt by posViewModel.currentReceipt.collectAsStateWithLifecycle()
     val printer by posViewModel.printerStatus.collectAsStateWithLifecycle()
-    val unsynced by posViewModel.unsyncedCount.collectAsStateWithLifecycle()
-    val gatewayOnline by posViewModel.isWirelessOnline.collectAsStateWithLifecycle()
+    val receipts by posViewModel.allReceipts.collectAsStateWithLifecycle()
     val user = authState.currentUser ?: return
 
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -194,8 +193,8 @@ fun EventDashboardScreen(
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             HealthTile("Printer", if (printer.isConnected) "Ready" else "Offline", printer.isConnected, Modifier.weight(1f))
-            HealthTile("Gateway", if (gatewayOnline) "Online" else "Offline", gatewayOnline, Modifier.weight(1f))
-            HealthTile("Sync", if (unsynced == 0) "Clear" else "$unsynced pending", unsynced == 0, Modifier.weight(1f))
+            HealthTile("Records", "${receipts.size} local", true, Modifier.weight(1f))
+            HealthTile("Export", "CSV ready", true, Modifier.weight(1f))
         }
 
         TramMiniBoard(

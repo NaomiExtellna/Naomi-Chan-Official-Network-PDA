@@ -218,13 +218,10 @@ private fun StaffCardCompact(
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    PermissionChip("Gateway", account.canChangeGateway, Modifier.weight(1f)) {
-                        auth.setStaffPermissions(account.id, account.canVoid, account.canExport, account.canEditVenues, it, account.canViewTotals)
-                    }
                     PermissionChip("Totals", account.canViewTotals, Modifier.weight(1f)) {
                         auth.setStaffPermissions(account.id, account.canVoid, account.canExport, account.canEditVenues, account.canChangeGateway, it)
                     }
-                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.weight(2f))
                 }
             } else if (!account.isAdmin) {
                 PermissionSummary(account)
@@ -266,7 +263,6 @@ private fun PermissionSummary(account: StaffAccount) {
                     if (account.canVoidReceipts) "Void" else null,
                     if (account.canExportData) "Export" else null,
                     if (account.canManageVenues) "Edit venues" else null,
-                    if (account.canConfigureGateway) "Gateway" else null,
                     if (account.canViewFinancialTotals) "Financial totals" else null
                 ).joinToString(" · "),
                 color = NaomiTextSecondary,

@@ -22,9 +22,7 @@ import com.example.model.RamInfo
 import com.example.model.ReceiptData
 import com.example.model.ReceiptIconType
 import com.example.model.ReceiptItem
-import com.example.model.WirelessOrder
 import com.example.model.generateReceiptId
-import com.example.network.WirelessFlaskClient
 import com.example.printer.PrintResult
 import com.example.printer.UnifiedPrinterManager
 import com.example.util.DiagnosticLog
@@ -63,13 +61,11 @@ data class OperatorCapabilities(
     val canVoid: Boolean = false,
     val canExport: Boolean = false,
     val canEditVenues: Boolean = false,
-    val canChangeGateway: Boolean = false,
     val canViewTotals: Boolean = false
 ) {
     val canVoidReceipts: Boolean get() = isAdmin || canVoid
     val canExportData: Boolean get() = isAdmin || canExport
     val canManageVenues: Boolean get() = isAdmin || canEditVenues
-    val canConfigureGateway: Boolean get() = isAdmin || canChangeGateway
     val canViewFinancialTotals: Boolean get() = isAdmin || canViewTotals
 }
 
@@ -99,11 +95,6 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         SharingStarted.WhileSubscribed(5000),
         emptyList()
     )
-    val unsyncedCount: StateFlow<Int> = repository.unsyncedCount.stateIn(
-        viewModelScope,
-        SharingStarted.WhileSubscribed(5000),
-        0
-    )
 
     private val _currentReceipt = MutableStateFlow(ReceiptData())
     val currentReceipt: StateFlow<ReceiptData> = _currentReceipt.asStateFlow()
@@ -113,12 +104,6 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _activeTab = MutableStateFlow(PosTab.BUILDER)
     val activeTab: StateFlow<PosTab> = _activeTab.asStateFlow()
-
-    private val _isOfflineSimulated = MutableStateFlow(false)
-    val isOfflineSimulated: StateFlow<Boolean> = _isOfflineSimulated.asStateFlow()
-
-    private val _isSyncing = MutableStateFlow(false)
-    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
     private val _uiMessages = MutableSharedFlow<UiMessage>()
     val uiMessages: SharedFlow<UiMessage> = _uiMessages.asSharedFlow()
@@ -152,19 +137,6 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     private val _activeShiftId = MutableStateFlow<String?>(null)
     val activeShiftId: StateFlow<String?> = _activeShiftId.asStateFlow()
 
-    private val wirelessClient = WirelessFlaskClient()
-    private val _wirelessServerUrl = MutableStateFlow(wirelessClient.getBaseUrl())
-    val wirelessServerUrl: StateFlow<String> = _wirelessServerUrl.asStateFlow()
-
-    private val _isWirelessOnline = MutableStateFlow(false)
-    val isWirelessOnline: StateFlow<Boolean> = _isWirelessOnline.asStateFlow()
-
-    private val _pendingWirelessOrders = MutableStateFlow<List<WirelessOrder>>(emptyList())
-    val pendingWirelessOrders: StateFlow<List<WirelessOrder>> = _pendingWirelessOrders.asStateFlow()
-
-    private val _isWirelessSyncing = MutableStateFlow(false)
-    val isWirelessSyncing: StateFlow<Boolean> = _isWirelessSyncing.asStateFlow()
-
     init {
         // Receipt branding is useful at print time but it should not compete with
         // the first POS frame on the low-power SUNMI V2. Decode it in the IO pool.
@@ -194,8 +166,6 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
-
-        checkWirelessConnection()
     }
 
     fun setOperator(
@@ -206,7 +176,6 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         canVoid: Boolean,
         canExport: Boolean,
         canEditVenues: Boolean,
-        canChangeGateway: Boolean,
         canViewTotals: Boolean
     ) {
         _operatorCapabilities.value = OperatorCapabilities(
@@ -216,7 +185,6 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
             canVoid = canVoid,
             canExport = canExport,
             canEditVenues = canEditVenues,
-            canChangeGateway = canChangeGateway,
             canViewTotals = canViewTotals
         )
         _activeShiftId.value = shiftId
@@ -368,12 +336,6 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     fun setTab(tab: PosTab) { _activeTab.value = tab }
     fun selectChannel(channel: PrinterChannel) { _selectedChannel.value = channel }
 
-    fun toggleOfflineSimulation() {
-        _isOfflineSimulated.value = !_isOfflineSimulated.value
-        val state = if (_isOfflineSimulated.value) "OFFLINE MODE: Transactions will remain buffered locally" else "ONLINE MODE: Gateway sync enabled"
-        viewModelScope.launch { _uiMessages.emit(UiMessage.Warning(state)) }
-    }
-
     fun updateClientName(name: String) { _currentReceipt.value = _currentReceipt.value.copy(clientName = name) }
     fun updateClientContact(contact: String) { _currentReceipt.value = _currentReceipt.value.copy(clientContact = contact) }
     fun updateVenue(venue: String) { _currentReceipt.value = _currentReceipt.value.copy(venueName = venue) }
@@ -439,20 +401,12 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
 
         val auditedReceipt = withCurrentAudit(receipt)
         if (_currentReceipt.value.id == auditedReceipt.id) _currentReceipt.value = auditedReceipt
-        val offline = _isOfflineSimulated.value
-        repository.saveReceipt(auditedReceipt, isOfflineBuffered = offline)
-        audit("RECEIPT_SAVED", auditedReceipt.id, "venue=${auditedReceipt.venueName} total=${auditedReceipt.grandTotal}")
-
-        if (!offline) {
-            val uploadedUrl = wirelessClient.broadcastReceiptToWeb(auditedReceipt)
-            if (uploadedUrl != null) {
-                repository.markSynced(auditedReceipt.id)
-                _isWirelessOnline.value = true
-            } else {
-                repository.markPendingRetry(auditedReceipt.id)
-                _isWirelessOnline.value = false
-            }
-        }
+        repository.saveReceipt(auditedReceipt)
+        audit(
+            "RECEIPT_SAVED",
+            auditedReceipt.id,
+            "venue=${auditedReceipt.venueName} total=${auditedReceipt.grandTotal} storage=local"
+        )
 
         val iconBitmap = getActiveIconBitmap(auditedReceipt)
         return try {
@@ -548,13 +502,13 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
             viewModelScope.launch { _uiMessages.emit(UiMessage.Error("Your account does not have export permission.")) }
             return ""
         }
-        val header = "receipt_id,status,created_at,processed_by,shift_id,client,venue,payment,subtotal,tax,total,synced,void_reason,replaces_receipt\n"
+        val header = "receipt_id,status,created_at,processed_by,shift_id,client,venue,payment,subtotal,tax,total,storage,void_reason,replaces_receipt\n"
         val rows = allReceipts.value.joinToString("\n") { receipt ->
             listOf(
                 receipt.id, receipt.receiptStatus, receipt.formattedDate(), receipt.processedBy, receipt.shiftId.orEmpty(),
                 receipt.clientName, receipt.venueName, receipt.paymentMethod.label,
                 String.format(Locale.UK, "%.2f", receipt.subtotal), String.format(Locale.UK, "%.2f", receipt.taxAmount),
-                String.format(Locale.UK, "%.2f", receipt.grandTotal), (!receipt.isBufferedOffline).toString(),
+                String.format(Locale.UK, "%.2f", receipt.grandTotal), "LOCAL",
                 receipt.voidReason.orEmpty(), receipt.replacesReceiptId.orEmpty()
             ).joinToString(",") { csvCell(it) }
         }
@@ -692,9 +646,9 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
                 _uiMessages.emit(UiMessage.Error("Only Naomi (Admin) can archive tickets."))
                 return@launch
             }
-            val count = repository.archiveSyncedOlderThan(days)
+            val count = repository.archiveLocalOlderThan(days)
             audit("TICKETS_ARCHIVED", "older-than-${days}d", "count=$count")
-            _uiMessages.emit(UiMessage.Success("Archived $count synced ticket(s) older than $days days."))
+            _uiMessages.emit(UiMessage.Success("Archived $count local ticket(s) older than $days days."))
         }
     }
 
@@ -731,157 +685,11 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun csvCell(value: String): String = "\"${value.replace("\"", "\"\"")}\""
 
-    fun syncAllBufferedTransactions() {
-        viewModelScope.launch {
-            if (_isOfflineSimulated.value) {
-                _uiMessages.emit(UiMessage.Warning("Disable offline mode before synchronizing buffered receipts."))
-                return@launch
-            }
-            _isSyncing.value = true
-            try {
-                val pending = repository.getUnsyncedReceipts()
-                if (pending.isEmpty()) {
-                    _uiMessages.emit(UiMessage.Success("No buffered receipts are waiting to sync."))
-                    return@launch
-                }
-                var synced = 0
-                var failed = 0
-                for (receipt in pending) {
-                    if (wirelessClient.broadcastReceiptToWeb(receipt) != null) {
-                        repository.markSynced(receipt.id); synced++
-                    } else {
-                        repository.markPendingRetry(receipt.id); failed++
-                    }
-                }
-                _isWirelessOnline.value = failed == 0
-                audit("BUFFER_SYNC", "gateway", "synced=$synced failed=$failed")
-                if (failed == 0) _uiMessages.emit(UiMessage.Success("Synchronized $synced buffered receipt(s) with the wireless gateway."))
-                else _uiMessages.emit(UiMessage.Warning("Synchronized $synced receipt(s); $failed remain queued for retry."))
-            } catch (e: Exception) {
-                DiagnosticLog.error(getApplication(), "SyncAll", e)
-                audit("SYNC_ERROR", "gateway", e.message.orEmpty(), "ERROR")
-                _uiMessages.emit(UiMessage.Error("Sync failed: ${e.message ?: "unknown error"}"))
-            } finally {
-                _isSyncing.value = false
-            }
-        }
-    }
-
     fun togglePaperRollAlert() { printerManager.togglePaperRoll() }
 
     fun reloadPaperRoll() {
         printerManager.reloadPaper()
         viewModelScope.launch { _uiMessages.emit(UiMessage.Success("Printer status refreshed after checking/reloading the 58mm paper roll.")) }
-    }
-
-    fun setWirelessServerUrl(url: String) {
-        if (!_operatorCapabilities.value.canConfigureGateway) {
-            viewModelScope.launch { _uiMessages.emit(UiMessage.Error("Your account does not have permission to change the gateway.")) }
-            return
-        }
-        if (wirelessClient.updateBaseUrl(url)) {
-            _wirelessServerUrl.value = wirelessClient.getBaseUrl()
-            viewModelScope.launch { audit("GATEWAY_CHANGED", _wirelessServerUrl.value) }
-            checkWirelessConnection()
-        } else {
-            viewModelScope.launch { _uiMessages.emit(UiMessage.Error("Invalid wireless gateway URL.")) }
-        }
-    }
-
-    fun checkWirelessConnection() {
-        viewModelScope.launch {
-            _isWirelessSyncing.value = true
-            try {
-                val online = wirelessClient.checkServerStatus()
-                _isWirelessOnline.value = online
-                _pendingWirelessOrders.value = if (online) wirelessClient.fetchPendingOrders() else emptyList()
-            } catch (e: Exception) {
-                DiagnosticLog.error(getApplication(), "GatewayStatus", e)
-                _isWirelessOnline.value = false
-            } finally {
-                _isWirelessSyncing.value = false
-            }
-        }
-    }
-
-    fun fetchPendingWirelessOrders() {
-        viewModelScope.launch {
-            _isWirelessSyncing.value = true
-            try {
-                if (wirelessClient.checkServerStatus()) {
-                    _isWirelessOnline.value = true
-                    _pendingWirelessOrders.value = wirelessClient.fetchPendingOrders()
-                } else {
-                    _isWirelessOnline.value = false
-                    _pendingWirelessOrders.value = emptyList()
-                }
-            } catch (e: Exception) {
-                DiagnosticLog.error(getApplication(), "WirelessOrders", e)
-            } finally {
-                _isWirelessSyncing.value = false
-            }
-        }
-    }
-
-    fun loadAndPrintWirelessOrder(order: WirelessOrder) {
-        viewModelScope.launch {
-            val loadedReceipt = ReceiptData(
-                id = order.id,
-                clientName = order.clientName,
-                clientContact = order.clientContact,
-                venueName = order.venueName,
-                items = order.items,
-                paymentMethod = order.paymentMethod,
-                taxPercent = order.taxPercent,
-                footerNotes = if (order.notes.isNotBlank()) order.notes else "Wireless Order • Naomi-Chan™ Blackpool DJ Services",
-                packageTier = PackageTier.BAR_ADMISSION,
-                iconType = if (_customIconBitmap.value != null) ReceiptIconType.CUSTOM else ReceiptIconType.NAOMI_LOGO,
-                processedBy = operatorName(),
-                shiftId = _activeShiftId.value
-            )
-            _currentReceipt.value = loadedReceipt
-            when (val printResult = persistSyncAndPrint(loadedReceipt)) {
-                is PrintResult.Success -> {
-                    val acknowledged = wirelessClient.markOrderPrinted(order.id)
-                    if (acknowledged) {
-                        _pendingWirelessOrders.value = wirelessClient.fetchPendingOrders()
-                        _uiMessages.emit(UiMessage.Success("Wireless order ${order.id} printed and acknowledged by the gateway."))
-                    } else _uiMessages.emit(UiMessage.Warning("Order ${order.id} printed locally, but the gateway status update failed. It remains pending for safety."))
-                }
-                is PrintResult.OutOfPaper -> _uiMessages.emit(UiMessage.Error("Order ${order.id} was NOT marked printed: ${printResult.message}"))
-                is PrintResult.Error -> _uiMessages.emit(UiMessage.Error("Order ${order.id} was NOT marked printed: ${printResult.errorReason}"))
-            }
-        }
-    }
-
-    fun broadcastCurrentReceiptToWeb() {
-        viewModelScope.launch {
-            if (_activeShiftId.value.isNullOrBlank()) {
-                _uiMessages.emit(UiMessage.Error("Open a staff shift before finalising a transaction."))
-                return@launch
-            }
-            val receipt = withCurrentAudit(_currentReceipt.value)
-            _isWirelessSyncing.value = true
-            try {
-                val url = wirelessClient.broadcastReceiptToWeb(receipt)
-                if (url != null) {
-                    repository.markSynced(receipt.id)
-                    _isWirelessOnline.value = true
-                    audit("RECEIPT_BROADCAST", receipt.id, url)
-                    _uiMessages.emit(UiMessage.Success("Receipt sent to the Web Gateway. View at $url"))
-                } else {
-                    repository.markPendingRetry(receipt.id)
-                    _isWirelessOnline.value = false
-                    _uiMessages.emit(UiMessage.Error("Failed to broadcast receipt to wireless server"))
-                }
-            } catch (e: Exception) {
-                DiagnosticLog.error(getApplication(), "BroadcastReceipt", e)
-                audit("BROADCAST_ERROR", receipt.id, e.message.orEmpty(), "ERROR")
-                _uiMessages.emit(UiMessage.Error("Failed to broadcast receipt: ${e.message ?: "network error"}"))
-            } finally {
-                _isWirelessSyncing.value = false
-            }
-        }
     }
 
     override fun onCleared() {
