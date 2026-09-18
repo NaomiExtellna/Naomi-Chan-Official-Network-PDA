@@ -384,7 +384,7 @@ fun StaffAccessScreen(
             Text(
                 text = "Naomi-Chan Official Network · Local secure access",
                 color = NaomiTextTertiary,
-                fontSize = 9.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Medium
             )
         }
@@ -449,7 +449,7 @@ private fun PinEntryDisplay(pinLength: Int) {
         Text(
             text = "6-DIGIT PIN",
             color = NaomiTextTertiary,
-            fontSize = 9.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 1.sp
         )
@@ -469,7 +469,7 @@ private fun PinEntryDisplay(pinLength: Int) {
                         Text(
                             text = if (filled) "●" else "",
                             color = NaomiRed,
-                            fontSize = 18.sp,
+                            fontSize = 20.sp,
                             fontWeight = FontWeight.Black
                         )
                     }
@@ -568,7 +568,7 @@ private fun PrimaryActionButton(
         enabled = enabled,
         colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
         shape = RoundedCornerShape(13.dp),
-        modifier = Modifier.fillMaxWidth().height(54.dp)
+        modifier = Modifier.fillMaxWidth().height(56.dp)
     ) {
         if (loading) {
             CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
@@ -613,7 +613,7 @@ fun RecoveryCodeNoticeScreen(code: String, onAcknowledge: () -> Unit) {
                     onClick = onAcknowledge,
                     colors = ButtonDefaults.buttonColors(containerColor = NaomiRed),
                     shape = RoundedCornerShape(13.dp),
-                    modifier = Modifier.fillMaxWidth().height(54.dp)
+                    modifier = Modifier.fillMaxWidth().height(56.dp)
                 ) {
                     Text("I have saved this code", fontWeight = FontWeight.Bold)
                 }
