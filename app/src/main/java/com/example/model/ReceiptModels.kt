@@ -63,22 +63,6 @@ data class ReceiptItem(
     val total: Double get() = quantity * unitPrice
 }
 
-data class WirelessOrder(
-    val id: String = UUID.randomUUID().toString(),
-    val clientName: String = "Guest",
-    val clientContact: String = "",
-    val venueName: String = "The Flying Handbag",
-    val items: List<ReceiptItem> = emptyList(),
-    val subtotal: Double = 0.0,
-    val taxPercent: Double = 20.0,
-    val taxAmount: Double = 0.0,
-    val grandTotal: Double = 0.0,
-    val paymentMethod: PaymentMethod = PaymentMethod.CARD_TERMINAL,
-    val notes: String = "",
-    val status: String = "PENDING",
-    val createdAt: Long = System.currentTimeMillis()
-)
-
 data class ReceiptData(
     val id: String = generateReceiptId(),
     val clientName: String = "The Flying Handbag",
