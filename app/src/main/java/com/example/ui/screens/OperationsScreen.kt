@@ -78,7 +78,7 @@ fun OperationsScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
                 Row(
@@ -87,8 +87,8 @@ fun OperationsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("STAFF OPERATIONS", color = NaomiOrange, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                        Text(user.displayName, color = NaomiTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("STAFF OPERATIONS", color = NaomiOrange, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                        Text(user.displayName, color = NaomiTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     RoleBadge(user)
                 }
@@ -98,7 +98,7 @@ fun OperationsScreen(
                 } else {
                     listOf(OpsMode.SHIFT, OpsMode.VENUES, OpsMode.STAFF, OpsMode.SYSTEM)
                 }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     modes.forEach { item ->
                         OpsChip(
                             selected = mode == item,
@@ -147,12 +147,12 @@ private fun OpsChip(
     FilterChip(
         selected = selected,
         onClick = onClick,
-        label = { Text(label, fontSize = 7.sp, fontWeight = if (selected) FontWeight.Black else FontWeight.Bold) },
+        label = { Text(label, fontSize = 9.sp, fontWeight = if (selected) FontWeight.Black else FontWeight.Bold) },
         colors = FilterChipDefaults.filterChipColors(
             selectedContainerColor = NaomiRed,
             selectedLabelColor = Color.White
         ),
-        modifier = modifier.height(34.dp)
+        modifier = modifier.height(40.dp)
     )
 }
 
@@ -160,7 +160,7 @@ private fun OpsChip(
 private fun RoleBadge(user: StaffAccount) {
     Surface(
         color = if (user.isAdmin) NaomiOrange.copy(alpha = 0.14f) else NaomiSurfaceVariant,
-        shape = RoundedCornerShape(3.dp)
+        shape = RoundedCornerShape(8.dp)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
@@ -176,7 +176,7 @@ private fun RoleBadge(user: StaffAccount) {
             Text(
                 if (user.isAdmin) "ADMIN" else "STAFF",
                 color = if (user.isAdmin) NaomiOrange else NaomiTextSecondary,
-                fontSize = 8.sp,
+                fontSize = 9.sp,
                 fontWeight = FontWeight.Black
             )
         }
@@ -204,28 +204,28 @@ private fun ShiftPanel(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Card(
             colors = CardDefaults.cardColors(containerColor = NaomiSurface),
             border = BorderStroke(1.dp, NaomiBorder),
-            shape = RoundedCornerShape(5.dp),
+            shape = RoundedCornerShape(10.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             if (activeShift == null) "NO OPEN SHIFT" else "SHIFT OPEN",
                             color = if (activeShift == null) NaomiOrange else com.example.ui.theme.NaomiSuccess,
-                            fontSize = 8.sp,
+                            fontSize = 9.sp,
                             fontWeight = FontWeight.Black
                         )
                         Text(
                             activeShift?.let { "Since ${formatDateTime(it.openedAt)}" } ?: "Open a shift before finalising sales",
                             color = NaomiTextSecondary,
-                            fontSize = 8.sp,
+                            fontSize = 9.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -235,9 +235,9 @@ private fun ShiftPanel(
                     OutlinedTextField(
                         value = note,
                         onValueChange = { note = it },
-                        label = { Text(if (activeShift == null) "Opening note" else "Closing note", fontSize = 9.sp) },
+                        label = { Text(if (activeShift == null) "Opening note" else "Closing note", fontSize = 10.sp) },
                         singleLine = true,
-                        modifier = Modifier.weight(1f).height(52.dp)
+                        modifier = Modifier.weight(1f).height(54.dp)
                     )
                     Button(
                         onClick = {
@@ -247,7 +247,7 @@ private fun ShiftPanel(
                         colors = ButtonDefaults.buttonColors(containerColor = if (activeShift == null) NaomiRed else NaomiOrange),
                         modifier = Modifier.height(44.dp)
                     ) {
-                        Text(if (activeShift == null) "OPEN" else "CLOSE", fontWeight = FontWeight.Black, fontSize = 9.sp)
+                        Text(if (activeShift == null) "OPEN" else "CLOSE", fontWeight = FontWeight.Black, fontSize = 10.sp)
                     }
                 }
             }
@@ -256,28 +256,28 @@ private fun ShiftPanel(
         Card(
             colors = CardDefaults.cardColors(containerColor = NaomiSurface),
             border = BorderStroke(1.dp, NaomiBorder),
-            shape = RoundedCornerShape(5.dp),
+            shape = RoundedCornerShape(10.dp),
             modifier = Modifier.fillMaxWidth().weight(1f)
         ) {
             Column(
                 modifier = Modifier.fillMaxSize().padding(10.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
                     if (summaryShift?.isOpen == true) "CURRENT SHIFT SUMMARY" else "LAST SHIFT SUMMARY",
                     color = NaomiOrange,
-                    fontSize = 8.sp,
+                    fontSize = 9.sp,
                     fontWeight = FontWeight.Black
                 )
                 Text(
                     summaryShift?.let { "${formatDateTime(it.openedAt)} → ${it.closedAt?.let(::formatDateTime) ?: "OPEN"}" } ?: "No shift history yet",
                     color = NaomiTextSecondary,
-                    fontSize = 8.sp,
+                    fontSize = 9.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ShiftMetric("Receipts", activeReceipts.size.toString(), Modifier.weight(1f))
                     ShiftMetric("Voided", voidedReceipts.size.toString(), Modifier.weight(1f))
                     ShiftMetric("Role", if (user.isAdmin) "Admin" else "Staff", Modifier.weight(1f))
@@ -287,28 +287,28 @@ private fun ShiftPanel(
                     ShiftMetric("Recorded gross", ReceiptData.formatCurrency(gross), Modifier.fillMaxWidth(), emphasize = true)
                     paymentTotals.take(3).forEach { (label, total) ->
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(label, color = NaomiTextSecondary, fontSize = 8.sp)
-                            Text(ReceiptData.formatCurrency(total), color = NaomiTextPrimary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                            Text(label, color = NaomiTextSecondary, fontSize = 9.sp)
+                            Text(ReceiptData.formatCurrency(total), color = NaomiTextPrimary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                     if (paymentTotals.size > 3) {
-                        Text("+ ${paymentTotals.size - 3} additional payment method(s)", color = NaomiTextSecondary, fontSize = 7.sp)
+                        Text("+ ${paymentTotals.size - 3} additional payment method(s)", color = NaomiTextSecondary, fontSize = 9.sp)
                     }
                 } else {
-                    Text("Financial totals hidden for this account.", color = NaomiTextSecondary, fontSize = 8.sp)
+                    Text("Financial totals hidden for this account.", color = NaomiTextSecondary, fontSize = 9.sp)
                 }
 
                 if (shiftHistory.isNotEmpty()) {
-                    Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(4.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    Surface(color = NaomiSurfaceVariant, shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
                         Column(
                             modifier = Modifier.fillMaxSize().padding(8.dp),
                             verticalArrangement = Arrangement.Center
                         ) {
-                            Text("RECENT SHIFTS", color = NaomiTextSecondary, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                            Text("RECENT SHIFTS", color = NaomiTextSecondary, fontSize = 9.sp, fontWeight = FontWeight.Black)
                             shiftHistory.take(2).forEach { shift ->
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text(formatDateTime(shift.openedAt), color = NaomiTextPrimary, fontSize = 7.sp)
-                                    Text(shift.closedAt?.let { "Closed ${formatDateTime(it)}" } ?: "OPEN", color = NaomiTextSecondary, fontSize = 7.sp)
+                                    Text(formatDateTime(shift.openedAt), color = NaomiTextPrimary, fontSize = 9.sp)
+                                    Text(shift.closedAt?.let { "Closed ${formatDateTime(it)}" } ?: "OPEN", color = NaomiTextSecondary, fontSize = 9.sp)
                                 }
                             }
                         }
@@ -329,11 +329,11 @@ private fun ShiftMetric(
     Surface(
         modifier = modifier,
         color = if (emphasize) NaomiOrange.copy(alpha = 0.08f) else NaomiSurfaceVariant,
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(10.dp),
         border = if (emphasize) BorderStroke(1.dp, NaomiOrange.copy(alpha = 0.30f)) else null
     ) {
-        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
-            Text(label.uppercase(), color = NaomiTextSecondary, fontSize = 6.sp, fontWeight = FontWeight.Bold)
+        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+            Text(label.uppercase(), color = NaomiTextSecondary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
             Text(value, color = if (emphasize) NaomiOrange else NaomiTextPrimary, fontSize = if (emphasize) 12.sp else 9.sp, fontWeight = FontWeight.Black, maxLines = 1)
         }
     }
@@ -346,8 +346,8 @@ private fun PermissionDenied(title: String, text: String) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(title, color = NaomiTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Black)
-        Text(text, color = NaomiTextSecondary, fontSize = 10.sp)
+        Text(title, color = NaomiTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
+        Text(text, color = NaomiTextSecondary, fontSize = 11.sp)
     }
 }
 
