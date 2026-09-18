@@ -61,13 +61,11 @@ data class OperatorCapabilities(
     val canVoid: Boolean = false,
     val canExport: Boolean = false,
     val canEditVenues: Boolean = false,
-    val canChangeGateway: Boolean = false,
     val canViewTotals: Boolean = false
 ) {
     val canVoidReceipts: Boolean get() = isAdmin || canVoid
     val canExportData: Boolean get() = isAdmin || canExport
     val canManageVenues: Boolean get() = isAdmin || canEditVenues
-    val canConfigureGateway: Boolean get() = isAdmin || canChangeGateway
     val canViewFinancialTotals: Boolean get() = isAdmin || canViewTotals
 }
 
@@ -178,7 +176,6 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         canVoid: Boolean,
         canExport: Boolean,
         canEditVenues: Boolean,
-        canChangeGateway: Boolean,
         canViewTotals: Boolean
     ) {
         _operatorCapabilities.value = OperatorCapabilities(
@@ -188,7 +185,6 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
             canVoid = canVoid,
             canExport = canExport,
             canEditVenues = canEditVenues,
-            canChangeGateway = canChangeGateway,
             canViewTotals = canViewTotals
         )
         _activeShiftId.value = shiftId
