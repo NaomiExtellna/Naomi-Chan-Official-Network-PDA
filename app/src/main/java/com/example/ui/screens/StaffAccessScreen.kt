@@ -105,15 +105,7 @@ fun StaffAccessScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        NaomiDarkBg,
-                        Color(0xFFF8F9FA),
-                        Color.White
-                    )
-                )
-            )
+            .background(NaomiDarkBg)
     ) {
         Column(
             modifier = Modifier
@@ -124,7 +116,7 @@ fun StaffAccessScreen(
             verticalArrangement = Arrangement.Center
         ) {
             Surface(
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(12.dp),
                 color = NaomiSurface,
                 border = BorderStroke(1.dp, NaomiBorder)
             ) {
@@ -132,7 +124,7 @@ fun StaffAccessScreen(
                     painter = painterResource(id = R.drawable.img_naomi_logo),
                     contentDescription = "Naomi-Chan logo",
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(64.dp)
+                    modifier = Modifier.size(58.dp)
                 )
             }
 
@@ -140,7 +132,7 @@ fun StaffAccessScreen(
             Text(
                 text = "Naomi-Chan™ POS",
                 color = NaomiTextPrimary,
-                fontSize = 24.sp,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Black
             )
             Text(
@@ -160,12 +152,12 @@ fun StaffAccessScreen(
             Card(
                 colors = CardDefaults.cardColors(containerColor = NaomiSurface),
                 border = BorderStroke(1.dp, NaomiBorder),
-                shape = RoundedCornerShape(22.dp),
+                shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(13.dp)
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     AccessHeading(state = state, mode = mode, usePinPad = usePinPad)
                     HorizontalDivider(color = NaomiBorder)
@@ -583,7 +575,7 @@ private fun PrimaryActionButton(
 @Composable
 fun RecoveryCodeNoticeScreen(code: String, onAcknowledge: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().background(NaomiDarkBg).padding(20.dp),
+        modifier = Modifier.fillMaxSize().background(NaomiDarkBg).padding(16.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -593,7 +585,7 @@ fun RecoveryCodeNoticeScreen(code: String, onAcknowledge: () -> Unit) {
             shape = RoundedCornerShape(20.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(Icons.Default.Key, contentDescription = null, tint = NaomiOrange)
                 Text("Save the administrator recovery code", color = NaomiTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Text(
@@ -628,7 +620,7 @@ fun ChangeCredentialScreen(displayName: String, onChange: (String, String) -> Un
     var confirmation by remember { mutableStateOf("") }
 
     Column(
-        modifier = Modifier.fillMaxSize().background(NaomiDarkBg).padding(20.dp),
+        modifier = Modifier.fillMaxSize().background(NaomiDarkBg).padding(16.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -638,7 +630,7 @@ fun ChangeCredentialScreen(displayName: String, onChange: (String, String) -> Un
             shape = RoundedCornerShape(20.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(Icons.Default.Lock, contentDescription = null, tint = NaomiOrange)
                 Text("Create a new credential", color = NaomiTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Text(
