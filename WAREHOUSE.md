@@ -36,7 +36,7 @@ This intentionally replaces the older red/orange POS treatment with the quieter 
 - Keeps classic window insets rather than edge-to-edge mode for older SUNMI SystemUI.
 - Reuses the existing local Room staff authentication and audit trail.
 - Reuses the existing CameraX/ML Kit stack, but reduces the warehouse scanner analysis target to 640×480 to reduce work on the V2.
-- Leaves the existing SUNMI printer stack in the project so packing-slip/label printing can be wired to BFC records without replacing the proven device integration.
+- Uses the existing SUNMI native printer stack for 58 mm BFC pick/pack slips, including order reference, postcode, SKU, bin location, pick checkboxes and a scannable order reference.
 - Keeps the existing Android application ID so version 2.0 can upgrade an installed PDA build.
 
 ## Integration state
