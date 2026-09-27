@@ -13,6 +13,23 @@ import com.sunmi.peripheral.printer.SunmiPrinterService
  * through the native service APIs instead of dispatching an entire mixed text/image/
  * QR receipt as one large ESC/POS byte array.
  */
+data class WarehouseSlipLine(
+    val quantity: Int,
+    val name: String,
+    val variant: String?,
+    val sku: String,
+    val location: String
+)
+
+data class WarehousePickSlip(
+    val reference: String,
+    val recipient: String,
+    val postcode: String,
+    val stage: String,
+    val operatorName: String,
+    val lines: List<WarehouseSlipLine>
+)
+
 object SunmiNativePrinter {
     private const val PAPER_COLUMNS = 32
     private const val BUSINESS_CARD_ID = "BUSINESS-CARD"
@@ -42,6 +59,67 @@ object SunmiNativePrinter {
         } catch (e: Exception) {
             PrintResult.Error(
                 errorReason = "SUNMI native printing failed: ${e.localizedMessage ?: e.javaClass.simpleName}",
+                channel = PrinterChannel.SUNMI_BUILTIN
+            )
+        }
+    }
+
+    fun printWarehousePickSlip(
+        service: SunmiPrinterService,
+        document: WarehousePickSlip
+    ): PrintResult {
+        return try {
+            service.printerInit(null)
+            service.setAlignment(1, null)
+            service.setFontSize(28f, null)
+            text(service, "NAOMI-CHAN(TM) BFC")
+            service.setFontSize(23f, null)
+            text(service, "PICK / PACK SLIP")
+            divider(service, '=')
+
+            service.setAlignment(0, null)
+            columns(service, "ORDER:", document.reference)
+            columns(service, "STAGE:", document.stage.uppercase())
+            columns(service, "POSTCODE:", document.postcode.uppercase())
+            columns(service, "STAFF:", document.operatorName)
+            wrapped(service, "RECIPIENT: " + document.recipient)
+            divider(service, '-')
+
+            document.lines.forEachIndexed { index, line ->
+                text(service, (index + 1).toString() + ". " + line.quantity + "x")
+                wrapped(service, line.name)
+                if (!line.variant.isNullOrBlank()) {
+                    wrapped(service, "VARIANT: " + line.variant)
+                }
+                wrapped(service, "SKU: " + line.sku)
+                service.setFontSize(27f, null)
+                wrapped(service, "BIN: " + line.location)
+                service.setFontSize(23f, null)
+                text(service, "[ ] PICKED")
+                divider(service, '.')
+            }
+
+            divider(service, '-')
+            service.setAlignment(1, null)
+            val qrPrinted = runCatching {
+                service.printQRCode(document.reference, 5, 1, null)
+                service.lineWrap(1, null)
+            }.isSuccess
+            if (!qrPrinted) wrapped(service, document.reference)
+
+            text(service, "SCAN / CHECK BEFORE PACKING")
+            text(service, "Warehouse use only")
+            service.lineWrap(4, null)
+
+            PrintResult.Success(
+                message = "BFC pick slip printed on SUNMI V2",
+                channel = PrinterChannel.SUNMI_BUILTIN,
+                bytesSent = document.lines.sumOf { it.name.length + it.sku.length + 32 } + 192
+            )
+        } catch (e: Exception) {
+            PrintResult.Error(
+                errorReason = "BFC pick-slip printing failed: " +
+                    (e.localizedMessage ?: e.javaClass.simpleName),
                 channel = PrinterChannel.SUNMI_BUILTIN
             )
         }
