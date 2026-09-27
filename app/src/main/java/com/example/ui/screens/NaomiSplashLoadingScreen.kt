@@ -72,13 +72,13 @@ fun NaomiSplashLoadingScreen() {
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Naomi-Chan™ POS",
+                    text = "Naomi-Chan™ BFC Warehouse",
                     color = NaomiTextPrimary,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black
                 )
                 Text(
-                    text = "OFFICIAL NETWORK · SUNMI V2",
+                    text = "FULFILMENT CENTRE · SUNMI V2",
                     color = NaomiTextSecondary,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.SemiBold
@@ -105,7 +105,7 @@ fun NaomiSplashLoadingScreen() {
                             .background(NaomiRed, CircleShape)
                     )
                     Text(
-                        text = "Preparing secure workstation",
+                        text = "Preparing warehouse workstation",
                         color = NaomiTextSecondary,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium
