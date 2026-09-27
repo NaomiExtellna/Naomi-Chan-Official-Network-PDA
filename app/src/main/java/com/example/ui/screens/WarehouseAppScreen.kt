@@ -100,6 +100,7 @@ fun WarehouseAppScreen(
     authViewModel: AuthViewModel
 ) {
     val ui by viewModel.state.collectAsStateWithLifecycle()
+    val printerStatus by viewModel.printerStatus.collectAsStateWithLifecycle()
     val authState by authViewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var activeTab by remember { mutableStateOf(WarehouseTab.HOME) }
@@ -125,7 +126,11 @@ fun WarehouseAppScreen(
         topBar = {
             WarehouseTopBar(
                 operatorName = ui.operatorName,
-                shiftOpen = authState.activeShift != null
+                shiftOpen = authState.activeShift != null,
+                printerReady = printerStatus.isConnected &&
+                    printerStatus.hasPaper &&
+                    !printerStatus.isCoverOpen &&
+                    !printerStatus.isOverheated
             )
         },
         bottomBar = {
@@ -188,10 +193,15 @@ fun WarehouseAppScreen(
                 )
                 WarehouseTab.PICK -> WarehousePickScreen(
                     ui = ui,
+                    printerReady = printerStatus.isConnected &&
+                        printerStatus.hasPaper &&
+                        !printerStatus.isCoverOpen &&
+                        !printerStatus.isOverheated,
                     onTogglePicked = viewModel::togglePicked,
                     onPacked = viewModel::markPacked,
                     onDispatched = viewModel::markDispatched,
-                    onResolveHold = viewModel::resolveHold
+                    onResolveHold = viewModel::resolveHold,
+                    onPrintPickSlip = viewModel::printPickSlip
                 )
                 WarehouseTab.SCAN -> WarehouseScannerScreen(
                     lastScan = ui.lastScan,
@@ -206,6 +216,14 @@ fun WarehouseAppScreen(
                     ui = ui,
                     isAdmin = authState.currentUser?.isAdmin == true,
                     shiftOpen = authState.activeShift != null,
+                    printerStatus = when {
+                        printerStatus.isPrinting -> "Printing"
+                        !printerStatus.isConnected -> printerStatus.lastError ?: "Not connected"
+                        !printerStatus.hasPaper -> "Out of paper"
+                        printerStatus.isCoverOpen -> "Cover open"
+                        printerStatus.isOverheated -> "Overheated"
+                        else -> "Ready · " + printerStatus.paperWidthMm + " mm"
+                    },
                     onReceiveReturn = viewModel::receiveReturn,
                     onResolveHold = viewModel::resolveHold,
                     onOpenShift = { authViewModel.openShift() },
@@ -220,7 +238,8 @@ fun WarehouseAppScreen(
 @Composable
 private fun WarehouseTopBar(
     operatorName: String,
-    shiftOpen: Boolean
+    shiftOpen: Boolean,
+    printerReady: Boolean
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -295,6 +314,12 @@ private fun WarehouseTopBar(
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    if (printerReady) "PRINT READY" else "PRINT CHECK",
+                    color = if (printerReady) NaomiSuccess else NaomiWarning,
+                    fontSize = 7.sp,
+                    fontWeight = FontWeight.Black
                 )
             }
         }
@@ -452,10 +477,12 @@ private fun WarehouseHomeScreen(
 @Composable
 private fun WarehousePickScreen(
     ui: WarehouseUiState,
+    printerReady: Boolean,
     onTogglePicked: (String, String) -> Unit,
     onPacked: (String) -> Unit,
     onDispatched: (String) -> Unit,
-    onResolveHold: (String) -> Unit
+    onResolveHold: (String) -> Unit,
+    onPrintPickSlip: (String) -> Unit
 ) {
     val queue = ui.orders.filter {
         it.stage == WarehouseStage.PROCESSING || it.stage == WarehouseStage.PACKED
@@ -482,10 +509,12 @@ private fun WarehousePickScreen(
             items(queue, key = { it.reference }) { order ->
                 WarehouseOrderCard(
                     order = order,
+                    printerReady = printerReady,
                     onTogglePicked = onTogglePicked,
                     onPacked = onPacked,
                     onDispatched = onDispatched,
-                    onResolveHold = onResolveHold
+                    onResolveHold = onResolveHold,
+                    onPrintPickSlip = onPrintPickSlip
                 )
             }
         }
@@ -495,10 +524,12 @@ private fun WarehousePickScreen(
 @Composable
 private fun WarehouseOrderCard(
     order: WarehouseOrder,
+    printerReady: Boolean,
     onTogglePicked: (String, String) -> Unit,
     onPacked: (String) -> Unit,
     onDispatched: (String) -> Unit,
-    onResolveHold: (String) -> Unit
+    onResolveHold: (String) -> Unit,
+    onPrintPickSlip: (String) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -590,6 +621,18 @@ private fun WarehouseOrderCard(
                     line = line,
                     enabled = !order.isOnHold && order.stage == WarehouseStage.PROCESSING,
                     onToggle = { onTogglePicked(order.reference, line.id) }
+                )
+            }
+
+            OutlinedButton(
+                onClick = { onPrintPickSlip(order.reference) },
+                enabled = printerReady,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    if (printerReady) "Print 58 mm pick slip" else "SUNMI printer not ready",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
 
@@ -791,6 +834,7 @@ private fun WarehouseMoreScreen(
     ui: WarehouseUiState,
     isAdmin: Boolean,
     shiftOpen: Boolean,
+    printerStatus: String,
     onReceiveReturn: (String) -> Unit,
     onResolveHold: (String) -> Unit,
     onOpenShift: () -> Unit,
@@ -919,6 +963,7 @@ private fun WarehouseMoreScreen(
                 KeyValueRow("Shift", ui.shiftId ?: "No open shift")
                 KeyValueRow("App", "Naomi-Chan BFC Warehouse " + BuildConfig.VERSION_NAME)
                 KeyValueRow("Target", "SUNMI V2 · Android 7.1+")
+                KeyValueRow("Printer", printerStatus)
                 OutlinedButton(
                     onClick = if (shiftOpen) onCloseShift else onOpenShift,
                     modifier = Modifier
