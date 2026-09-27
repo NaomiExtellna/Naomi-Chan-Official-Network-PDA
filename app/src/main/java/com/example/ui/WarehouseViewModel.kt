@@ -5,6 +5,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.AppDatabase
 import com.example.data.AuditRepository
+import com.example.printer.PrintResult
+import com.example.printer.UnifiedPrinterManager
+import com.example.printer.WarehousePickSlip
+import com.example.printer.WarehouseSlipLine
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -106,6 +110,9 @@ data class WarehouseUiState(
 
 class WarehouseViewModel(application: Application) : AndroidViewModel(application) {
     private val auditRepository = AuditRepository(AppDatabase.getDatabase(application).auditDao())
+    private val printerManager = UnifiedPrinterManager(application)
+
+    val printerStatus = printerManager.status
 
     private var operatorId: String? = null
     private var operatorName: String = "Staff"
@@ -271,6 +278,46 @@ class WarehouseViewModel(application: Application) : AndroidViewModel(applicatio
         log("BFC_BARCODE_SCAN", code, "format=" + format + "; kind=" + result.kind.name)
     }
 
+    fun printPickSlip(orderReference: String) {
+        val order = _state.value.orders.firstOrNull { it.reference == orderReference }
+        if (order == null) {
+            setMessage("Warehouse order not found.")
+            return
+        }
+
+        val document = WarehousePickSlip(
+            reference = order.reference,
+            recipient = order.recipient,
+            postcode = order.postcode,
+            stage = order.stage.label,
+            operatorName = operatorName,
+            lines = order.manifest.map { line ->
+                WarehouseSlipLine(
+                    quantity = line.quantity,
+                    name = line.name,
+                    variant = line.size?.let { "Size " + it },
+                    sku = line.sku,
+                    location = line.location
+                )
+            }
+        )
+
+        viewModelScope.launch {
+            val result = printerManager.printWarehousePickSlip(document)
+            val message = when (result) {
+                is PrintResult.Success -> "Pick slip printed for " + order.reference + "."
+                is PrintResult.OutOfPaper -> result.message
+                is PrintResult.Error -> result.errorReason
+            }
+            setMessage(message)
+            log(
+                action = if (result is PrintResult.Success) "BFC_PICK_SLIP_PRINTED" else "BFC_PICK_SLIP_PRINT_FAILED",
+                target = order.reference,
+                details = message
+            )
+        }
+    }
+
     fun clearLastScan() {
         _state.update { it.copy(lastScan = null) }
     }
@@ -305,6 +352,11 @@ class WarehouseViewModel(application: Application) : AndroidViewModel(applicatio
                 )
             }
         }
+    }
+
+    override fun onCleared() {
+        printerManager.cleanup()
+        super.onCleared()
     }
 
     companion object {
