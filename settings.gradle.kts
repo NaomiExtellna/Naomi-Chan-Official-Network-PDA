@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Naomi-Chan POS"
+rootProject.name = "Naomi-Chan BFC Warehouse"
 
 include(":app")
