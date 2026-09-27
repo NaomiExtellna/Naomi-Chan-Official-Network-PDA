@@ -1,5 +1,5 @@
 {
-  "name": "Naomi-Chan POS",
-  "description": "Native POS terminal and ESC/POS thermal receipt printer app for Naomi-Chan™ DJ company with Sunmi V2, Bluetooth, and USB-OTG printing.",
+  "name": "Naomi-Chan BFC Warehouse",
+  "description": "Native BFC warehousing handheld for SUNMI V2 with pick and pack, barcode lookup, inventory, returns, exceptions and fulfilment operations.",
   "requestFramePermissions": []
 }
