@@ -1,8 +1,5 @@
 package com.example
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -23,16 +20,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.AuthViewModel
-import com.example.ui.PosViewModel
+import com.example.ui.WarehouseViewModel
 import com.example.ui.screens.ChangeCredentialScreen
-import com.example.ui.screens.MainPosScreen
 import com.example.ui.screens.NaomiSplashLoadingScreen
 import com.example.ui.screens.RecoveryCodeNoticeScreen
 import com.example.ui.screens.StaffAccessScreen
+import com.example.ui.screens.WarehouseAppScreen
 import com.example.ui.theme.NaomiChanTheme
 import com.example.ui.theme.NaomiDarkBg
 import com.example.ui.theme.NaomiOrange
@@ -45,15 +41,10 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val MIN_SPLASH_DURATION_MS = 350L
-        private const val PERMISSION_REQUEST_DELAY_MS = 350L
-        private const val BLUETOOTH_PERMISSION_REQUEST_CODE = 7301
     }
 
-    private var posViewModelInitialized = false
-
-    private val posViewModel: PosViewModel by lazy(LazyThreadSafetyMode.NONE) {
-        posViewModelInitialized = true
-        ViewModelProvider(this)[PosViewModel::class.java]
+    private val warehouseViewModel: WarehouseViewModel by lazy(LazyThreadSafetyMode.NONE) {
+        ViewModelProvider(this)[WarehouseViewModel::class.java]
     }
 
     private val authViewModel: AuthViewModel by lazy(LazyThreadSafetyMode.NONE) {
@@ -63,21 +54,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Install diagnostics only after Activity creation. Keeping attachBaseContext untouched
-        // avoids doing custom work in the fragile pre-onCreate path on SUNMI OS / Android 7.1.1.
         DiagnosticLog.installCrashHandler(this)
 
-        // Start local authentication initialization immediately instead of waiting for the
-        // cosmetic splash to finish. This allows Room startup and the minimum splash window
-        // to overlap rather than running sequentially.
         val authVmAttempt = runCatching { authViewModel }
         val authVm = authVmAttempt.getOrNull()
         val authVmError = authVmAttempt.exceptionOrNull()
 
-        // Deliberately do not call enableEdgeToEdge() here. The SUNMI V2 runs API 25 and
-        // its customised SystemUI is more reliable with the classic window-inset path.
+        // Keep the classic inset path for SUNMI OS / Android 7.1.x reliability.
         setContent {
-            NaomiChanTheme(darkTheme = true) {
+            NaomiChanTheme {
                 var minimumSplashElapsed by remember { mutableStateOf(false) }
                 val authState = authVm?.state?.collectAsStateWithLifecycle()?.value
 
@@ -101,27 +86,25 @@ class MainActivity : ComponentActivity() {
         if (authVm == null) {
             LaunchedEffect(authVmError) {
                 if (authVmError != null) {
-                    DiagnosticLog.error(this@MainActivity, "MainActivity/AuthViewModel", authVmError)
+                    DiagnosticLog.error(
+                        this@MainActivity,
+                        "MainActivity/AuthViewModel",
+                        authVmError
+                    )
                 }
             }
             StartupFailureScreen(
-                message = authVmError?.let { "${it.javaClass.simpleName}: ${it.message ?: "Unknown startup error"}" }
-                    ?: "Authentication/database startup failed.",
+                message = authVmError?.let {
+                    it.javaClass.simpleName + ": " + (it.message ?: "Unknown startup error")
+                } ?: "Authentication/database startup failed.",
                 onRetry = { recreate() }
             )
             return
         }
 
-        // Lifecycle-aware collection stops observing authentication state while the Activity
-        // is stopped, avoiding unnecessary work when the SUNMI is sleeping/backgrounded.
         val authState by authVm.state.collectAsStateWithLifecycle()
         val user = authState.currentUser
         val recoveryCode = authState.pendingRecoveryCode
-
-        LaunchedEffect(Unit) {
-            delay(PERMISSION_REQUEST_DELAY_MS)
-            requestBluetoothPermissionsIfNeeded()
-        }
 
         authState.startupError?.let { error ->
             StartupFailureScreen(
@@ -133,10 +116,12 @@ class MainActivity : ComponentActivity() {
 
         when {
             authState.isLoading -> NaomiSplashLoadingScreen()
+
             recoveryCode != null -> RecoveryCodeNoticeScreen(
                 code = recoveryCode,
                 onAcknowledge = authVm::acknowledgeRecoveryCode
             )
+
             user == null -> StaffAccessScreen(
                 state = authState,
                 onCreateAdmin = authVm::createNaomiAdmin,
@@ -144,47 +129,58 @@ class MainActivity : ComponentActivity() {
                 onRegister = authVm::registerStaff,
                 onRecoverAdmin = authVm::recoverNaomiAdmin
             )
+
             user.mustChangeCredential -> ChangeCredentialScreen(
                 displayName = user.displayName,
                 onChange = authVm::changeOwnCredential
             )
+
             else -> {
-                val posVmResult = remember { runCatching { posViewModel } }
-                val posVm = posVmResult.getOrNull()
-                if (posVm == null) {
-                    val error = posVmResult.exceptionOrNull()
+                val warehouseVmResult = remember { runCatching { warehouseViewModel } }
+                val warehouseVm = warehouseVmResult.getOrNull()
+
+                if (warehouseVm == null) {
+                    val error = warehouseVmResult.exceptionOrNull()
                     LaunchedEffect(error) {
                         if (error != null) {
-                            DiagnosticLog.error(this@MainActivity, "MainActivity/PosViewModel", error)
+                            DiagnosticLog.error(
+                                this@MainActivity,
+                                "MainActivity/WarehouseViewModel",
+                                error
+                            )
                         }
                     }
                     StartupFailureScreen(
-                        message = error?.let { "${it.javaClass.simpleName}: ${it.message ?: "POS startup error"}" }
-                            ?: "POS/printer startup failed.",
+                        message = error?.let {
+                            it.javaClass.simpleName + ": " +
+                                (it.message ?: "Warehouse startup error")
+                        } ?: "BFC warehouse startup failed.",
                         onRetry = { recreate() }
                     )
                     return
                 }
 
                 LaunchedEffect(user, authState.activeShift) {
-                    posVm.setOperator(
+                    warehouseVm.setOperator(
                         staffId = user.id,
                         displayName = user.displayName,
-                        shiftId = authState.activeShift?.id,
-                        isAdmin = user.isAdmin,
-                        canVoid = user.canVoid,
-                        canExport = user.canExport,
-                        canEditVenues = user.canEditVenues,
-                        canViewTotals = user.canViewTotals
+                        shiftId = authState.activeShift?.id
                     )
                 }
-                MainPosScreen(viewModel = posVm, authViewModel = authVm)
+
+                WarehouseAppScreen(
+                    viewModel = warehouseVm,
+                    authViewModel = authVm
+                )
             }
         }
     }
 
     @Composable
-    private fun StartupFailureScreen(message: String, onRetry: () -> Unit) {
+    private fun StartupFailureScreen(
+        message: String,
+        onRetry: () -> Unit
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -194,7 +190,7 @@ class MainActivity : ComponentActivity() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Naomi-Chan PDA could not finish starting",
+                text = "Naomi-Chan BFC Warehouse could not finish starting",
                 color = NaomiTextPrimary,
                 fontWeight = FontWeight.Black
             )
@@ -204,44 +200,13 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.padding(top = 12.dp, bottom = 20.dp)
             )
             Button(onClick = onRetry) {
-                Text("Retry", color = NaomiTextPrimary)
+                Text("Retry")
             }
             Text(
                 text = "This error has also been written to pda_diagnostics.log.",
                 color = NaomiOrange,
                 modifier = Modifier.padding(top = 16.dp)
             )
-        }
-    }
-
-    private fun requestBluetoothPermissionsIfNeeded() {
-        // Android 7.1.1 (API 25) uses the manifest-granted BLUETOOTH and
-        // BLUETOOTH_ADMIN permissions and must never enter the Android 12 flow.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-
-        runCatching {
-            val requiredPermissions = arrayOf(
-                Manifest.permission.BLUETOOTH_CONNECT,
-                Manifest.permission.BLUETOOTH_SCAN
-            )
-            val missingPermissions = requiredPermissions.filter { permission ->
-                ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED
-            }
-            if (missingPermissions.isNotEmpty()) {
-                requestPermissions(
-                    missingPermissions.toTypedArray(),
-                    BLUETOOTH_PERMISSION_REQUEST_CODE
-                )
-            }
-        }.onFailure { error ->
-            DiagnosticLog.error(this, "MainActivity/bluetoothPermission", error)
-        }
-    }
-
-    override fun onTrimMemory(level: Int) {
-        super.onTrimMemory(level)
-        if (posViewModelInitialized) {
-            posViewModel.onTrimMemory(level)
         }
     }
 }
