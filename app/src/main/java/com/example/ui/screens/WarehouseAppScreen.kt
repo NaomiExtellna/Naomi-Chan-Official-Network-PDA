@@ -205,8 +205,11 @@ fun WarehouseAppScreen(
                 WarehouseTab.MORE -> WarehouseMoreScreen(
                     ui = ui,
                     isAdmin = authState.currentUser?.isAdmin == true,
+                    shiftOpen = authState.activeShift != null,
                     onReceiveReturn = viewModel::receiveReturn,
                     onResolveHold = viewModel::resolveHold,
+                    onOpenShift = { authViewModel.openShift() },
+                    onCloseShift = { authViewModel.closeShift() },
                     onLock = authViewModel::logout
                 )
             }
@@ -787,8 +790,11 @@ private fun StockRow(
 private fun WarehouseMoreScreen(
     ui: WarehouseUiState,
     isAdmin: Boolean,
+    shiftOpen: Boolean,
     onReceiveReturn: (String) -> Unit,
     onResolveHold: (String) -> Unit,
+    onOpenShift: () -> Unit,
+    onCloseShift: () -> Unit,
     onLock: () -> Unit
 ) {
     LazyColumn(
@@ -913,6 +919,18 @@ private fun WarehouseMoreScreen(
                 KeyValueRow("Shift", ui.shiftId ?: "No open shift")
                 KeyValueRow("App", "Naomi-Chan BFC Warehouse " + BuildConfig.VERSION_NAME)
                 KeyValueRow("Target", "SUNMI V2 · Android 7.1+")
+                OutlinedButton(
+                    onClick = if (shiftOpen) onCloseShift else onOpenShift,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                ) {
+                    Text(
+                        if (shiftOpen) "End warehouse shift" else "Start warehouse shift",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
                 Button(
                     onClick = onLock,
                     colors = ButtonDefaults.buttonColors(
