@@ -130,13 +130,13 @@ fun StaffAccessScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
             Text(
-                text = "Naomi-Chan™ POS",
+                text = "Naomi-Chan™ BFC Warehouse",
                 color = NaomiTextPrimary,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Black
             )
             Text(
-                text = "Secure staff access · SUNMI V2",
+                text = "Secure warehouse access · SUNMI V2",
                 color = NaomiTextSecondary,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium
