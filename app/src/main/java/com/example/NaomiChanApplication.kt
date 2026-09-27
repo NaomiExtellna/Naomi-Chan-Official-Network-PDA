@@ -4,11 +4,11 @@ import android.app.Application
 import com.example.util.DiagnosticLog
 
 /**
- * Process-level setup for the standalone Naomi-Chan™ POS.
+ * Process-level setup for the Naomi-Chan™ BFC Warehouse terminal.
  *
- * The terminal now stores transactions locally and exports them to CSV instead
- * of maintaining a Flask/API heartbeat. Startup therefore only installs the
- * local diagnostics handler.
+ * The handheld keeps authentication and warehouse audit events locally while
+ * retaining the existing SUNMI-safe startup path. Startup installs only the
+ * local diagnostics handler before Compose and Room initialize.
  */
 class NaomiChanApplication : Application() {
     override fun onCreate() {
@@ -18,7 +18,7 @@ class NaomiChanApplication : Application() {
             this,
             "INFO",
             "Application",
-            "Standalone POS started; SDK=${android.os.Build.VERSION.SDK_INT}, release=${android.os.Build.VERSION.RELEASE}"
+            "BFC Warehouse started; SDK=${android.os.Build.VERSION.SDK_INT}, release=${android.os.Build.VERSION.RELEASE}"
         )
     }
 }
