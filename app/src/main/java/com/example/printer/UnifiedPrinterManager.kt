@@ -331,6 +331,46 @@ class UnifiedPrinterManager(private val context: Context) {
         }
     }
 
+    suspend fun printWarehousePickSlip(document: WarehousePickSlip): PrintResult =
+        withContext(Dispatchers.IO) {
+            _status.value = _status.value.copy(isPrinting = true)
+            try {
+                val service = sunmiPrinterService
+                    ?: return@withContext PrintResult.Error(
+                        "SUNMI printer service is not connected. No pick slip was printed.",
+                        PrinterChannel.SUNMI_BUILTIN
+                    )
+
+                refreshSunmiStatus(includeIdentity = false)
+                val before = _status.value
+                when {
+                    !before.isConnected -> PrintResult.Error(
+                        before.lastError ?: "SUNMI V2 printer is unavailable",
+                        PrinterChannel.SUNMI_BUILTIN
+                    )
+                    !before.hasPaper -> PrintResult.OutOfPaper()
+                    before.isCoverOpen -> PrintResult.Error(
+                        "Close the SUNMI V2 printer cover before printing.",
+                        PrinterChannel.SUNMI_BUILTIN
+                    )
+                    before.isOverheated -> PrintResult.Error(
+                        "SUNMI V2 printer is overheated. Allow it to cool before retrying.",
+                        PrinterChannel.SUNMI_BUILTIN
+                    )
+                    else -> SunmiNativePrinter.printWarehousePickSlip(service, document)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "BFC pick-slip print failed", e)
+                PrintResult.Error(
+                    e.localizedMessage ?: "Unexpected warehouse print error",
+                    PrinterChannel.SUNMI_BUILTIN
+                )
+            } finally {
+                refreshSunmiStatus(includeIdentity = false)
+                _status.value = _status.value.copy(isPrinting = false)
+            }
+        }
+
     private fun printViaSunmi(receipt: ReceiptData, logoBitmap: Bitmap?): PrintResult {
         val service = sunmiPrinterService
             ?: return PrintResult.Error(
