@@ -17,16 +17,16 @@ private val CorporateShapes = Shapes(
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = NaomiRed,
+    primary = NaomiTextPrimary,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFE7E2),
-    onPrimaryContainer = NaomiDeepRed,
+    primaryContainer = Color(0xFFF2F4F7),
+    onPrimaryContainer = NaomiTextPrimary,
     secondary = NaomiOrange,
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFFFECE2),
-    onSecondaryContainer = Color(0xFF5B2D18),
-    tertiary = NaomiDeepRed,
-    onTertiary = Color.White,
+    secondaryContainer = Color(0xFFEAF1F4),
+    onSecondaryContainer = Color(0xFF213B4A),
+    tertiary = NaomiTransPink,
+    onTertiary = Color(0xFF6E3449),
     background = NaomiDarkBg,
     onBackground = NaomiTextPrimary,
     surface = NaomiSurface,
@@ -34,7 +34,7 @@ private val LightColorScheme = lightColorScheme(
     surfaceVariant = NaomiSurfaceVariant,
     onSurfaceVariant = NaomiTextSecondary,
     outline = NaomiBorder,
-    outlineVariant = Color(0xFFE8EBEF),
+    outlineVariant = Color(0xFFEEF1F4),
     error = NaomiError,
     onError = Color.White
 )
