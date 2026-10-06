@@ -1,97 +1,33 @@
-import java.time.Instant
-
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
-  alias(libs.plugins.google.devtools.ksp)
-  alias(libs.plugins.roborazzi)
 }
-
-val releaseKeystorePath = System.getenv("KEYSTORE_PATH")
-val releaseStorePassword = System.getenv("STORE_PASSWORD")
-val releaseKeyPassword = System.getenv("KEY_PASSWORD")
-val releaseKeyAlias = System.getenv("KEY_ALIAS") ?: "upload"
-val hasReleaseSigning = !releaseKeystorePath.isNullOrBlank() &&
-  !releaseStorePassword.isNullOrBlank() &&
-  !releaseKeyPassword.isNullOrBlank() &&
-  file(releaseKeystorePath).isFile
-val buildUtc = Instant.now().toString()
-
 android {
-  namespace = "com.example"
+  namespace = "com.naomichan.pos"
   compileSdk = 36
-
   defaultConfig {
     applicationId = "com.naomichan.pos"
-    // SUNMI V2 (T5930) runs SUNMI OS based on Android 7.1.x (API 25).
     minSdk = 24
     targetSdk = 36
-    versionCode = 4
-    versionName = "2.0.0"
-    buildConfigField("String", "BUILD_UTC", "\"$buildUtc\"")
-
+    versionCode = 10
+    versionName = "3.0.0"
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
-
-  signingConfigs {
-    if (hasReleaseSigning) {
-      create("release") {
-        storeFile = file(releaseKeystorePath!!)
-        storePassword = releaseStorePassword
-        keyAlias = releaseKeyAlias
-        keyPassword = releaseKeyPassword
-      }
-    }
-  }
-
   buildTypes {
     release {
-      // R8 removes unused Compose/ML Kit/icon code and resource shrinking strips assets
-      // that are not reachable in the release graph. This reduces APK size, dex loading,
-      // startup work and memory pressure on the low-RAM SUNMI V2.
       isMinifyEnabled = true
       isShrinkResources = true
-      isCrunchPngs = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      if (hasReleaseSigning) {
-        signingConfig = signingConfigs.getByName("release")
-      }
     }
-    // Use Android's standard per-user debug keystore. Do not require a repository-local key.
-    debug { }
   }
-
-  // Compile Java/Kotlin consistently for JVM 11. Modern Compose/AndroidX
-  // dependencies contain JVM 11 inline bytecode, so targeting 1.8 here causes
-  // compileDebugKotlin to fail with thousands of "Cannot inline bytecode" errors.
-  // Android still packages DEX for the SUNMI V2 (API 25); desugaring remains enabled.
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
     isCoreLibraryDesugaringEnabled = true
   }
-
-  buildFeatures {
-    compose = true
-    buildConfig = true
-  }
-
-  testOptions {
-    unitTests { isIncludeAndroidResources = true }
-  }
-
-  dependenciesInfo {
-    includeInApk = false
-    includeInBundle = true
-  }
+  buildFeatures { compose = true; buildConfig = true }
+  kotlin { compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11 } }
 }
-
-kotlin {
-  compilerOptions {
-    jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11
-  }
-}
-
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
   implementation(libs.androidx.activity.compose)
@@ -103,45 +39,13 @@ dependencies {
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.lifecycle.runtime.compose)
-  implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
-  implementation(libs.androidx.room.ktx)
-  implementation(libs.androidx.room.runtime)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.okhttp)
-
-  // Live barcode/QR scanner. The bundled ML Kit model works immediately on the
-  // SUNMI V2 without requiring a Play Services model download.
-  implementation(libs.androidx.camera.camera2)
-  implementation(libs.androidx.camera.lifecycle)
-  implementation(libs.androidx.camera.view)
-  implementation(libs.androidx.camera.core)
-  implementation("com.google.mlkit:barcode-scanning:17.3.0")
-
-  // Backport newer Java library APIs used by modern dependencies to Android 7.1.1.
+  implementation(libs.androidx.datastore.preferences)
   coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
-
   implementation("com.sunmi:printerlibrary:1.0.24")
-
-  testImplementation(libs.androidx.compose.ui.test.junit4)
-  testImplementation(libs.androidx.core)
-  testImplementation(libs.androidx.junit)
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
-  testImplementation(libs.robolectric)
-  testImplementation(libs.roborazzi)
-  testImplementation(libs.roborazzi.compose)
-  testImplementation(libs.roborazzi.junit.rule)
-
-  androidTestImplementation(platform(libs.androidx.compose.bom))
-  androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-  androidTestImplementation(libs.androidx.espresso.core)
-  androidTestImplementation(libs.androidx.junit)
-  androidTestImplementation(libs.androidx.runner)
-
-  debugImplementation(libs.androidx.compose.ui.test.manifest)
-  debugImplementation(libs.androidx.compose.ui.tooling)
-
-  "ksp"(libs.androidx.room.compiler)
 }
