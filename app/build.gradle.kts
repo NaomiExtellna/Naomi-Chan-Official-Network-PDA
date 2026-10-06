@@ -26,6 +26,7 @@ android {
     isCoreLibraryDesugaringEnabled = true
   }
   buildFeatures { compose = true; buildConfig = true }
+  sourceSets["main"].java.exclude("com/example/**")
   kotlin { compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11 } }
 }
 dependencies {
